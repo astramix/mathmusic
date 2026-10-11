@@ -13,7 +13,8 @@ Open a source file only to change it or when something here is unclear.
   Long songs take 10–60 s: use `timeout: 600000`.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~1.5 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (8 styles × 3 seeds: loads, renders, lead on its chords), theory, the app build + syntax.
+  the generator (8 styles × 3 seeds: loads, renders, lead on its chords), theory, MIDI export, the song
+  library's names/backup, the app build + syntax (acorn and `node --check`).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--render]`
   → `songs/<title>.js` (`--list` = styles and melodies). Same generator as the app's 🎲 menu.
 - App: double-click `Visualizer.bat` (or `npm run viz`; `npm run dev` rebuilds on every change) →
@@ -95,16 +96,22 @@ generate.js; then `npm test`.
 
 ## The app (viz/: build.js inlines everything into MathMusic Live.html)
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
-melodies are importable the same way. main.js (menus Песня/Редактор/🎲/Экспорт/Вид, transport, legend,
+melodies, midi are importable the same way (embedded sources get `\n` line ends: CodeMirror's). main.js (menus Песня/Редактор/🎲/Экспорт/Вид, transport, legend,
 inspector, live formulas) · player.js (worker pool renders tracks in parallel → page mixes stems → cache
 → AudioWorklet output; instant seek-back and mute, live code updates cross-fade in) · worker.js
 (classic worker) · worklet.js · runtime.js (ES module → function body, keeps line numbers) · view.js
 (scene: classic / paper — axes, formulas pop up when a part enters / space 3D; the same code draws the
 video frames) · editor.js (CodeMirror, lint, API hints from api.js, number sliders, full check with
 LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code) · genui.js · export.js (MP3
-320 / WAV 24 / OGG Opus / MIDI type 1 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs) ·
-gallery.js · library.js (my songs in IndexedDB, saving into songs/ via File System Access) · themes.js.
-Test it in a real browser: puppeteer-core + the installed Chrome (`--autoplay-policy=no-user-gesture-required`).
+320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
+ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs) · gallery.js (right click: duplicate,
+rename, delete) · library.js (my songs in IndexedDB, unique names, file names transliterated, saving into
+songs/ asks before replacing, JSON backup/restore, tabs synced via a localStorage ping) · themes.js.
+Editing state: app.drafts (one localStorage key per song) holds a draft exactly while the code differs from
+the saved one — `app.setDraft(cur, src)` keeps that true, `app.dirty(cur)` is the ●; `app.apply(src, { of: cur })`
+drops edits of a song no longer open. Generated songs carry `pristine` (the 🎲 menu tidies only untouched ones).
+Test it in a real browser: Chrome headless over the DevTools protocol (Node's WebSocket, no puppeteer needed)
+or puppeteer-core + the installed Chrome (`--autoplay-policy=no-user-gesture-required`).
 
 ## Patterns to copy (from existing songs)
 - Struck/plucked notes: `poly` + `trigger` keyed on note start (lofi `rhodes`, bossa `vibes`).

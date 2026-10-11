@@ -612,7 +612,9 @@ const counterAt = x => {
   // bells carry a melody alone at full level, but next to another lead they cut through: softer
   const LEAD2_GAIN = { bells: 0.45 }
   T(inst.lead2 === inst.lead ? inst.lead2 + ' II' : inst.lead2, leadCode(inst.lead2, 'lead2At', lane.lead2, 0.9 * (LEAD2_GAIN[inst.lead2] ?? 1), -0.3))
-  T('counter', leadCode(COUNTER_VOICE[inst.lead] ?? inst.lead2, 'counterAt', lane.counter, 0.5, -0.4))
+  // named by its instrument too ("vibes counter"), so a MIDI export knows what plays it
+  const counterVoice = COUNTER_VOICE[inst.lead] ?? inst.lead2
+  T(counterVoice + ' counter', leadCode(counterVoice, 'counterAt', lane.counter, 0.5, -0.4))
   T(inst.chords, CHORDS[inst.chords]({ need, comp: S.comp, lane: lane.chords }))
   if (inst.pad) T(inst.pad === 'strings' ? 'strings' : inst.pad, PADS[inst.pad]({ need, lane: lane.pad }))
   T('bass', BASSES[inst.bass]({ need, line: S.bassline, lane: lane.bass }))

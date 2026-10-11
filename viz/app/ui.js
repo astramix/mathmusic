@@ -93,12 +93,24 @@ export function menubar(nav, menus) {
 }
 
 // ---- toasts ------------------------------------------------------------------------------------------
-export function toast(text, { kind = '', ms = 3500, progress = false } = {}) {
+// action: { label, run } — a button in the toast (e.g. "↶ вернуть"); it closes the toast
+export function toast(text, { kind = '', ms = 3500, progress = false, action = null } = {}) {
   const el = h('div', { class: 'toast ' + kind }, h('div', { class: 'tx' }, text))
   let bar = null
   if (progress) el.append(h('div', { class: 'bar' }, (bar = h('i'))))
+  if (action) {
+    el.append(h('button', {
+      class: 'toast-act',
+      onclick: () => {
+        close()
+        action.run()
+      },
+    }, action.label))
+  }
   $('toasts').append(el)
   const close = () => {
+    if (el.closing) return
+    el.closing = true
     el.style.transition = 'opacity .3s'
     el.style.opacity = 0
     setTimeout(() => el.remove(), 300)
@@ -120,15 +132,18 @@ export function toast(text, { kind = '', ms = 3500, progress = false } = {}) {
 }
 
 // ---- modal --------------------------------------------------------------------------------------------
-// modal(title, body: Node | html, buttons: [{label, primary, action(close) → false keeps it open}])
-export function modal(title, body, buttons = [{ label: 'OK', primary: true }]) {
+// modal(title, body: Node | html, buttons: [{label, primary, action(close) → false keeps it open}],
+// { onClose }) — onClose runs however it closes (a button, Esc, a click outside)
+export function modal(title, body, buttons = [{ label: 'OK', primary: true }], { onClose } = {}) {
   const box = h('div', { class: 'modal' }, h('h2', {}, title))
   if (typeof body === 'string') box.append(h('div', { html: body }))
   else box.append(body)
   const bg = h('div', { class: 'modal-bg' }, box)
   const close = () => {
+    if (!bg.isConnected) return
     bg.remove()
     removeEventListener('keydown', onKey, true)
+    onClose?.()
   }
   const onKey = e => {
     if (e.key === 'Escape') { e.stopPropagation(); close() }
@@ -147,6 +162,13 @@ export function modal(title, body, buttons = [{ label: 'OK', primary: true }]) {
   bg.addEventListener('mousedown', e => e.target === bg && close())
   document.body.append(bg)
   return { close, box }
+}
+// a question: resolves to the chosen button's value, null when dismissed (Esc, a click outside)
+export function ask(title, body, buttons) {
+  return new Promise(resolve => {
+    let answer = null
+    modal(title, body, buttons.map(b => ({ ...b, action: () => { answer = b.value } })), { onClose: () => resolve(answer) })
+  })
 }
 // A segmented control: seg(['a','b'], 'a', v => …) → element; el.value
 export function seg(options, value, onchange) {

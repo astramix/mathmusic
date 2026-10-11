@@ -94,7 +94,7 @@ export function createPianoRoll(root) {
     draw()
   }
   new ResizeObserver(resize).observe(body)
-  const source = () => app.editor?.value?.() ?? app.drafts.get(app.current?.id) ?? app.current?.source ?? ''
+  const source = () => (app.current ? app.sourceOf(app.current) : '')
 
   function load(c, keep = true) {
     const src = source(), prev = cur?.name
@@ -267,12 +267,12 @@ export function createPianoRoll(root) {
     if (!now) return toast('мелодия пропала из кода — обнови', { kind: 'err' })
     const lineStart = src.lastIndexOf('\n', now.start) + 1, indent = src.slice(lineStart).match(/^\s*/)[0]
     const text = formatMelody(notes, indent)
-    if (app.editor) app.editor.replaceIndex(now.start, now.end, text)
+    if (app.editor?.owner?.() === app.current) app.editor.replaceIndex(now.start, now.end, text)
     else {
-      const next = src.slice(0, now.start) + text + src.slice(now.end)
-      app.drafts.set(app.current.id, next)
+      const song = app.current, next = src.slice(0, now.start) + text + src.slice(now.end)
+      app.setDraft(song, next)
       clearTimeout(writeTimer)
-      writeTimer = setTimeout(() => app.apply(next), 200)
+      writeTimer = setTimeout(() => app.apply(next, { of: song }), 200)
     }
     cur = { ...now, notes: notes.map(e => [...e]) }
     const o = [...sel.options].find(o => o.value === cur.name)
@@ -286,8 +286,12 @@ export function createPianoRoll(root) {
     const decl = `\n// [beat, n from ${spell(b, k)}, length] — drawn in the piano roll\nconst ${name} = [\n  [0, 0, 1], [1, ${k.mode === 'minor' ? 3 : 4}, 1], [2, 7, 2],\n]\n`
     const at = src.search(/\nexport default/)
     const pos = at < 0 ? src.length : at
-    if (app.editor) app.editor.replaceIndex(pos, pos, decl)
-    else app.apply(src.slice(0, pos) + decl + src.slice(pos))
+    if (app.editor?.owner?.() === app.current) app.editor.replaceIndex(pos, pos, decl)
+    else {
+      const song = app.current, next = src.slice(0, pos) + decl + src.slice(pos)
+      app.setDraft(song, next)
+      app.apply(next, { of: song })
+    }
     setTimeout(() => {
       load(app.current, false)
       const m = mels.find(m => m.name === name)

@@ -251,6 +251,8 @@ export function createEditor(root) {
   let cur = null, timer = null, auto = true, applying = false, pending = false, runtime = [], lastStatic = []
   autoBtn.onclick = () => { auto = !auto; autoBtn.classList.toggle('on', auto) }
   const setState = (text, kind = '') => { state.textContent = text; state.className = 'state ' + kind }
+  // the title: the song's name, with ● while its code differs from the saved one
+  const markTitle = () => (title.textContent = (app.dirty(cur) ? '● ' : '') + (cur?.song?.name ?? cur?.entry?.name ?? 'песня'))
 
   function show(list) {
     const all = [...list, ...runtime]
@@ -285,7 +287,8 @@ export function createEditor(root) {
     }
     if (src === cur.source && !cur.broken) {
       show(list)
-      setState(cur.dirty ? '● не сохранено' : '✓', cur.dirty ? '' : 'ok')
+      setState(app.dirty(cur) ? '● не сохранено' : '✓', app.dirty(cur) ? '' : 'ok')
+      markTitle()
       return
     }
     if (!applyIt) {
@@ -297,21 +300,25 @@ export function createEditor(root) {
     applying = true
     runtime = []
     setState('применяю…')
+    // this song's edit: if another song is opened meanwhile, the result is dropped (apply says stale)
+    const c = cur
     let r
     try {
-      r = await app.apply(src)
+      r = await app.apply(src, { of: c })
     } finally {
       applying = false
     }
-    if (!r.ok) {
+    if (cur !== c || r.stale) {
+      // another song is in the editor now (or about to be): nothing here is about it
+    } else if (!r.ok) {
       show([...list, { line: r.line, message: r.error, severity: 'error' }])
       setState('✗ ошибка — звучит прошлая версия', 'err')
     } else {
-      app.drafts.set(cur.id, src)
-      show([...list, ...(r.problems ?? []).map(p => ({ ...p, severity: 'error' })), ...songChecks(cur.song)])
-      setState('♪ звучит · ● не сохранено', 'ok')
-      title.textContent = '● ' + (cur.song?.name ?? cur.entry.name)
-      app.pianoroll?.load?.(cur)
+      app.setDraft(c, src)
+      show([...list, ...(r.problems ?? []).map(p => ({ ...p, severity: 'error' })), ...songChecks(c.song)])
+      setState(app.dirty(c) ? '♪ звучит · ● не сохранено' : '♪ звучит · ✓ как сохранено', 'ok')
+      markTitle()
+      app.pianoroll?.load?.(c)
     }
     if (pending) {
       pending = false
@@ -320,11 +327,10 @@ export function createEditor(root) {
   }
   cm.on('change', (_, ch) => {
     if (ch.origin === 'setValue') return
-    // every keystroke is a draft (applied or not) until saved or reverted
+    // every keystroke is a draft (applied or not) until saved or reverted — or undone back to the saved code
     if (cur?.entry) {
-      const v = cm.getValue()
-      if (v === cur.entry.source) app.drafts.delete(cur.id)
-      else app.drafts.set(cur.id, v)
+      app.setDraft(cur, cm.getValue())
+      markTitle()
     }
     clearTimeout(timer)
     timer = setTimeout(() => check(), sliderFast ? 90 : 450)
@@ -453,6 +459,9 @@ export function createEditor(root) {
   const ed = {
     cm, visible: true,
     load(c) {
+      // a check pending for the song shown before must not run on this one
+      clearTimeout(timer)
+      pending = false
       cur = c
       if (!c) return
       const src = app.drafts.get(c.id) ?? c.source
@@ -462,22 +471,26 @@ export function createEditor(root) {
         if (!keepScroll) cm.clearHistory()
       }
       runtime = []
-      title.textContent = (c.dirty ? '● ' : '') + (c.song?.name ?? c.entry?.name ?? 'песня')
+      markTitle()
       if (c.broken) show([{ line: c.broken.line, message: c.broken.error, severity: 'error' }])
       else check(false)
     },
+    owner: () => cur, // the song (app.current object) this editor holds
     value: () => cm.getValue(),
     refresh: () => cm.refresh(),
     focus: () => cm.focus(),
+    // after Ctrl+S: typing that came in while it saved stays a draft
     saved() {
-      app.drafts.delete(cur?.id)
-      title.textContent = cur?.song?.name ?? ''
-      setState('✓ сохранено', 'ok')
+      if (!cur) return
+      app.drafts.put(cur.id, cm.getValue(), cur.entry.source)
+      markTitle()
+      setState(app.dirty(cur) ? '● не сохранено' : '✓ сохранено', app.dirty(cur) ? '' : 'ok')
     },
     revert() {
       if (!cur) return
       app.drafts.delete(cur.id)
       cm.setValue(cur.entry.source)
+      markTitle()
       check(true)
     },
     problem(d) {

@@ -100,6 +100,7 @@ label.rng input { width: 74px; }
 .toast.ok { border-left-color: var(--ok); }
 .toast .bar { height: 4px; background: #ffffff18; border-radius: 2px; margin-top: 7px; overflow: hidden; }
 .toast .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.toast .toast-act { margin-top: 7px; padding: 3px 10px; }
 @keyframes tin { from { transform: translateY(10px); opacity: 0; } }
 .modal-bg { position: fixed; inset: 0; background: #0008; display: grid; place-items: center; z-index: 90; }
 .modal { background: var(--panel2); border: 1px solid #ffffff2a; border-radius: 16px; padding: 18px 20px; width: min(620px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow: auto; box-shadow: 0 20px 60px #000a; }

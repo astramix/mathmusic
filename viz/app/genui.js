@@ -8,7 +8,7 @@ import { MELODIES } from './melodies.js'
 import { keyLabel, parseKey } from './theory.js'
 
 const newSeed = () => 1 + Math.floor(Math.random() * 999998)
-const KEEP = 40 // generated songs kept in the library (older ones are dropped unless saved/edited)
+const KEEP = 40 // untouched generated songs kept in the library; older untouched ones are dropped
 let last = { style: 'lofi', length: 'normal', key: null, bpm: null, sources: null }
 try { Object.assign(last, JSON.parse(localStorage.getItem('mm.gen') || '{}')) } catch {}
 const remember = () => { try { localStorage.setItem('mm.gen', JSON.stringify(last)) } catch {} }
@@ -30,12 +30,14 @@ async function create(opts, { save = true, quiet = false } = {}) {
     return
   }
   const { source, meta } = res
-  let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta }
+  let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta, pristine: true }
   if (save) {
-    entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta })
-    // keep the library tidy: forget the oldest generated songs nobody touched
-    const gens = app.lib.list().filter(e => e.kind === 'generated')
-    for (const e of gens.slice(KEEP)) await app.lib.remove(e.id)
+    entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta, pristine: true })
+    // keep the library tidy: forget the oldest generated songs nobody touched — never one that was
+    // saved, renamed or edited (pristine: false; songs from before the flag existed count as touched),
+    // one with unsaved edits, or the one playing
+    const old = app.lib.list().filter(e => e.kind === 'generated' && e.pristine === true && !app.drafts.has(e.id) && e.id !== app.current?.id && e.id !== entry.id)
+    for (const e of old.slice(KEEP - 1)) await app.lib.remove(e.id)
     app.refreshSongList()
   }
   await app.open(entry)

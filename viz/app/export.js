@@ -6,9 +6,10 @@ import { app } from './app.js'
 import { toast, download } from './ui.js'
 import { renderSong, renderSongCached } from './player.js'
 import { trackList, SR } from './runtime.js'
-import { nameIn } from './library.js'
+import { nameIn, fileName } from './library.js'
+import { midiFile } from './midi.js'
 
-const fileBase = () => nameIn(app.current?.source ?? '', app.current?.entry?.name ?? 'song').replace(/[^\w\-]+/g, '_')
+const fileBase = () => fileName(nameIn(app.current?.source ?? '', app.current?.entry?.name ?? 'song'))
 const mutedSet = () => new Set((app.scene?.tracks ?? []).filter(t => t.muted).map(t => t.key))
 
 // the whole mix → { L, R } at −1 dBFS, always rendered in one pass from the start (like the video):
@@ -182,57 +183,6 @@ async function ogg(L, R, onProgress) {
   return new Blob(pages, { type: 'audio/ogg' })
 }
 
-// ---- MIDI (type 1) -----------------------------------------------------------------------------------
-const GM = [[/drum|kick|snare|hat|perc|beat|timp/i, -1], [/flute/i, 73], [/vibe/i, 11], [/marimba/i, 12], [/bell|glock|sparkle|music ?box/i, 9],
-  [/rhodes|epiano/i, 4], [/piano/i, 0], [/harpsi/i, 6], [/guitar|nylon/i, 24], [/organ/i, 19], [/violin/i, 40], [/cello/i, 42],
-  [/string|pad/i, 48], [/choir/i, 52], [/scat|voice|vocal|chop|meow|cat/i, 54], [/upright|bass/i, 32], [/saw|lead|synth/i, 81], [/pulse|chip|square/i, 80]]
-export function midiFile(song, { ppq = 480, res = 96 } = {}) {
-  const vlq = v => {
-    const b = [v & 0x7f]
-    while ((v >>= 7)) b.unshift((v & 0x7f) | 0x80)
-    return b
-  }
-  const txt = s => [...new TextEncoder().encode(s)]
-  const chunk = body => [0x4d, 0x54, 0x72, 0x6b, (body.length >>> 24) & 255, (body.length >>> 16) & 255, (body.length >>> 8) & 255, body.length & 255, ...body]
-  const us = Math.round(60e6 / song.bpm)
-  const tempo = [0, 0xff, 0x03, ...vlq(txt(song.name).length), ...txt(song.name), 0, 0xff, 0x51, 3, (us >> 16) & 255, (us >> 8) & 255, us & 255, 0, 0xff, 0x58, 4, 4, 2, 24, 8, 0, 0xff, 0x2f, 0]
-  const tracks = [chunk(tempo)]
-  let ch = 0
-  for (const [key, t] of trackList(song)) {
-    if (typeof t.midi !== 'function') continue
-    const prog = GM.find(([re]) => re.test(key))?.[1] ?? 0, drums = prog === -1
-    let c = 9 // GM drums
-    if (!drums) {
-      if (ch % 16 === 9) ch++
-      c = ch++ % 16
-    }
-    const body = [0, 0xff, 0x03, ...vlq(txt(key).length), ...txt(key)]
-    if (!drums) body.push(0, 0xc0 | c, prog)
-    const events = []
-    const last = Math.round(song.length * res)
-    let on = new Set()
-    for (let i = 0; i <= last; i++) {
-      let now = new Set()
-      if (i < last) {
-        try { now = new Set((t.midi(i / res) ?? []).filter(Number.isFinite).map(Math.round).filter(n => n >= 0 && n < 128)) } catch {}
-      }
-      const tick = Math.round((i / res) * ppq)
-      for (const p of on) if (!now.has(p)) events.push([tick, 0x80 | c, p, 0])
-      for (const p of now) if (!on.has(p)) events.push([tick, 0x90 | c, p, drums ? 100 : 90])
-      on = now
-    }
-    let prev = 0
-    for (const [tick, st, p, v] of events) {
-      body.push(...vlq(tick - prev), st, p, v)
-      prev = tick
-    }
-    body.push(0, 0xff, 0x2f, 0)
-    tracks.push(chunk(body))
-  }
-  const head = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, 0, tracks.length, ppq >> 8, ppq & 255]
-  return new Blob([new Uint8Array([...head, ...tracks.flat()])], { type: 'audio/midi' })
-}
-
 // ---- ZIP (stored) ----------------------------------------------------------------------------------------
 const CRC = (() => {
   const t = new Uint32Array(256)
@@ -276,8 +226,8 @@ export async function exportAudio(fmt) {
   if (!cur?.song) return toast('нет песни')
   const name = fileBase()
   if (fmt === 'mid') {
-    download(name + '.mid', midiFile(cur.song))
-    return toast('🎼 MIDI: каждая дорожка — отдельный трек, барабаны на 10-м канале', { kind: 'ok' })
+    download(name + '.mid', new Blob([midiFile(cur.song, { muted: mutedSet() })], { type: 'audio/midi' }))
+    return toast('🎼 MIDI: каждая дорожка — отдельный трек, барабаны на 10-м канале' + (mutedSet().size ? ' · заглушённые не вошли' : ''), { kind: 'ok' })
   }
   const t = toast(`экспорт ${fmt.toUpperCase()}…`, { progress: true })
   try {
@@ -318,5 +268,5 @@ async function stems(name, t) {
 export function exportSource() {
   const cur = app.current
   if (!cur) return
-  download(fileBase() + '.js', app.editor?.value?.() ?? cur.source, 'text/javascript')
+  download(fileBase() + '.js', app.sourceOf(cur), 'text/javascript')
 }

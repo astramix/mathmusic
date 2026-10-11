@@ -3,6 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import * as acorn from '../viz/vendor/acorn.min.mjs'
 import { build } from '../viz/build.js'
 
@@ -17,6 +18,9 @@ for (const f of fs.readdirSync('viz/app').filter(f => f.endsWith('.js'))) {
   test(`viz/app/${f} parses`, () => {
     const src = fs.readFileSync('viz/app/' + f, 'utf8')
     acorn.parse(src, { ecmaVersion: 'latest', sourceType: f === 'worker.js' || f === 'worklet.js' ? 'script' : 'module' })
+    // V8's own early errors too (acorn lets a name declared twice in one scope through)
+    const r = spawnSync(process.execPath, ['--check', `viz/app/${f}`], { encoding: 'utf8' })
+    assert.equal(r.status, 0, r.stderr)
   })
 }
 test('songs compile for the browser runtime (imports → __mods)', async () => {

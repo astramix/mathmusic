@@ -2,12 +2,12 @@
 // graph(x) like graph.png — key, tempo, length. "▶ оживить все" sets every cover playing at once
 // (each one scrolling through its song at its own tempo): all the songs at the same time.
 import { app } from './app.js'
-import { h, esc } from './ui.js'
+import { h, esc, contextMenu } from './ui.js'
 import { themeFor } from './themes.js'
 import { songKey, keyLabel } from './theory.js'
 import { trackList } from './runtime.js'
 
-let el = null, alive = false, raf = 0
+let el = null, alive = false, raf = 0, unwatch = null
 const covers = []
 
 export function openGallery() {
@@ -18,9 +18,17 @@ export function openGallery() {
   el.append(
     h('button', { class: 'close', onclick: closeGallery, title: 'закрыть (Esc, G)' }, '✕'),
     h('h2', {}, 'Все песни'),
-    h('div', { class: 'sub' }, 'клик — открыть и играть · ', animate),
+    h('div', { class: 'sub' }, 'клик — открыть и играть · правый клик — дублировать, переименовать, удалить · ', animate),
   )
   const grid = h('div', { class: 'grid' })
+  // the library changes (here or in another tab): the card goes, gets its new look, or a new one comes
+  unwatch = app.lib.on((id, e) => {
+    const old = [...grid.children].find(c => c.dataset.id === id)
+    if (!e) return old?.remove()
+    const fresh = card(e)
+    if (old) old.replaceWith(fresh)
+    else grid.append(fresh)
+  })
   el.append(grid)
   document.body.append(el)
   covers.length = 0
@@ -29,14 +37,18 @@ export function openGallery() {
   // build the cards a few at a time so the page stays responsive
   const step = () => {
     if (!el) return
-    for (let k = 0; k < 3 && i < list.length; k++, i++) grid.append(card(list[i]))
+    for (let k = 0; k < 3 && i < list.length; k++, i++) {
+      // the library may have changed while the cards were being built
+      const e = app.lib.get(list[i].id)
+      if (e && ![...grid.children].some(c => c.dataset.id === e.id)) grid.append(card(e))
+    }
     if (i < list.length) setTimeout(step, 0)
   }
   step()
   addEventListener('keydown', onKey, true)
   const loop = t => {
     raf = requestAnimationFrame(loop)
-    if (alive) for (const c of covers) c.draw(t / 1000)
+    if (alive) for (const c of covers) if (c.cv.isConnected) c.draw(t / 1000)
   }
   raf = requestAnimationFrame(loop)
 }
@@ -46,6 +58,8 @@ function onKey(e) {
 export function closeGallery() {
   el?.remove()
   el = null
+  unwatch?.()
+  unwatch = null
   cancelAnimationFrame(raf)
   removeEventListener('keydown', onKey, true)
 }
@@ -54,9 +68,20 @@ function card(entry) {
   const cv = h('canvas', { width: 520, height: 240 })
   const meta = h('div', { class: 'meta' })
   const c = h('div', { class: 'card', title: entry.name }, cv, meta)
+  c.dataset.id = entry.id
   c.onclick = async () => {
     closeGallery()
     await app.open(entry.id ?? entry)
+  }
+  c.oncontextmenu = ev => {
+    ev.preventDefault()
+    const mine = entry.kind !== 'builtin'
+    contextMenu([
+      { icon: '▶', label: 'Открыть', action: () => c.onclick() },
+      { icon: '⧉', label: 'Дублировать', action: () => { closeGallery(); app.songs.duplicate(entry.id) } },
+      { icon: '✎', label: 'Переименовать…', disabled: !mine, action: () => app.songs.rename(entry.id) },
+      { icon: '🗑', label: 'Удалить', disabled: !mine, action: () => app.songs.remove(entry.id), note: mine ? null : 'встроенные песни живут в папке songs/' },
+    ], ev.clientX, ev.clientY)
   }
   let song = null
   try {
@@ -115,7 +140,7 @@ function card(entry) {
   }
   paint(0, song.length)
   // alive: a 16-beat window scrolling at the song's own tempo
-  covers.push({ draw: t => { const x = ((t * song.bpm) / 60) % song.length; paint(Math.max(0, x - 6), 16) } })
+  covers.push({ cv, draw: t => { const x = ((t * song.bpm) / 60) % song.length; paint(Math.max(0, x - 6), 16) } })
   c.onmouseleave = () => !alive && paint(0, song.length)
   return c
 }

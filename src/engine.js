@@ -324,8 +324,8 @@ export function writeWav(file, ch) {
   fs.writeFileSync(file, buf)
 }
 
-// Scans track.midi(x) — the MIDI notes sounding at beat x — and writes a type-0 MIDI file.
-export function writeMidi(file, song, name, track, { ppq = 480, res = 96, velocity = 100 } = {}) {
+// Scans track.midi(x) — the MIDI notes sounding at beat x — at every tick and writes a type-0 MIDI file.
+export function writeMidi(file, song, name, track, { ppq = 480, res = ppq, velocity = 100 } = {}) {
   const events = []
   const last = Math.round(song.length * res)
   let on = new Set()

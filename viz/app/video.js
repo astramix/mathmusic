@@ -14,6 +14,7 @@ import { themeFor } from './themes.js'
 import { formulaImage } from './formula.js'
 import { keyLabel, songKey } from './theory.js'
 import { trackList, SR } from './runtime.js'
+import { fileName } from './library.js'
 
 let opts = { style: 'paper', aspect: '9:16', fps: 30, formulas: true, range: 'all', from: 1, to: 17, quality: 'high' }
 try { Object.assign(opts, JSON.parse(localStorage.getItem('mm.video') || '{}')) } catch {}
@@ -148,7 +149,7 @@ export async function makeVideo(o) {
     await aenc.flush()
     muxer.finalize()
     const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' })
-    const name = (song.name || 'song').replace(/[^\w\-]+/g, '_') + `-${o.style}-${o.aspect.replace(':', 'x')}.mp4`
+    const name = fileName(song.name || 'song') + `-${o.style}-${o.aspect.replace(':', 'x')}.mp4`
     download(name, blob)
     cancel.remove()
     t.done(`🎬 ${name} · ${(blob.size / 1e6).toFixed(1)} МБ${acodec === 'opus' ? ' · звук Opus (AAC в этом браузере нет)' : ''}`)

@@ -2,10 +2,10 @@
 // live formulas, the drawing loop. Feature modules (editor, piano roll, generator, export, video,
 // gallery) load on first use.
 import { app } from './app.js'
-import { $, h, esc, menubar, toast, modal, closeMenus } from './ui.js'
+import { $, h, esc, menubar, toast, modal, ask, closeMenus, download } from './ui.js'
 import { Player } from './player.js'
 import { makeRuntime, trackList, SR, errorLine } from './runtime.js'
-import { Library, nameIn } from './library.js'
+import { Library, nameIn, setName, cleanName, lf } from './library.js'
 import { Scene, GRID } from './view.js'
 import { THEMES, themeFor, applyUiTheme } from './themes.js'
 import { formulaOf, formulaHTML, substitute, tex, formulaImage } from './formula.js'
@@ -48,7 +48,7 @@ function refreshSongList() {
   const sel = $('song'), cur = app.current?.id
   sel.innerHTML = ''
   const groups = { builtin: h('optgroup', { label: 'Песни' }), user: h('optgroup', { label: 'Мои' }), generated: h('optgroup', { label: 'Сгенерированные' }) }
-  for (const e of app.lib.list()) (groups[e.kind] ?? groups.user).append(new Option(e.name + (e.kind === 'user' && e.base ? ' ✎' : ''), e.id))
+  for (const e of app.lib.list()) (groups[e.kind] ?? groups.user).append(new Option(e.name + ((e.kind === 'user' && e.base) || (e.kind === 'generated' && e.pristine === false) ? ' ✎' : ''), e.id))
   for (const gr of Object.values(groups)) if (gr.children.length) sel.append(gr)
   if (cur) sel.value = cur
 }
@@ -97,11 +97,14 @@ async function loadModule(source) {
   }
 }
 
+let opening = 0 // the latest open() wins when songs are switched quickly
 async function open(idOrEntry, from = 0) {
   const entry = typeof idOrEntry === 'string' ? app.lib.get(idOrEntry) : idOrEntry
   if (!entry) return toast('нет такой песни', { kind: 'err' })
+  const my = ++opening
   const source = app.drafts.get(entry.id) ?? entry.source
   const mod = await loadModule(source)
+  if (my !== opening) return
   if (mod.error) {
     toast(`${entry.name}: ${mod.error}${mod.line ? ` (строка ${mod.line})` : ''}`, { kind: 'err', ms: 8000 })
     app.current = { id: entry.id, entry, source, song: null, broken: mod }
@@ -111,7 +114,7 @@ async function open(idOrEntry, from = 0) {
   const { song, body } = mod
   const tracks = makeTracks(song, entry.kind === 'builtin' ? entry.name : song.name)
   const key = keyOf(song)
-  app.current = { id: entry.id, entry, source, song, key, tracks, dirty: source !== entry.source }
+  app.current = { id: entry.id, entry, source, song, key, tracks }
   setScene(song, tracks, key, false)
   buildLegend()
   refreshSongList()
@@ -120,8 +123,10 @@ async function open(idOrEntry, from = 0) {
   $('err').textContent = ''
   pin = null
   await player.open({ source, song }, from)
+  if (my !== opening) return
   player.setMuted(tracks.filter(t => t.muted).map(t => t.key))
   await player.play()
+  if (my !== opening) return
   updatePlayButton()
   app.editor?.load(app.current)
   app.pianoroll?.load?.(app.current)
@@ -129,11 +134,17 @@ async function open(idOrEntry, from = 0) {
 }
 app.open = open
 
-// Live update of the current song from new source (editor, sliders, piano roll)
-async function apply(source, { reason = 'edit' } = {}) {
+// Live update of the current song from new source (editor, sliders, piano roll). of: the song (the
+// app.current object) the source belongs to, or its id — an edit that arrives after a switch to another
+// song is dropped (stale), so one song's code never lands in another. The object survives Ctrl+S turning
+// a built-in into a copy with a new id.
+async function apply(source, { of, id } = {}) {
   const cur = app.current
   if (!cur) return { ok: false, error: 'нет песни' }
+  const stale = { ok: false, stale: true, error: 'песня сменилась' }
+  if ((of && of !== cur) || (id != null && cur.id !== id)) return stale
   const mod = await loadModule(source)
+  if (app.current !== cur) return stale
   if (mod.error) return { ok: false, error: mod.error, line: mod.line }
   const { song } = mod
   // quick sanity run of graph/midi on a few points; errors are reported, not fatal
@@ -151,7 +162,7 @@ async function apply(source, { reason = 'edit' } = {}) {
   }
   const tracks = makeTracks(song, cur.entry.kind === 'builtin' ? cur.entry.name : song.name, app.scene?.tracks)
   const key = keyOf(song)
-  Object.assign(cur, { source, song, key, tracks, dirty: true, broken: null })
+  Object.assign(cur, { source, song, key, tracks, broken: null })
   setScene(song, tracks, key, true)
   buildLegend()
   await player.update({ source, song })
@@ -159,6 +170,23 @@ async function apply(source, { reason = 'edit' } = {}) {
   return { ok: true, problems }
 }
 app.apply = apply
+
+// The text of a song as edited (editor, piano roll): a draft while it differs from the saved code.
+// An edited generated song is no longer pristine — the generator tidies away only untouched ones —
+// and a radio song that isn't in the library yet goes into it, so the edit has a song to belong to.
+function setDraft(cur, src) {
+  const e = cur?.entry
+  if (!e) return
+  app.drafts.put(cur.id, src, e.source)
+  if (src !== e.source && e.kind === 'generated' && (e.pristine !== false || !app.lib.get(cur.id))) {
+    e.pristine = false // right away: the next keystroke doesn't save it again
+    app.lib.save({ ...e }).then(saved => { if (cur.entry === e) cur.entry = saved })
+  }
+}
+app.setDraft = setDraft
+// a song's code as you see it: the editor's text when the editor holds this song, else its draft
+const sourceOf = cur => (app.editor?.owner?.() === cur ? app.editor.value() : app.drafts.get(cur.id) ?? cur.source)
+app.sourceOf = sourceOf
 
 // ---- player events -------------------------------------------------------------------------------------
 player.addEventListener('problem', e => {
@@ -230,73 +258,188 @@ addEventListener('keydown', e => {
 async function saveCurrent() {
   const cur = app.current
   if (!cur) return
-  const source = app.editor?.value?.() ?? cur.source
-  const base = cur.entry.kind === 'builtin' ? cur.entry.id : cur.entry.base
-  const e = await app.lib.save({ ...cur.entry, id: cur.entry.kind === 'builtin' ? null : cur.entry.id, kind: cur.entry.kind === 'builtin' ? 'user' : cur.entry.kind, base, source })
-  app.drafts.delete(cur.id) // a built-in song's copy gets a new id: the built-in keeps no draft
+  const source = sourceOf(cur), was = cur.entry, builtin = was.kind === 'builtin'
+  const e = await app.lib.save({ ...was, id: builtin ? null : was.id, kind: builtin ? 'user' : was.kind, base: builtin ? was.id : was.base, source, pristine: false })
+  app.drafts.delete(was.id) // a built-in song's copy gets a new id: the built-in keeps no draft
   cur.entry = e
   cur.id = e.id
-  cur.dirty = false
-  refreshSongList()
-  app.editor?.saved?.()
+  if (app.editor?.owner?.() === cur) app.editor.saved()
+  if (app.current === cur) {
+    refreshSongList()
+    try { localStorage.setItem('mm.last', e.id) } catch {}
+  }
   toast(`💾 сохранено в «Мои»: ${e.name}`, { kind: 'ok' })
 }
-async function saveToFolder(ask) {
+// back to the saved code — with the editor open or not (edits may come from the piano roll alone)
+async function revertCurrent() {
+  const cur = app.current
+  if (!cur || !app.dirty(cur)) return
+  app.drafts.delete(cur.id)
+  if (app.editor?.owner?.() === cur) return app.editor.revert()
+  if (cur.source !== cur.entry.source || cur.broken) await apply(cur.entry.source, { of: cur })
+  app.pianoroll?.load?.(cur)
+  toast('↺ вернулась сохранённая версия')
+}
+async function saveToFolder(choose) {
   const cur = app.current
   if (!cur) return
-  const source = app.editor?.value?.() ?? cur.source
-  const r = await app.lib.saveToDisk(nameIn(source, cur.entry.name), source, { ask })
-  if (r) toast(`📁 записано: ${r.where}\nrender.js и Ableton увидят песню после «npm run viz» / рендера`, { kind: 'ok', ms: 6000 })
+  const source = sourceOf(cur)
+  const confirm = ({ file, copy, builtin }) => ask('Такой файл уже есть',
+    `<p><b>${esc(file)}</b> уже лежит в папке${builtin ? ' — это встроенная песня проекта' : ''}, и код в нём другой.</p><p>Записать эту версию рядом, как <b>${esc(copy)}</b>, или заменить старую?</p>`,
+    [{ label: 'Отмена', value: null }, { label: 'Заменить', value: 'replace' }, { label: `Записать как ${copy}`, value: 'copy', primary: true }])
+  const r = await app.lib.saveToDisk(nameIn(source, cur.entry.name), source, { ask: choose, confirm })
+  if (!r) return
+  if (r.same) toast(`📁 ${r.where} — там уже ровно эта версия`, { kind: 'ok' })
+  else toast(`📁 записано: ${r.where}\nrender.js и Ableton увидят песню после «npm run viz» / рендера`, { kind: 'ok', ms: 6000 })
+}
+// a new song in "Мои" under a name no other song has (the code's name is changed only if it must)
+async function addSong(source, fallbackName) {
+  const name = app.lib.uniqueName(nameIn(source, fallbackName))
+  if (name !== nameIn(source, null)) source = setName(source, name)
+  return app.lib.save({ name, source, kind: 'user' })
 }
 function openFile() {
   const inp = h('input', { type: 'file', accept: '.js,text/javascript' })
   inp.onchange = async () => {
     const f = inp.files[0]
     if (!f) return
-    const source = await f.text()
-    const e = await app.lib.save({ name: f.name.replace(/\.js$/, ''), source, kind: 'user' })
-    refreshSongList()
-    open(e)
+    const source = lf(await f.text())
+    // the same file opened again: that song, not a second copy of it
+    const same = app.lib.list().find(e => e.source === source)
+    if (same) {
+      toast(`эта песня уже есть: ${same.name}`)
+      return open(same)
+    }
+    open(await addSong(source, f.name.replace(/\.js$/, '')))
   }
   inp.click()
 }
 async function newSong() {
-  const src = (await lazy('editor.js')).TEMPLATE
-  const e = await app.lib.save({ name: 'my-song', source: src, kind: 'user' })
-  refreshSongList()
+  const e = await addSong((await lazy('editor.js')).TEMPLATE, 'my-song')
   await open(e)
   toggleEditor(true)
 }
-async function renameCurrent() {
-  const cur = app.current
-  if (!cur || cur.entry.kind === 'builtin') return toast('встроенные песни переименовываются в файле; сначала сохрани копию (Ctrl+S)')
-  const inp = h('input', { type: 'text', value: cur.entry.name, style: 'width:100%' })
-  modal('Переименовать', h('div', {}, inp), [{ label: 'Отмена' }, {
-    label: 'OK', primary: true, action: async () => {
-      const name = inp.value.trim().replace(/['"`\\]/g, '')
-      if (!name) return false
-      const source = (app.editor?.value?.() ?? cur.source).replace(/(\bname\s*:\s*)(['"`])[^'"`]*\2/, `$1'${name}'`)
-      cur.entry = await app.lib.save({ ...cur.entry, source })
-      app.drafts.delete(cur.id)
-      cur.source = source
-      app.editor?.load(cur)
-      refreshSongList()
-    },
-  }])
+
+// ---- song actions (menu and gallery) ------------------------------------------------------------------------
+const entryOf = id => (app.current?.id === id ? app.current.entry : app.lib.get(id))
+const codeOf = id => (app.current?.id === id ? sourceOf(app.current) : app.drafts.get(id) ?? app.lib.get(id)?.source)
+const songsWord = n => (n % 10 === 1 && n % 100 !== 11 ? 'песня' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'песни' : 'песен')
+
+// a copy under a new name, with the code as you see it (unsaved edits included)
+async function duplicateSong(id = app.current?.id) {
+  const e = entryOf(id)
+  if (!e) return
+  const name = app.lib.uniqueName(`${e.name} копия`)
+  const copy = await app.lib.save({
+    name, source: setName(codeOf(id), name), kind: e.kind === 'generated' ? 'generated' : 'user',
+    base: e.kind === 'builtin' ? e.id : e.base, meta: e.meta, pristine: false,
+  })
+  const edits = app.drafts.has(id)
+  await open(copy)
+  toast(`⧉ копия: ${name}${edits ? ' — вместе с несохранёнными правками' : ''}`, { kind: 'ok' })
+}
+
+// renames in the saved code and in the draft, nothing else: unsaved edits stay unsaved
+function renameSong(id = app.current?.id) {
+  const e = entryOf(id)
+  if (!e) return
+  if (e.kind === 'builtin') return toast('встроенная песня называется по файлу в songs/ — сделай копию (⧉ Дублировать) и назови её как хочешь')
+  const inp = h('input', { type: 'text', value: e.name, style: 'width:100%' })
+  const err = h('div', { style: 'color:var(--danger);min-height:1.3em;margin-top:6px;font-size:13px' })
+  const go = async () => {
+    const name = cleanName(inp.value)
+    if (!name) return (err.textContent = 'нужно имя'), false
+    if (name === e.name) return
+    if (app.lib.uniqueName(name, id) !== name) return (err.textContent = `«${name}» уже есть — выбери другое имя`), false
+    const now = app.lib.get(id) ?? e // a radio song isn't in the library yet: it gets in now
+    const saved = await app.lib.save({ ...now, source: setName(now.source, name), pristine: false })
+    if (app.drafts.has(id)) app.drafts.put(id, setName(app.drafts.get(id), name), saved.source)
+    const cur = app.current
+    if (cur?.id === id) {
+      cur.entry = saved
+      cur.source = setName(cur.source, name)
+      if (cur.song) cur.song.name = name
+      if (app.editor?.owner?.() === cur) app.editor.load(cur)
+    }
+    toast(`✎ теперь «${name}»`, { kind: 'ok' })
+  }
+  const m = modal('Переименовать', h('div', {}, inp, err), [{ label: 'Отмена' }, { label: 'OK', primary: true, action: go }])
+  inp.addEventListener('keydown', async ev => {
+    if (ev.key !== 'Enter') return
+    ev.preventDefault()
+    if ((await go()) !== false) m.close()
+  })
+  inp.addEventListener('input', () => (err.textContent = ''))
   setTimeout(() => inp.select(), 50)
 }
-async function deleteCurrent() {
-  const cur = app.current
-  if (!cur || cur.entry.kind === 'builtin') return toast('встроенные песни не удаляются отсюда')
-  modal('Удалить песню?', `<p>«${esc(cur.entry.name)}» исчезнет из «Моих». Файлы на диске не трогаются.</p>`, [{ label: 'Отмена' }, {
-    label: 'Удалить', primary: true, action: async () => {
-      await app.lib.remove(cur.entry.id)
-      app.drafts.delete(cur.entry.id)
-      refreshSongList()
-      nextSong()
+
+// removes at once, with "↶ вернуть" in the toast for 10 s (the song and its unsaved draft come back)
+async function deleteSong(id = app.current?.id) {
+  const e = entryOf(id)
+  if (!e) return
+  if (e.kind === 'builtin') return toast('встроенные песни живут в папке songs/ — отсюда они не удаляются')
+  const saved = app.lib.get(id), draft = app.drafts.get(id), wasCurrent = app.current?.id === id
+  let next = null
+  if (wasCurrent) {
+    const ids = app.lib.list().map(x => x.id), i = ids.indexOf(id)
+    next = i < 0 ? ids[0] : ids[i + 1] ?? ids[i - 1] ?? null
+  }
+  if (saved) await app.lib.remove(id)
+  app.drafts.delete(id)
+  if (next) open(next)
+  toast(`🗑 «${e.name}» удалена (файлы на диске не трогаются)`, {
+    ms: 10000,
+    action: {
+      label: '↶ вернуть',
+      run: async () => {
+        if (saved) await app.lib.save(saved)
+        if (draft != null) app.drafts.set(id, draft)
+        if (wasCurrent) open(saved ?? e)
+        toast(`↶ «${e.name}» снова на месте`, { kind: 'ok' })
+      },
     },
-  }])
+  })
 }
+app.songs = { duplicate: duplicateSong, rename: renameSong, remove: deleteSong }
+
+// ---- backup of "Мои": a JSON file with every song of yours and its unsaved draft ------------------------------
+function backupLibrary() {
+  app.drafts.flush()
+  const data = app.lib.backup(app.drafts), n = data.songs.length
+  if (!n) return toast('в «Моих» и «Сгенерированных» пока пусто — сохранять нечего')
+  download(`mathmusic-library-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data), 'application/json')
+  toast(`💼 ${n} ${songsWord(n)} в файле — «Восстановить из копии» вернёт их в любом браузере`, { kind: 'ok', ms: 6000 })
+}
+function restoreLibrary() {
+  const inp = h('input', { type: 'file', accept: '.json,application/json' })
+  inp.onchange = async () => {
+    const f = inp.files[0]
+    if (!f) return
+    try {
+      const r = await app.lib.restore(JSON.parse(await f.text()), app.drafts)
+      const parts = [`добавлено ${r.added}`]
+      if (r.copies) parts.push(`${r.copies} с другим кодом — копиями рядом`)
+      if (r.same) parts.push(`${r.same} уже были`)
+      toast('♻ ' + parts.join(' · '), { kind: 'ok', ms: 7000 })
+    } catch (e) {
+      toast('не получилось: ' + e.message, { kind: 'err' })
+    }
+  }
+  inp.click()
+}
+
+// the library changed: here, or in another tab of the app
+app.lib.on((id, e, remote) => {
+  refreshSongList()
+  const cur = app.current
+  if (!remote || cur?.id !== id) return
+  if (!e) return toast(`«${cur.entry.name}» удалили в другой вкладке — Ctrl+S сохранит её снова`, { ms: 7000 })
+  cur.entry = e
+  const mine = app.drafts.get(id)
+  if (mine == null) apply(e.source, { of: cur }).then(() => app.editor?.owner?.() === cur && app.editor.load(cur))
+  else app.drafts.put(id, mine, e.source)
+  toast(`«${e.name}» сохранили в другой вкладке${mine != null ? ' — твои несохранённые правки здесь остались' : ''}`, { ms: 6000 })
+})
 
 // ---- panels: editor (right), piano roll (bottom), gallery, cinema ---------------------------------------------
 function splitter(el, target, axis, min, max) {
@@ -369,10 +512,14 @@ menubar($('menus'), [
       { icon: '✚', label: 'Новая песня из шаблона', action: newSong },
       { icon: '📂', label: 'Открыть файл .js…', action: openFile },
       { icon: '💾', label: 'Сохранить в «Мои»', kbd: 'Ctrl+S', action: saveCurrent },
+      { icon: '⧉', label: 'Дублировать', action: () => duplicateSong(), disabled: () => !app.current, note: 'копия под новым именем — с правками, как сейчас в коде' },
+      { icon: '✎', label: 'Переименовать…', action: () => renameSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },
+      { icon: '🗑', label: 'Удалить', action: () => deleteSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },
+      '-',
       { icon: '📁', label: 'Записать в папку songs/…', action: () => saveToFolder(false), note: 'тогда render.js и устройство в Ableton увидят песню' },
       { icon: '📁', label: 'Выбрать другую папку…', action: () => saveToFolder(true) },
-      { icon: '✎', label: 'Переименовать…', action: renameCurrent, disabled: () => app.current?.entry.kind === 'builtin' },
-      { icon: '🗑', label: 'Удалить из «Моих»', action: deleteCurrent, disabled: () => !app.current || app.current.entry.kind === 'builtin' },
+      { icon: '💼', label: 'Резервная копия «Моих»…', action: backupLibrary, note: 'песни хранятся в этом браузере — файл копии их сбережёт' },
+      { icon: '♻', label: 'Восстановить из копии…', action: restoreLibrary },
       '-',
       { label: 'После песни — следующая', checked: () => V.loop, action: () => { V.loop = !V.loop; saveView() } },
     ],
@@ -385,7 +532,7 @@ menubar($('menus'), [
       '-',
       { icon: '✔', label: 'Проверить песню целиком', action: () => lazy('editor.js').then(m => m.fullCheck()) },
       { icon: '📖', label: 'Справочник функций', action: () => lazy('editor.js').then(m => m.apiReference()) },
-      { icon: '↺', label: 'Откатить несохранённые правки', action: () => app.editor?.revert(), disabled: () => !app.current?.dirty },
+      { icon: '↺', label: 'Откатить несохранённые правки', action: revertCurrent, disabled: () => !app.dirty(app.current) },
       { html: 'Клик по числу в коде — слайдер (тянешь <b>e<sup>−8τ</sup></b> — бочка короче) · <kbd>Ctrl+Space</kbd> — подсказки · правки звучат сразу' },
     ],
   },
@@ -592,6 +739,12 @@ requestAnimationFrame(frame)
 
 // ---- start ------------------------------------------------------------------------------------------------------------
 await app.lib.init()
+// drafts of songs that are gone (deleted, or an old radio song) and drafts equal to the saved code go
+for (const [id, src] of [...app.drafts]) {
+  const e = app.lib.get(id)
+  if (!e || e.source === src) app.drafts.delete(id)
+}
+app.drafts.flush()
 refreshSongList()
 let first = null
 try { first = localStorage.getItem('mm.last') } catch {}
@@ -605,12 +758,16 @@ $('song').value = first
   if (mod.song) {
     const tracks = makeTracks(mod.song, e.kind === 'builtin' ? e.name : mod.song.name)
     const key = keyOf(mod.song)
-    app.current = { id: e.id, entry: e, source, song: mod.song, key, tracks, dirty: source !== e.source }
+    app.current = { id: e.id, entry: e, source, song: mod.song, key, tracks }
     setScene(mod.song, tracks, key, false)
     buildLegend()
   }
 }
-if (app.drafts.size) toast(`✎ восстановлены несохранённые правки (${app.drafts.size}) — Ctrl+S сохранит, ↺ откатит`, { ms: 6000 })
+if (app.drafts.size) {
+  const names = [...app.drafts.keys()].map(id => app.lib.get(id)?.name).filter(Boolean)
+  const list = names.slice(0, 3).join(', ') + (names.length > 3 ? ` и ещё ${names.length - 3}` : '')
+  toast(`✎ несохранённые правки на месте: ${list} — Ctrl+S сохранит, ↺ откатит`, { ms: 7000 })
+}
 // drafts go to localStorage right away when the page closes; warn only if that can't work
 addEventListener('pagehide', () => app.drafts.flush())
 addEventListener('beforeunload', e => {

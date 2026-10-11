@@ -11,15 +11,18 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8')
+// sources with plain \n line ends whatever the checkout has: the editor (CodeMirror) gives \n, and a
+// built-in song must equal its own text in the editor, or it looks edited the moment it opens
+const text = f => read(f).replace(/\r\n?/g, '\n')
 const jsIn = dir => fs.readdirSync(path.join(ROOT, dir)).filter(f => f.endsWith('.js')).sort()
 
 export async function build({ quiet = false } = {}) {
-  const songs = Object.fromEntries(jsIn('songs').map(f => [f.slice(0, -3), read(`songs/${f}`)]))
+  const songs = Object.fromEntries(jsIn('songs').map(f => [f.slice(0, -3), text(`songs/${f}`)]))
   const formulas = (await import(pathToFileURL(path.join(ROOT, 'viz/formulas.js')).href + `?${Date.now()}`)).default
-  const SRC = { engine: read('src/engine.js'), instruments: read('src/instruments.js'), songs, formulas }
-  // app modules; the shared pure modules of src/ (theory, generator, melodies) are importable as './x.js'
-  const APP = Object.fromEntries(jsIn('viz/app').map(f => [f, read(`viz/app/${f}`)]))
-  for (const f of ['theory.js', 'generate.js', 'melodies.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = read(`src/${f}`)
+  const SRC = { engine: text('src/engine.js'), instruments: text('src/instruments.js'), songs, formulas }
+  // app modules; the shared pure modules of src/ (theory, generator, melodies, midi) are importable as './x.js'
+  const APP = Object.fromEntries(jsIn('viz/app').map(f => [f, text(`viz/app/${f}`)]))
+  for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
   APP['acorn.js'] = read('viz/vendor/acorn.min.mjs')
   APP['lame.js'] = read('viz/vendor/lame.min.js') // raw text: the MP3 encoder runs in a worker
   const safe = s => s.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--')
