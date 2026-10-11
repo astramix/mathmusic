@@ -331,6 +331,7 @@ const space = {
 export default {
   name: 'voidchip',
   bpm: 120,
+  key: 'Dm',
   length: END,
   sections: SECTIONS,
   tracks: { lead, organ, bass, drums, bells, choir, stars, space },

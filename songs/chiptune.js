@@ -281,6 +281,7 @@ const sfx = {
 export default {
   name: 'chiptune',
   bpm: 150,
+  key: 'C',
   length: END,
   sections: SECTIONS,
   tracks: { lead, harmony, bass, drums, sfx },

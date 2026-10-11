@@ -58,12 +58,12 @@ function polyblep(t, dt) {
 // Phase-accumulating oscillator; the frequency may change on every sample.
 export function osc(shape = 'sine', phase = 0) {
   let p = phase
+  const wave =
+    shape === 'saw' ? dt => 2 * p - 1 - polyblep(p, dt)
+    : shape === 'square' ? dt => (p < 0.5 ? 1 : -1) + polyblep(p, dt) - polyblep(p < 0.5 ? p + 0.5 : p - 0.5, dt)
+    : () => Math.sin(TAU * p)
   const o = freq => {
-    const dt = freq / SR
-    const y =
-      shape === 'saw' ? 2 * p - 1 - polyblep(p, dt)
-      : shape === 'square' ? (p < 0.5 ? 1 : -1) + polyblep(p, dt) - polyblep(mod(p + 0.5, 1), dt)
-      : Math.sin(TAU * p)
+    const dt = freq / SR, y = wave(dt)
     p += dt
     p -= Math.floor(p)
     return y
@@ -119,36 +119,31 @@ export function smooth(ms = 3) {
 }
 
 // Freeverb-style stereo reverb: (l, r) → [l, r] with the wet signal added.
+// 8 parallel low-passed combs into 4 series allpasses per side; the delay lines live in one flat
+// buffer per side (offsets `at`, read heads `pos`) so the loop has no closures.
 export function reverb({ room = 0.84, damp = 0.3, wet = 0.3 } = {}) {
-  const comb = len => {
-    const b = new Float32Array(len)
-    let i = 0, f = 0
-    return x => {
-      const y = b[i]
-      f = y * (1 - damp) + f * damp
-      b[i] = x + f * room
-      if (++i === len) i = 0
-      return y
-    }
+  const COMBS = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617], PASSES = [556, 441, 341, 225]
+  const side = spread => {
+    const lens = [...COMBS, ...PASSES].map(n => n + spread), at = new Int32Array(12)
+    for (let j = 1; j < 12; j++) at[j] = at[j - 1] + lens[j - 1]
+    return { buf: new Float32Array(at[11] + lens[11]), lens: Int32Array.from(lens), at, pos: new Int32Array(12), f: new Float64Array(8) }
   }
-  const allpass = len => {
-    const b = new Float32Array(len)
-    let i = 0
-    return x => {
-      const y = b[i]
-      b[i] = x + y * 0.5
-      if (++i === len) i = 0
-      return y - x
-    }
-  }
-  const side = spread => ({
-    combs: [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617].map(n => comb(n + spread)),
-    passes: [556, 441, 341, 225].map(n => allpass(n + spread)),
-  })
   const run = (s, x) => {
+    const { buf, lens, at, pos, f } = s
     let y = 0
-    for (const c of s.combs) y += c(x)
-    for (const a of s.passes) y = a(y)
+    for (let j = 0; j < 8; j++) {
+      const i = at[j] + pos[j], o = buf[i]
+      f[j] = o * (1 - damp) + f[j] * damp
+      buf[i] = x + f[j] * room
+      if (++pos[j] === lens[j]) pos[j] = 0
+      y += o
+    }
+    for (let j = 8; j < 12; j++) {
+      const i = at[j] + pos[j], o = buf[i]
+      buf[i] = y + o * 0.5
+      if (++pos[j] === lens[j]) pos[j] = 0
+      y = o - y
+    }
     return y
   }
   const L = side(0), R = side(23)

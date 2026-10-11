@@ -166,6 +166,7 @@ const hook = {
 export default {
   name: 'dnb',
   bpm: 174,
+  key: 'Fm',
   length: END,
   sections: [[0, 'intro'], [DROP, 'drop'], [HOOK, 'hook']],
   tracks: {

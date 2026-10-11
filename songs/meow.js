@@ -242,6 +242,7 @@ const musicbox = {
 export default {
   name: 'meow',
   bpm: 100,
+  key: 'F',
   length: END,
   sections: [[0, 'purr'], [VERSE, 'meow'], [CHORUS, 'two cats'], [OUTRO, 'nap']],
   tracks: {

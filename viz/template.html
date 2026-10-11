@@ -4,531 +4,69 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MathMusic Live</title>
-<style>
-  :root { --bg: #07060f; --fg: #ece8ff; --dim: #8f88b5; --panel: rgba(18, 14, 38, 0.82); --line: #ffffff1c; --accent: #b9a2ff; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.45 system-ui, sans-serif; overflow: hidden; user-select: none; }
-  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
-  .panel { position: fixed; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 14px; z-index: 2; }
-  #bar { top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 7px 10px;
-    max-width: calc(100% - 32px); flex-wrap: wrap; justify-content: center; transition: opacity .6s; }
-  .idle #bar, .idle #legend { opacity: 0.12; }
-  #bar:hover, #legend:hover { opacity: 1 !important; }
-  select, button { background: #1c1638; color: var(--fg); border: 1px solid #ffffff22; border-radius: 9px; padding: 5px 9px; font: inherit; cursor: pointer; }
-  button:hover, select:hover { border-color: var(--accent); }
-  button.on { background: #4b3a96; border-color: var(--accent); }
-  label.rng { display: flex; align-items: center; gap: 4px; color: var(--dim); }
-  input[type=range] { width: 80px; accent-color: var(--accent); }
-  #status { color: var(--dim); min-width: 150px; text-align: center; }
-  #legend { top: 76px; left: 12px; padding: 8px; width: 170px; transition: opacity .6s; }
-  #legend .t { display: grid; grid-template-columns: 10px 1fr 46px; gap: 6px; align-items: center; padding: 3px 5px; border-radius: 7px; cursor: pointer; }
-  #legend .t:hover { background: #ffffff10; }
-  #legend .t.muted { opacity: 0.3; }
-  #legend .dot { width: 10px; height: 10px; border-radius: 50%; }
-  #legend .m { height: 5px; background: #ffffff14; border-radius: 3px; overflow: hidden; }
-  #legend .m i { display: block; height: 100%; width: 0; }
-  #legend .help { color: var(--dim); font-size: 11px; margin-top: 6px; padding: 0 5px; }
-  #insp { display: none; width: max-content; max-width: min(760px, calc(100% - 32px)); max-height: 80vh; overflow: auto; padding: 14px 18px; user-select: text; }
-  #insp.pinned { border-color: var(--accent); }
-  #insp h3 { margin: 0 0 6px; font-size: 14px; font-weight: 500; color: var(--dim); display: flex; gap: 8px; align-items: center; }
-  #insp h3 .dot { width: 10px; height: 10px; border-radius: 50%; }
-  #insp .notes { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0 0 10px; }
-  #insp .notes b { font-size: 26px; font-weight: 300; color: #fff; }
-  #insp .notes small { color: #ffd479; font-size: 15px; margin-left: 6px; font-variant-numeric: tabular-nums; }
-  #insp .rest { color: var(--dim); font-size: 15px; }
-  #insp .f { color: #fff6dd; font-size: 17px; overflow-x: auto; overflow-y: hidden; }
-  #insp .f .katex-display { margin: 6px 0; text-align: left; }
-  #insp .f .katex-display > .katex { text-align: left; }
-  #insp .f .def { font-size: 13px; color: #cfc6ee; }
-  #insp .f .def .katex-display { margin: 3px 0; }
-  #hint { position: fixed; inset: 0; display: grid; place-items: center; z-index: 1; pointer-events: none; text-align: center; color: var(--dim); }
-  #hint b { display: block; font-size: 42px; color: var(--fg); font-weight: 300; letter-spacing: .08em; margin-bottom: 8px; }
-  #err { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); color: #ffb3c0; z-index: 3; max-width: 90%; }
-</style>
 <style>/*__KATEX_CSS__*/</style>
-<script>/*__KATEX_JS__*/</script>
+<style>/*__CM_CSS__*/</style>
+<style>/*__APP_CSS__*/</style>
+<script>/*__VENDOR_JS__*/</script>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="hint"><div><b>MathMusic Live</b>выбери песню и нажми ▶<br>наведи на линию — увидишь формулу · клик по таймлайну — перемотка</div></div>
-<div id="bar" class="panel">
-  <select id="song" title="песня"></select>
-  <button id="play">▶</button>
-  <button id="back" title="назад на 4 такта (←)">⏪</button>
-  <button id="fwd" title="вперёд на 4 такта (→)">⏩</button>
-  <button id="next" title="следующая песня (N)">⏭</button>
-  <button id="loop" class="on" title="после песни — следующая">∞</button>
-  <button id="fx" class="on" title="частицы и кольца">✨</button>
-  <button id="labels" class="on" title="подписи нот у плейхеда">♪</button>
-  <label class="rng" title="масштаб (колесо мыши)">🔍<input id="zoom" type="range" min="6" max="64" value="22"></label>
-  <label class="rng" title="громкость">🔊<input id="vol" type="range" min="0" max="1" step="0.01" value="0.9"></label>
-  <span id="status"></span>
+<div id="app">
+  <header id="top">
+    <div class="brand" title="MathMusic — музыка из функций">∿ <b>MathMusic</b></div>
+    <nav id="menus"></nav>
+    <div class="transport">
+      <button id="play" class="tb big" title="играть / пауза (пробел)">▶</button>
+      <button id="back" class="tb" title="назад на 4 такта (←)">⏪</button>
+      <button id="fwd" class="tb" title="вперёд на 4 такта (→)">⏩</button>
+      <button id="next" class="tb" title="следующая песня (N)">⏭</button>
+      <select id="song" title="песня"></select>
+      <span id="status"></span>
+    </div>
+    <div class="right">
+      <label class="rng" title="масштаб (колесо мыши)">🔍<input id="zoom" type="range" min="6" max="64" value="22"></label>
+      <label class="rng" title="громкость">🔊<input id="vol" type="range" min="0" max="1" step="0.01" value="0.9"></label>
+    </div>
+  </header>
+  <main id="main">
+    <div id="left">
+      <section id="stage">
+        <canvas id="c"></canvas>
+        <div id="hint"><div><b>MathMusic Live</b>выбери песню и нажми ▶ — или 🎲 «Генерация» для новой<br>наведи на линию — увидишь формулу · клик по таймлайну — перемотка</div></div>
+        <div id="legend" class="panel" style="display:none"></div>
+        <div id="live" class="panel" style="display:none"></div>
+        <div id="insp" class="panel"></div>
+        <div id="err"></div>
+      </section>
+      <div id="hsplit" class="splitter h" style="display:none"></div>
+      <section id="bottom" style="display:none"></section>
+    </div>
+    <div id="vsplit" class="splitter v" style="display:none"></div>
+    <aside id="side" style="display:none"></aside>
+  </main>
 </div>
-<div id="legend" class="panel" style="display:none"></div>
-<div id="insp" class="panel"></div>
-<div id="err"></div>
-
-<script id="lib" type="text/plain">
-// ---- shared by the audio worker and the page: blob: modules from embedded sources + the renderer
-const SR = 44100, BLOCK = 512
-const blob = s => URL.createObjectURL(new Blob([s], { type: 'text/javascript' }))
-let MODS = null
-function modules(SRC) {
-  if (MODS) return MODS
-  const stub = blob("const no=()=>{throw new Error('not in the browser')};export default {existsSync:()=>false,readFileSync:no,writeFileSync:no,mkdirSync:no,join:(...p)=>p.join('/'),deflateSync:no}")
-  const fix = s => s.replace(/from\s+['"]node:[a-z]+['"]/g, `from '${stub}'`)
-  const engine = blob(fix(SRC.engine))
-  const inst = blob(fix(SRC.instruments).replace(/(['"])\.\/engine\.js\1/g, `'${engine}'`))
-  const songs = {}
-  MODS = { song: n => (songs[n] ??= blob(fix(SRC.songs[n]).replace(/(['"])\.\.\/src\/engine\.js\1/g, `'${engine}'`).replace(/(['"])\.\.\/src\/instruments\.js\1/g, `'${inst}'`))) }
-  return MODS
-}
-export async function loadSong(SRC, name) { return (await import(modules(SRC).song(name))).default }
-
-async function createRenderer(SRC, name, from) {
-  const song = await loadSong(SRC, name), sec = 60 / song.bpm
-  const fns = Object.values(song.tracks).map(t => (t.audio ? t.audio({ bpm: song.bpm, sample: () => null }) : null) ?? (() => 0))
-  let muted = []
-  // pre-roll 4 beats before the seek point, so reverbs, delays and held notes are already sounding
-  const begin = Math.max(0, Math.round((from - 4) * sec * SR))
-  let pos = Math.round(from * sec * SR)
-  for (let i = begin; i < pos; i++) { const x = i / SR / sec; for (const f of fns) f(x) }
-  return {
-    setMuted: m => (muted = m),
-    chunk(n) {
-      const nt = fns.length, L = new Float32Array(n), R = new Float32Array(n), levels = new Float32Array(Math.ceil(n / BLOCK) * nt)
-      for (let i = 0; i < n; i++) {
-        const x = (pos + i) / SR / sec, b = Math.floor(i / BLOCK)
-        let l = 0, r = 0
-        for (let k = 0; k < nt; k++) {
-          const y = x < song.length + 8 ? fns[k](x) : 0
-          let a = Array.isArray(y) ? y[0] : y, c = Array.isArray(y) ? y[1] : y
-          if (!Number.isFinite(a)) a = 0
-          if (!Number.isFinite(c)) c = 0
-          levels[b * nt + k] += (a * a + c * c) / 2
-          if (!muted[k]) { l += a; r += c }
-        }
-        L[i] = l; R[i] = r
-      }
-      for (let j = 0; j < levels.length; j++) levels[j] = Math.sqrt(levels[j] / BLOCK)
-      const start = pos
-      pos += n
-      return { start, L, R, levels }
-    },
-  }
-}
-// one handler per audio engine; post(message, transfer)
-export function makeHandler(post) {
-  let R = null
-  return async data => {
-    try {
-      if (data.type === 'load') { R = await createRenderer(data.SRC, data.name, data.from); R.setMuted(data.muted ?? []); post({ type: 'ready' }) }
-      if (data.type === 'chunk' && R) { const c = R.chunk(data.samples); post({ type: 'chunk', ...c }, [c.L.buffer, c.R.buffer, c.levels.buffer]) }
-      if (data.type === 'mute' && R) R.setMuted(data.muted)
-    } catch (e) { post({ type: 'error', message: String((e && e.stack) || e) }) }
-  }
-}
-</script>
+<div id="toasts"></div>
 
 <script type="module">
+// Bootstrap: app modules (viz/app/*.js) become blob: modules; `from './x.js'` is rewritten to the
+// blob of x.js, created first. MM.url(name) is also how workers and the worklet are started.
 const SRC = /*__SRC__*/null
-const SR = 44100, BLOCK = 512, CHUNK = 11025, AHEAD = 1.5, GRID = 32
-const $ = id => document.getElementById(id)
-const LIB = $('lib').textContent
-const blob = s => URL.createObjectURL(new Blob([s], { type: 'text/javascript' }))
-const lib = await import(blob(LIB))
-const cv = $('c'), g = cv.getContext('2d')
-let W = 0, H = 0
-const resize = () => { const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; g.setTransform(d, 0, 0, d, 0, 0) }
-addEventListener('resize', resize); resize()
-
-// ---- audio engine: a module worker, or the page itself if the browser refuses workers from file:// ----
-let useWorker = true
-function makeEngine(onmessage) {
-  if (useWorker) {
-    try {
-      const w = new Worker(blob(LIB + '\nconst h = makeHandler((m, t) => self.postMessage(m, t)); self.onmessage = e => h(e.data)'), { type: 'module' })
-      w.onmessage = e => onmessage(e.data)
-      w.onerror = e => { e.preventDefault(); onmessage({ type: 'error', message: 'worker: ' + (e.message || 'failed'), worker: true }) }
-      return w
-    } catch { useWorker = false }
-  }
-  let alive = true
-  const h = lib.makeHandler(m => alive && setTimeout(() => alive && onmessage(m)))
-  return { postMessage: d => setTimeout(() => h(d)), terminate: () => (alive = false) }
+const APP = /*__APP__*/null
+const blob = (s, type = 'text/javascript') => URL.createObjectURL(new Blob([s], { type }))
+const urls = {}, busy = new Set()
+const url = name => {
+  if (urls[name]) return urls[name]
+  if (!APP[name]) throw new Error(`no module ${name}`)
+  if (busy.has(name)) throw new Error(`import cycle at ${name}`)
+  busy.add(name)
+  const src = APP[name].replace(/(\bfrom\s*|\bimport\s*)(['"])\.\/([\w.-]+\.m?js)\2/g, (_, kw, q, dep) => `${kw}'${url(dep)}'`)
+  busy.delete(name)
+  return (urls[name] = blob(src))
 }
-
-// ---- formulas: track.formula in the song, else viz/formulas.js; rendered once per track with KaTeX ----
-const MACROS = {
-  '\\saw': '\\operatorname{saw}', '\\sq': '\\operatorname{sq}', '\\tri': '\\operatorname{tri}', '\\lfsr': '\\operatorname{lfsr}',
-  '\\LP': '\\operatorname{LP}', '\\HP': '\\operatorname{HP}', '\\BP': '\\operatorname{BP}', '\\SS': '\\operatorname{SS}',
-  '\\Rev': '\\mathcal{R}', '\\Dly': '\\mathcal{D}', '\\Cho': '\\mathcal{C}', '\\Tape': '\\mathcal{T}', '\\vol': '\\operatorname{vol}',
-}
-const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])
-function formulaHTML(song, key, track) {
-  let f = track.formula ?? SRC.formulas[song]?.[key]
-  if (!f) return ''
-  if (!Array.isArray(f)) f = [f]
-  const tex = s => { try { return katex.renderToString(s, { displayMode: true, throwOnError: false, macros: { ...MACROS } }) } catch { return '<code>' + esc(s) + '</code>' } }
-  return tex(f[0]) + (f.length > 1 ? '<div class="def">' + f.slice(1).map(tex).join('') + '</div>' : '')
-}
-const NOTE = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']
-const noteName = n => NOTE[((Math.round(n) % 12) + 12) % 12] + (Math.floor(Math.round(n) / 12) - 1)
-const freq = n => 440 * 2 ** ((n - 69) / 12)
-
-// ---- player state ----------------------------------------------------------------------------------
-const names = Object.keys(SRC.songs).sort()
-for (const n of names) $('song').add(new Option(n, n))
-$('song').value = names.includes('voidchip') ? 'voidchip' : names[0]
-let actx = null, master = null, S = null
-
-async function open(name, from = 0) {
-  actx ??= new AudioContext({ sampleRate: SR, latencyHint: 'playback' })
-  if (!master) { master = actx.createGain(); master.gain.value = +$('vol').value; master.connect(actx.destination) }
-  if (!S || S.name !== name) {
-    const song = await lib.loadSong(SRC, name)
-    const tracks = Object.entries(song.tracks).map(([key, t], i) => ({
-      key, i, graph: t.graph, midi: t.midi, color: t.color ?? `hsl(${i * 47} 80% 65%)`, formula: formulaHTML(name, key, t),
-      cache: new Map(), max: 1e-4, prev: 0, lvl: 0, notes: new Set(), muted: false,
-    }))
-    if (S) teardown()
-    S = { name, song, tracks, sec: 60 / song.bpm, peak: 0.05, section: -1, sectionAt: 0 }
-    buildLegend()
-  } else teardown()
-  const me = S
-  Object.assign(S, { t0: 0, from, queued: Math.round(from * S.sec * SR), pending: false, ready: false, levels: new Map(), chunks: [], sources: [] })
-  S.engine = makeEngine(data => {
-    if (S !== me || S.engine !== engine) return
-    if (data.type === 'ready') { S.ready = true; S.t0 = actx.currentTime + 0.12 - from * S.sec; pump() }
-    if (data.type === 'chunk') schedule(data)
-    if (data.type === 'error') {
-      if (data.worker && useWorker) { useWorker = false; return open(name, from) } // fall back to the page
-      $('err').textContent = 'ошибка: ' + data.message; console.error(data.message)
-    }
-  })
-  const engine = S.engine
-  engine.postMessage({ type: 'load', SRC, name, from, muted: S.tracks.map(t => t.muted) })
-  if (actx.state !== 'running' && !S.paused) await actx.resume()
-  $('play').textContent = S.paused ? '▶' : '⏸'; $('hint').style.display = 'none'; $('err').textContent = ''
-}
-function teardown() {
-  if (!S?.engine) return
-  S.engine.terminate(); S.sources.forEach(s => { try { s.stop() } catch {} })
-  S.engine = null
-}
-function pump() {
-  if (!S || !S.ready || S.pending) return
-  // a bigger buffer in the background, where the page gets less time
-  if (S.queued / SR - (actx.currentTime - S.t0) < (document.hidden ? 4 : AHEAD)) { S.pending = true; S.engine.postMessage({ type: 'chunk', samples: CHUNK }) }
-}
-function schedule({ start, L, R, levels }) {
-  S.pending = false
-  for (let i = 0; i < L.length; i++) { const p = Math.max(Math.abs(L[i]), Math.abs(R[i])); if (p > S.peak) S.peak = p }
-  const k = 0.89 / S.peak, buf = actx.createBuffer(2, L.length, SR), l = buf.getChannelData(0), r = buf.getChannelData(1)
-  for (let i = 0; i < L.length; i++) { l[i] = L[i] * k; r[i] = R[i] * k }
-  const src = actx.createBufferSource(); src.buffer = buf; src.connect(master)
-  if (S.t0 + start / SR < actx.currentTime + 0.03) { S.t0 = actx.currentTime + 0.05 - start / SR; S.underruns = (S.underruns ?? 0) + 1 }
-  src.start(S.t0 + start / SR)
-  const me = S; S.sources.push(src); src.onended = () => (me.sources = me.sources.filter(s => s !== src))
-  S.chunks.push({ start, l, r }); if (S.chunks.length > 12) S.chunks.shift()
-  const nt = S.tracks.length
-  for (let b = 0; b < levels.length / nt; b++) S.levels.set(start / BLOCK + b, levels.subarray(b * nt, b * nt + nt))
-  S.queued = start + L.length
-  pump()
-}
-const nowX = () => (S && S.ready ? Math.max(0, (actx.currentTime - S.t0) / S.sec) : S?.from ?? 0)
-const seek = b => S && open(S.name, Math.max(0, Math.min(S.song.length - 1, b)))
-const nextSong = () => { const i = (names.indexOf($('song').value) + 1) % names.length; $('song').value = names[i]; open(names[i]) }
-const togglePlay = async () => {
-  if (!S) return open($('song').value)
-  if (actx.state === 'running') { await actx.suspend(); S.paused = true; $('play').textContent = '▶' }
-  else { S.paused = false; await actx.resume(); $('play').textContent = '⏸' }
-}
-$('play').onclick = togglePlay
-$('next').onclick = nextSong
-$('back').onclick = () => seek(Math.floor(nowX() / 4) * 4 - 16)
-$('fwd').onclick = () => seek(Math.floor(nowX() / 4) * 4 + 16)
-$('song').onchange = () => open($('song').value)
-for (const id of ['loop', 'fx', 'labels']) $(id).onclick = () => $(id).classList.toggle('on')
-$('vol').oninput = () => master && (master.gain.value = +$('vol').value)
-addEventListener('keydown', e => {
-  if (e.target.tagName === 'SELECT') return
-  if (e.code === 'Space') { e.preventDefault(); togglePlay() }
-  if (e.code === 'ArrowLeft') $('back').onclick()
-  if (e.code === 'ArrowRight') $('fwd').onclick()
-  if (e.code === 'Home') seek(0)
-  if (e.code === 'KeyN') nextSong()
-  if (e.code === 'Escape') { pin = null; $('insp').classList.remove('pinned') }
+globalThis.MM = { SRC, APP, url, blob }
+import(url('main.js')).catch(e => {
+  console.error(e)
+  document.getElementById('err').textContent = 'не запустилось: ' + (e?.message ?? e)
 })
-const on = id => $(id).classList.contains('on')
-
-// ---- legend: click = mute, shift/right click = solo, hover = highlight -----------------------------
-function buildLegend() {
-  const el = $('legend'); el.style.display = ''; el.innerHTML = ''
-  for (const t of S.tracks) {
-    const row = document.createElement('div'); row.className = 't'
-    row.innerHTML = `<span class="dot" style="background:${t.color}"></span><span>${esc(t.key)}</span><span class="m"><i style="background:${t.color}"></i></span>`
-    t.row = row; t.meter = row.querySelector('i')
-    row.onclick = e => (e.shiftKey ? solo(t) : (t.muted = !t.muted), applyMute())
-    row.oncontextmenu = e => { e.preventDefault(); solo(t); applyMute() }
-    row.onmouseenter = () => (legendHover = t); row.onmouseleave = () => (legendHover = null)
-    el.append(row)
-  }
-  el.insertAdjacentHTML('beforeend', '<div class="help">клик — выкл · shift/ПКМ — соло</div>')
-}
-function solo(t) { const only = S.tracks.every(o => o === t || o.muted) && !t.muted; S.tracks.forEach(o => (o.muted = only ? false : o !== t)) }
-function applyMute() { S.tracks.forEach(t => t.row.classList.toggle('muted', t.muted)); S.engine?.postMessage({ type: 'mute', muted: S.tracks.map(t => t.muted) }) }
-
-// ---- mouse: hover a curve → inspector; click → pin; timeline → seek; wheel → zoom ------------------
-let mouse = null, pin = null, legendHover = null, idle = 0
-cv.addEventListener('mousemove', e => { mouse = { x: e.clientX, y: e.clientY } })
-cv.addEventListener('mouseleave', () => (mouse = null))
-addEventListener('mousemove', () => { idle = 0; document.body.classList.remove('idle') })
-cv.addEventListener('wheel', e => { e.preventDefault(); const z = $('zoom'); z.value = +z.value * (e.deltaY > 0 ? 1.12 : 1 / 1.12) }, { passive: false })
-cv.addEventListener('click', e => {
-  if (!S) return
-  if (e.clientY > H - 44) { // timeline: snap to a section start if close, otherwise to the bar
-    const b = (e.clientX - 16) / (W - 32) * S.song.length
-    const sec = (S.song.sections ?? []).find(([s]) => Math.abs(s - b) < S.song.length * 0.015)
-    return seek(sec ? sec[0] : Math.round(b / 4) * 4)
-  }
-  if (hover) { pin = { ...hover }; $('insp').classList.add('pinned') } else { pin = null; $('insp').classList.remove('pinned') }
-})
-
-// ---- drawing ---------------------------------------------------------------------------------------
-const stars = Array.from({ length: 260 }, () => ({ x: Math.random(), y: Math.random(), z: 0.2 + Math.random() * 0.8, p: Math.random() * 6.28 }))
-const parts = [], rings = []
-const Y = y => H * (0.12 + 0.76 * (5 - y) / 8) // graph range −3…5
-const norm = v => (v == null ? null : Array.isArray(v) ? v.filter(Number.isFinite) : Number.isFinite(v) ? [v] : null)
-const safe = (f, x) => { try { return f ? f(x) : null } catch { return null } }
-const val = (t, k) => { let v = t.cache.get(k); if (v === undefined) t.cache.set(k, (v = norm(safe(t.graph, k / GRID)))); return v }
-const midiAt = (t, x) => { const m = safe(t.midi, x); return Array.isArray(m) ? m.filter(Number.isFinite) : [] }
-const sectionAt = x => { let i = 0; (S.song.sections ?? []).forEach(([b], j) => b <= x && (i = j)); return i }
-const hueOf = i => 250 + 70 * Math.sin(i * 1.7)
-let last = performance.now(), bgHue = 250, hover = null
-
-function burst(x, y, c, n = 12, big = 1) {
-  if (!on('fx')) return
-  rings.push({ x, y, r: 4, c, a: 0.9, s: big })
-  for (let i = 0; i < n; i++) { const an = Math.random() * 6.28, sp = (40 + Math.random() * 170) * big; parts.push({ x, y, vx: Math.cos(an) * sp - 90, vy: Math.sin(an) * sp, c, a: 1 }) }
-}
-function drawPath(paths) {
-  g.beginPath()
-  for (const p of paths) {
-    let pen = 0, x0 = 0, y0 = 0
-    const lone = () => pen === 1 && g.lineTo(x0 + 4, y0)
-    for (let i = 0; i < p.length; i++) {
-      if (p[i] === null) { lone(); pen = 0; continue }
-      if (pen) g.lineTo(p[i], p[i + 1]); else { g.moveTo(p[i], p[i + 1]); x0 = p[i]; y0 = p[i + 1] }
-      pen++; i++
-    }
-    lone()
-  }
-}
-function curve(t, a, b, X) { // polyline(s) of graph(x) for x in [a, b]
-  const paths = []
-  let prev = null
-  for (let k = Math.floor(a * GRID); k <= Math.ceil(b * GRID); k++) {
-    const v = val(t, k), sx = X(k / GRID)
-    if (v) v.forEach((y, j) => { const p = (paths[j] ??= []); if (!prev || prev[j] === undefined || Math.abs(prev[j] - y) > 1.2) p.push(null); p.push(sx, Y(y)) })
-    else paths.forEach(p => p.push(null))
-    prev = v
-  }
-  return paths
-}
-
-function frame(now) {
-  requestAnimationFrame(frame)
-  const dt = Math.min(0.05, (now - last) / 1000); last = now
-  if ((idle += dt) > 3 && S && !S.paused) document.body.classList.add('idle')
-  pump()
-  const x = S ? nowX() : 0
-  if (S?.ready && x > S.song.length + 6) { on('loop') ? nextSong() : (teardown(), (S.ready = false)) }
-
-  // levels, and note-ons straight from midi(x): every new note fires a burst
-  let energy = 0
-  const onsets = new Set()
-  if (S?.ready && !S.paused) {
-    const lv = S.levels.get(Math.floor((actx.currentTime - S.t0) * SR / BLOCK))
-    for (const t of S.tracks) {
-      const a = lv ? lv[t.i] : 0
-      t.max = Math.max(t.max * 0.9995, a)
-      const n = t.muted ? 0 : a / t.max
-      if (t.midi) {
-        const cur = new Set(midiAt(t, x))
-        for (const m of cur) if (!t.notes.has(m)) onsets.add(t)
-        t.notes = cur
-      } else if (n - t.prev > 0.3 && n > 0.5) onsets.add(t)
-      t.prev = t.prev * 0.6 + n * 0.4
-      t.lvl = t.lvl * 0.7 + n * 0.3
-      energy += t.lvl / S.tracks.length
-      t.meter.style.width = `${Math.min(100, 100 * t.lvl)}%`
-    }
-  }
-
-  const sec = S ? sectionAt(x) : 0
-  bgHue += (hueOf(sec) - bgHue) * 0.02
-  const grd = g.createLinearGradient(0, 0, 0, H)
-  grd.addColorStop(0, `hsl(${bgHue} 45% ${6 + 5 * energy}%)`); grd.addColorStop(1, `hsl(${bgHue + 40} 50% 3%)`)
-  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.fillStyle = grd; g.fillRect(0, 0, W, H)
-  g.globalCompositeOperation = 'lighter'
-  for (const s of stars) {
-    if (!S?.paused) { s.x -= dt * 0.01 * s.z * (1 + 6 * energy); if (s.x < 0) s.x += 1 }
-    const tw = 0.4 + 0.6 * Math.abs(Math.sin(s.p + now / 900 * s.z))
-    g.fillStyle = `rgba(220,215,255,${0.15 + 0.5 * tw * s.z})`; g.fillRect(s.x * W, s.y * H, 1.6 * s.z, 1.6 * s.z)
-  }
-  if (!S) return
-
-  const span = +$('zoom').value * (1 - 0.06 * energy), ph = W * 0.62, px = W / span
-  const X = b => ph + (b - x) * px, Bx = sx => x + (sx - ph) / px
-  const xa = Bx(0), xb = Bx(W)
-
-  // grid: beats, bars (numbered), sections
-  g.font = '11px system-ui'; g.textBaseline = 'top'
-  for (let b = Math.ceil(xa); b <= xb; b++) {
-    const bar = b % 4 === 0, near = Math.max(0, 1 - Math.abs(b - x) * 3)
-    g.globalAlpha = 1; g.fillStyle = `rgba(200,190,255,${(bar ? 0.09 : 0.035) + 0.3 * near})`; g.fillRect(X(b), 0, bar ? 1.5 : 1, H - 44)
-    if (bar && px * 4 > 34) { g.fillStyle = 'rgba(200,190,255,0.35)'; g.fillText(b / 4 + 1, X(b) + 3, H - 60) }
-  }
-  g.font = '600 12px system-ui'
-  for (const [b, nm] of S.song.sections ?? []) {
-    const sx = X(b); if (sx < -200 || sx > W) continue
-    g.fillStyle = 'rgba(230,220,255,0.35)'; g.fillRect(sx, 0, 2, H - 44)
-    g.fillStyle = 'rgba(230,220,255,0.65)'; g.fillText(nm.toUpperCase(), sx + 6, 70)
-  }
-
-  // hover target: the curve nearest the mouse
-  hover = null
-  if (mouse && mouse.y < H - 44) {
-    const bx = Bx(mouse.x)
-    let best = 18
-    for (const t of S.tracks) for (const y of norm(safe(t.graph, bx)) ?? []) { const d = Math.abs(Y(y) - mouse.y); if (d < best) (best = d), (hover = { t, x: bx }) }
-  }
-  const focus = pin?.t ?? hover?.t ?? legendHover
-
-  // the functions: past bright, future ghosted, glow in three strokes
-  for (const t of S.tracks) {
-    if (!t.graph) continue
-    const dim = (focus && focus !== t ? 0.22 : 1) * (t.muted ? 0.3 : 1)
-    for (const future of [false, true]) {
-      const paths = future ? curve(t, x, xb, X) : curve(t, xa, x, X)
-      g.strokeStyle = t.color; g.lineJoin = 'round'; g.lineCap = 'round'
-      for (const [w, a] of [[10, 0.06], [4.5, 0.16], [1.8, 0.95]]) {
-        g.lineWidth = w + (future ? 0 : 3 * t.lvl * (w > 2)) + (focus === t ? 1 : 0); g.globalAlpha = a * dim * (future ? 0.28 : 1)
-        drawPath(paths); g.stroke()
-      }
-    }
-    // playhead dot + note label
-    const v = val(t, Math.round(x * GRID))
-    if (v) v.forEach((y, j) => {
-      const py = Y(y), r = 3 + 9 * t.lvl
-      g.globalAlpha = 0.25 * dim; g.fillStyle = t.color; g.beginPath(); g.arc(ph, py, r * 2.4, 0, 6.29); g.fill()
-      g.globalAlpha = dim; g.beginPath(); g.arc(ph, py, r, 0, 6.29); g.fill()
-      if (onsets.has(t)) burst(ph, py, t.color, t.key.match(/drum|kick|perc/i) ? 18 : 10, t.key.match(/drum|kick/i) ? 1.4 : 1)
-      if (on('labels') && j === 0) {
-        const m = [...t.notes]
-        g.globalAlpha = 0.8 * dim; g.font = '11px system-ui'; g.textBaseline = 'middle'
-        g.fillText(m.length && !t.key.match(/drum/i) ? m.slice(0, 3).map(noteName).join(' ') : t.key, ph + r * 2.4 + 6, py)
-      }
-    })
-  }
-
-  // the inspected note: highlight the whole span where midi(x) keeps the same notes
-  const ins = pin ?? hover
-  if (ins) {
-    const t = ins.t, key = midiAt(t, ins.x).join(',')
-    let a = ins.x, b = ins.x
-    const step = 1 / GRID
-    if (key) { while (a - step > ins.x - 32 && midiAt(t, a - step).join(',') === key) a -= step; while (b + step < ins.x + 32 && midiAt(t, b + step).join(',') === key) b += step }
-    else { a = ins.x - 0.5; b = ins.x + 0.5 }
-    const paths = curve(t, a, b + step, X)
-    g.strokeStyle = '#fff'; g.lineCap = 'round'
-    for (const [w, al] of [[16, 0.08], [7, 0.25], [2.5, 1]]) { g.lineWidth = w; g.globalAlpha = al; drawPath(paths); g.stroke() }
-    const sx = X(ins.x)
-    g.globalAlpha = 0.5; g.fillStyle = t.color; g.fillRect(sx - 0.5, 0, 1, H - 44)
-    g.globalAlpha = 0.12; g.fillRect(X(a), 0, X(b + step) - X(a), H - 44)
-    for (const y of norm(safe(t.graph, ins.x)) ?? []) {
-      g.globalAlpha = 1; g.fillStyle = '#fff'; g.beginPath(); g.arc(sx, Y(y), 4.5, 0, 6.29); g.fill()
-    }
-    showInspector(ins)
-  } else $('insp').style.display = 'none'
-
-  // particles and rings
-  for (let i = rings.length - 1; i >= 0; i--) {
-    const o = rings[i]; o.r += dt * 150 * o.s; o.a -= dt * 1.5; if (o.a <= 0) { rings.splice(i, 1); continue }
-    g.strokeStyle = o.c; g.globalAlpha = o.a; g.lineWidth = 2; g.beginPath(); g.arc(o.x, o.y, o.r, 0, 6.29); g.stroke()
-  }
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const p = parts[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt; p.a -= dt * 1.1; if (p.a <= 0) { parts.splice(i, 1); continue }
-    g.globalAlpha = p.a; g.fillStyle = p.c; g.fillRect(p.x, p.y, 2.5, 2.5)
-  }
-  if (parts.length > 2000) parts.splice(0, parts.length - 2000)
-  g.globalAlpha = 0.6; g.fillStyle = '#fff'; g.fillRect(ph - 0.5, 0, 1, H - 44)
-
-  // Lissajous of the real output (L − R horizontally, L + R vertically)
-  const sNow = Math.floor((actx.currentTime - S.t0) * SR), ch = S.chunks.find(c => sNow >= c.start && sNow < c.start + c.l.length)
-  const R0 = Math.min(80, W * 0.11), cx = W - R0 - 24, cy = H - R0 - 64
-  g.globalAlpha = 0.15; g.fillStyle = '#000'; g.beginPath(); g.arc(cx, cy, R0 + 8, 0, 6.29); g.fill()
-  if (ch && S.ready && !S.paused) {
-    g.globalAlpha = 0.8; g.strokeStyle = `hsl(${bgHue + 60} 90% 75%)`; g.lineWidth = 1.2; g.beginPath()
-    const i0 = sNow - ch.start
-    for (let i = 0; i < 735 && i0 + i < ch.l.length; i++) { const l = ch.l[i0 + i], r = ch.r[i0 + i]; const sx = cx + (l - r) * R0 * 0.8, sy = cy - (l + r) * R0 * 0.6; i ? g.lineTo(sx, sy) : g.moveTo(sx, sy) }
-    g.stroke()
-  }
-
-  // section title
-  g.globalCompositeOperation = 'source-over'
-  if (sec !== S.section) { S.section = sec; S.sectionAt = now }
-  const age = (now - S.sectionAt) / 1000, title = (S.song.sections ?? [])[sec]?.[1] ?? ''
-  const ta = Math.max(0, Math.min(1, age * 2) * (1 - Math.max(0, age - 2.5) / 1.5))
-  if (ta > 0) {
-    g.globalAlpha = ta; g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'
-    g.font = `300 ${Math.min(64, W / 12)}px system-ui`; g.fillText(title, W / 2, H * 0.42 - 20 * (1 - Math.min(1, age))); g.textAlign = 'start'
-  }
-
-  // timeline (click to seek)
-  const L = S.song.length, ty = H - 26, secs = S.song.sections ?? [[0, '']]
-  g.font = '10px system-ui'; g.textBaseline = 'bottom'
-  secs.forEach(([b, nm], i) => {
-    const e = secs[i + 1]?.[0] ?? L, x0 = 16 + (W - 32) * b / L, x1 = 16 + (W - 32) * e / L
-    g.globalAlpha = i === sec ? 0.95 : 0.4; g.fillStyle = `hsl(${hueOf(i)} 70% 65%)`; g.fillRect(x0 + 1, ty, x1 - x0 - 2, 6)
-    if (x1 - x0 > 40) { g.globalAlpha = i === sec ? 0.9 : 0.45; g.fillText(nm, x0 + 3, ty - 2) }
-  })
-  if (mouse && mouse.y > H - 44) { g.globalAlpha = 0.5; g.fillStyle = '#fff'; g.fillRect(mouse.x - 0.5, ty - 14, 1, 22) }
-  g.globalAlpha = 1; g.fillStyle = '#fff'; g.beginPath(); g.arc(16 + (W - 32) * Math.min(1, x / L), ty + 3, 6, 0, 6.29); g.fill()
-  const tm = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
-  $('status').textContent = S.ready ? `${S.name} · ${S.song.bpm} BPM · ${tm(x * S.sec)} / ${tm(L * S.sec)}` : 'загружаю…'
-
-  if (Math.random() < 0.02) for (const t of S.tracks) for (const k of t.cache.keys()) if (k < (xa - 8) * GRID || k > (xb + 8) * GRID) t.cache.delete(k)
-}
-
-// inspector card next to the cursor (or where it was pinned)
-let inspKey = ''
-const DRUMS = { 35: 'kick', 36: 'kick', 37: 'rim', 38: 'snare', 39: 'clap', 41: 'tom', 42: 'hat', 43: 'tom', 45: 'tom', 46: 'open hat', 49: 'crash', 51: 'ride', 70: 'shaker' }
-const isDrum = t => /drum|kick|snare|hat|clap|paw|hiss|claw|perc|tom|crash/i.test(t.key)
-function showInspector(ins) {
-  const el = $('insp'), t = ins.t
-  let notes = midiAt(t, ins.x)
-  for (let b = 1; !notes.length && b <= 16; b++) notes = midiAt(t, ins.x - b / GRID) // the hit that is still ringing
-  const key = [t.key, notes.join(','), pin ? 1 : 0].join('|')
-  if (key !== inspKey) {
-    inspKey = key
-    const drum = isDrum(t)
-    const list = notes.length
-      ? notes.map(n => (drum ? `<span><b>${DRUMS[n] ?? 'drum'}</b></span>` : `<span><b>${noteName(n)}</b><small>${freq(n).toFixed(1)} Гц</small></span>`)).join('')
-      : '<span class="rest">без ноты</span>'
-    el.innerHTML = `<h3><span class="dot" style="background:${t.color}"></span>${esc(t.key)}</h3><div class="notes">${list}</div><div class="f">${t.formula}</div>`
-  }
-  el.style.display = 'block'
-  if (!pin) {
-    const r = el.getBoundingClientRect(), mx = mouse?.x ?? W / 2, my = mouse?.y ?? H / 2
-    el.style.left = `${Math.max(16, Math.min(W - r.width - 16, mx + (mx > W * 0.55 ? -r.width - 20 : 20)))}px`
-    el.style.top = `${Math.max(16, Math.min(H - r.height - 56, my - 40))}px`
-  }
-}
-requestAnimationFrame(frame)
-window.mathMusic = { get x() { return nowX() }, get buffered() { return S?.ready ? S.queued / SR - (actx.currentTime - S.t0) : 0 }, get underruns() { return S?.underruns ?? 0 } } // for debugging
-setInterval(() => { pump(); if (document.hidden && S?.ready && nowX() > S.song.length + 6 && on('loop')) nextSong() }, 100)
 </script>
 </body>
 </html>

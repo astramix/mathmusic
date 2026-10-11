@@ -1,0 +1,134 @@
+// The 🎲 menu: a new song in a style, mutations of the current generated song (new melodies / new
+// arrangement / new instruments, everything else kept), the endless radio and the generation
+// dialog. Generated songs land in "Сгенерированные": edit them, export them, save them to songs/.
+import { app } from './app.js'
+import { h, esc, toast, modal, seg } from './ui.js'
+import { generate, STYLES, STYLE_LIST, describe } from './generate.js'
+import { MELODIES } from './melodies.js'
+import { keyLabel, parseKey } from './theory.js'
+
+const newSeed = () => 1 + Math.floor(Math.random() * 999998)
+const KEEP = 40 // generated songs kept in the library (older ones are dropped unless saved/edited)
+let last = { style: 'lofi', length: 'normal', key: null, bpm: null, sources: null }
+try { Object.assign(last, JSON.parse(localStorage.getItem('mm.gen') || '{}')) } catch {}
+const remember = () => { try { localStorage.setItem('mm.gen', JSON.stringify(last)) } catch {} }
+
+export const radio = { on: false, style: 'same', next: () => radioNext() }
+app.radio = radio
+
+const genOf = () => app.current?.song?.generator ?? null
+
+async function create(opts, { save = true, quiet = false } = {}) {
+  const t = quiet ? null : toast(`${STYLES[opts.style]?.emoji ?? '🎲'} сочиняю…`, { progress: true })
+  await new Promise(r => setTimeout(r, 30))
+  let res
+  try {
+    res = generate({ length: last.length, ...opts, seed: opts.seed ?? newSeed() })
+  } catch (e) {
+    console.error(e)
+    t?.done('не получилось: ' + e.message, 'err')
+    return
+  }
+  const { source, meta } = res
+  let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta }
+  if (save) {
+    entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta })
+    // keep the library tidy: forget the oldest generated songs nobody touched
+    const gens = app.lib.list().filter(e => e.kind === 'generated')
+    for (const e of gens.slice(KEEP)) await app.lib.remove(e.id)
+    app.refreshSongList()
+  }
+  await app.open(entry)
+  t?.done(describe(meta) + (save ? ' · в «Сгенерированных»' : ''), 'ok')
+  return meta
+}
+
+export async function mutate(which) {
+  const g = genOf()
+  if (!g) return toast('это не сгенерированная песня — сначала 🎲 «Новая песня в стиле…»')
+  const seeds = { ...g.seeds, [which]: newSeed() }
+  const label = { melody: '🔁 новые мелодии', arrangement: '🎚 новая аранжировка', instruments: '🎻 новые инструменты' }[which]
+  toast(label + '…', { ms: 1500 })
+  return create({ style: g.style, seed: g.seed, length: g.length, ...seeds })
+}
+
+async function radioNext() {
+  const g = genOf()
+  const style = radio.style === 'all' || !g ? STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id : g.style
+  const meta = await create({ style }, { save: false, quiet: true })
+  if (meta) toast(`📻 ${describe(meta)}`, { ms: 6000 })
+}
+function toggleRadio(style) {
+  radio.on = style ? true : !radio.on
+  if (style) radio.style = style
+  toast(radio.on ? `📻 радио: после песни — новая ${radio.style === 'all' ? 'в случайном стиле' : 'в том же стиле'}` : '📻 радио выключено', { ms: 3000 })
+  if (radio.on && !genOf()) radioNext()
+}
+
+export function menuItems() {
+  const g = genOf()
+  return [
+    { header: 'Новая песня в стиле…' },
+    ...STYLE_LIST.map(s => ({ icon: s.emoji, label: s.label, action: () => { last.style = s.id; remember(); create({ style: s.id }) } })),
+    { icon: '🎲', label: 'Случайный стиль', action: () => create({ style: STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id }) },
+    '-',
+    { header: g ? `Эта песня: ${STYLES[g.style]?.emoji ?? ''} ${STYLES[g.style]?.label ?? g.style} · seed ${g.seed}` : 'Мутации — для сгенерированной песни' },
+    { icon: '🔁', label: 'Ещё такую же, но другую', kbd: 'M', disabled: !g, action: () => mutate('melody'), note: 'те же аранжировка, тональность и инструменты — новые мелодии' },
+    { icon: '🎚', label: 'Другая аранжировка', disabled: !g, action: () => mutate('arrangement'), note: 'тональность, темп, форма — мелодии и инструменты те же' },
+    { icon: '🎻', label: 'Другие инструменты', disabled: !g, action: () => mutate('instruments') },
+    '-',
+    { label: '📻 Радио — бесконечно, тот же стиль', checked: radio.on && radio.style === 'same', action: () => (radio.on && radio.style === 'same' ? toggleRadio() : toggleRadio('same')) },
+    { label: '📻 Радио — все стили вперемешку', checked: radio.on && radio.style === 'all', action: () => (radio.on && radio.style === 'all' ? toggleRadio() : toggleRadio('all')) },
+    '-',
+    { icon: '⚙', label: 'Параметры генерации…', action: dialog },
+    { html: 'Мелодии берутся из песен проекта вместе с их гармонией, переносятся в новую тональность и лад, варьируются или сочиняются заново по правилам голосоведения.' },
+  ]
+}
+
+// ---- the dialog ---------------------------------------------------------------------------------------
+function dialog() {
+  const box = h('div')
+  const style = h('select')
+  for (const s of STYLE_LIST) style.append(new Option(`${s.emoji} ${s.label}`, s.id))
+  style.value = last.style
+  const key = h('select')
+  key.append(new Option('авто — из стиля', ''))
+  for (const m of ['major', 'minor']) for (const t of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']) {
+    const k = parseKey(t + (m === 'minor' ? 'm' : ''))
+    key.append(new Option(keyLabel(k), t + (m === 'minor' ? 'm' : '')))
+  }
+  key.value = last.key ?? ''
+  const bpm = h('input', { type: 'number', min: 40, max: 220, placeholder: 'авто', value: last.bpm ?? '', style: 'width:90px' })
+  const length = seg([['short', '≈ 1.5 мин'], ['normal', '≈ 2.5 мин'], ['long', '≈ 3.5 мин']], last.length, v => (last.length = v))
+  const seed = h('input', { type: 'number', min: 1, value: newSeed(), style: 'width:110px' })
+  const reroll = h('button', { onclick: () => (seed.value = newSeed()) }, '🎲')
+  const songs = [...new Set(MELODIES.map(m => m.from))]
+  const srcBoxes = songs.map(s => {
+    const cb = h('input', { type: 'checkbox', checked: !last.sources || last.sources.includes(s) })
+    return [s, cb, h('label', { style: 'display:inline-flex;gap:4px;align-items:center;margin-right:10px' }, cb, s)]
+  })
+  const info = h('div', { class: 'dim' })
+  const describeStyle = () => {
+    const S = STYLES[style.value]
+    info.innerHTML = `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · тональности ${S.keys.join(', ')} · лид: ${S.lead.join(' / ')} · аккорды: ${S.chords.join(' / ')} · бас: ${S.bass.join(' / ')} · барабаны: ${S.kit}`
+  }
+  style.onchange = describeStyle
+  describeStyle()
+  box.append(
+    h('div', { class: 'row' }, h('label', {}, 'Стиль'), style),
+    info,
+    h('div', { class: 'row' }, h('label', {}, 'Тональность'), key),
+    h('div', { class: 'row' }, h('label', {}, 'Темп, BPM'), bpm),
+    h('div', { class: 'row' }, h('label', {}, 'Длина'), length),
+    h('div', { class: 'row' }, h('label', {}, 'Seed'), seed, reroll, h('span', { class: 'dim' }, 'одинаковый seed — одинаковая песня')),
+    h('div', { class: 'row' }, h('label', {}, 'Мелодии из'), h('div', {}, ...srcBoxes.map(s => s[2]))),
+  )
+  modal('🎲 Новая песня', box, [{ label: 'Отмена' }, {
+    label: 'Сочинить', primary: true, action: () => {
+      const sources = srcBoxes.filter(s => s[1].checked).map(s => s[0])
+      last = { style: style.value, length: length.value, key: key.value || null, bpm: +bpm.value || null, sources: sources.length === songs.length ? null : sources }
+      remember()
+      create({ style: last.style, key: last.key ?? undefined, bpm: last.bpm ?? undefined, seed: +seed.value || newSeed(), sources: last.sources ?? undefined, length: last.length })
+    },
+  }])
+}

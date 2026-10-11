@@ -183,6 +183,7 @@ const timpani = {
 export default {
   name: 'classical',
   bpm: 76,
+  key: 'D',
   length: END,
   sections: [[0, 'ground'], [16, 'violin I'], [32, 'violin II'], [48, 'violin III'], [CANON, 'fine']],
   tracks: {

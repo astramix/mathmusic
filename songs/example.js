@@ -44,6 +44,7 @@ const sub = {
 export default {
   name: 'example',
   bpm: 120,
+  key: 'Am',
   length: 16,
   sections: [[0, 'intro'], [8, 'sub']],
   tracks: { kick, arp, sub },

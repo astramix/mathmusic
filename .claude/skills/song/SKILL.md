@@ -20,11 +20,15 @@ Several styles in one prompt → one song per style.
    on every track — the complete math of its sound, not code — and formulas in comments
    next to each track like the other songs. If a new instrument would help other songs too,
    add it to `src/instruments.js` and to the API list in CLAUDE.md.
+   Declare `key` in the song (the app spells note names by it). Import only from '../src/engine.js'
+   and '../src/instruments.js'; for theory (Roman numerals, voice leading) compute the data with
+   src/theory.js beforehand and paste it in as numbers.
 4. **Render**: `node render.js songs/<name>.js` (timeout 600000). Fix errors; fix `quiet?`/`hot?`
-   tracks and a bass louder than the lead; render again.
+   tracks and a bass louder than the lead; render again. `npm test` must stay green.
 5. **Look** at `out/<name>/graph.png`: every section should look different and nothing should be
    missing or stuck.
 6. **Catalog**: add a row to the table in CLAUDE.md.
 7. **Reply in Russian**, short and warm: what the song is, its sections and the math idea, length,
-   and how to open it in Ableton (MathMusic → Open song → `songs/<name>.js`). Say plainly that you
-   balanced it by meters and can't listen yourself.
+   and how to open it in Ableton (MathMusic → Open song → `songs/<name>.js`) or in the app
+   (`Visualizer.bat`). Say plainly that you balanced it by meters and can't listen yourself.
+   A quick start in a known style: `node generate.js --style <id> --render`, then make it your own.

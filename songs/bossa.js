@@ -323,6 +323,7 @@ const stringSection = {
 export default {
   name: 'bossa',
   bpm: 120,
+  key: 'C',
   length: END,
   sections: SECTIONS,
   tracks: { guitar, bass, drums, vibes, flute, piano, scat, strings: stringSection },

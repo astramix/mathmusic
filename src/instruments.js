@@ -69,6 +69,8 @@ export function trigger() {
 // ---- polyphony for struck & plucked tones -----------------------------------------------------
 // p.hit(f, vel, dur, delay) starts a note (dur and delay in seconds);
 // p() → Σ tone(f, t, vel)·damper,  t = seconds since the hit,  damper = e^{−(t − dur)/release} once released.
+// A tone may carry tone.voice(f, vel, t0) → () ⇒ sample: the same sound computed incrementally
+// (sample by sample from t0), which poly() then uses instead — much faster for additive tones.
 export function poly(tone, { life = 6, release = 0.15, max = 32 } = {}) {
   const notes = []
   const p = () => {
@@ -82,7 +84,8 @@ export function poly(tone, { life = 6, release = 0.15, max = 32 } = {}) {
         notes.splice(i, 1)
         continue
       }
-      y += damp * tone(v.f, v.t, v.vel)
+      if (tone.voice) y += damp * (v.gen ??= tone.voice(v.f, v.vel, v.t))()
+      else y += damp * tone(v.f, v.t, v.vel)
     }
     return y
   }
@@ -108,6 +111,37 @@ export function pianoTone(f, t, vel) {
     y += amp * decay * (sin(TAU * fk * t) + sin(TAU * fk * 1.0006 * t + k))
   }
   return 0.35 * y + 0.15 * vel * exp(-90 * t) * sin(TAU * 2.7 * f * t)
+}
+// The same piano, incrementally: every sine is a phasor turned by e^{iδ} each sample, every
+// decay e^{−dt} a factor e^{−d/SR} — no sin/exp per sample (≈ 10× faster).
+pianoTone.voice = (f, vel, t0) => {
+  const B = 0.0004, a = Math.sqrt(f / 260), P = []
+  const add = (fr, phase, amp, d1, d2, w1, w2) => {
+    const th = TAU * fr * t0 + phase, de = (TAU * fr) / SR
+    P.push({ s: sin(th), c: cos(th), ds: sin(de), dc: cos(de), amp, e1: w1 * exp(-d1 * t0), e2: w2 * exp(-d2 * t0), k1: exp(-d1 / SR), k2: exp(-d2 / SR) })
+  }
+  for (let k = 1; k <= 6; k++) {
+    const fk = k * f * Math.sqrt(1 + B * k * k)
+    if (fk > 12000) break
+    const d = (0.45 + 0.4 * k) * a, amp = (0.35 * vel ** (0.4 + 0.25 * k)) / k ** 1.15
+    add(fk, 0, amp, d, 0.12 * d, 0.7, 0.3)
+    add(fk * 1.0006, k, amp, d, 0.12 * d, 0.7, 0.3)
+  }
+  add(2.7 * f, 0, 0.15 * vel, 90, 0, 1, 0)
+  const n = P.length
+  return () => {
+    let y = 0
+    for (let i = 0; i < n; i++) {
+      const p = P[i], decay = p.e1 + p.e2
+      if (decay >= 1e-4 || i === n - 1) y += p.amp * decay * p.s
+      const s = p.s * p.dc + p.c * p.ds
+      p.c = p.c * p.dc - p.s * p.ds
+      p.s = s
+      p.e1 *= p.k1
+      p.e2 *= p.k2
+    }
+    return y
+  }
 }
 // Rhodes: an FM tine whose brightness falls away, a metallic "bark" when hit hard, low notes ring longer
 export function epianoTone(f, t, vel) {

@@ -263,6 +263,7 @@ const sparkles = {
 export default {
   name: 'kawaii',
   bpm: 168,
+  key: 'A',
   length: END,
   sections: [[0, 'kira-kira'], [VERSE, 'verse'], [BUILD, 'build'], [CHORUS, 'chorus'], [KEYUP, 'key up!'], [OUTRO, '♪']],
   tracks: {

@@ -310,6 +310,7 @@ const ambience = {
 export default {
   name: 'lofi',
   bpm: 78,
+  key: 'F',
   length: END,
   sections: SECTIONS.map(([at, name]) => [at, name]),
   tracks: { ambience, rhodes, piano, bass, drums, flute, vibes, strings: stringSection, cat },
