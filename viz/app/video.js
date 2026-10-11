@@ -89,6 +89,9 @@ export async function makeVideo(o) {
     if (o.style !== 'paper' || !o.formulas) scene.formulaImgs.clear()
     // encoders
     const canvas = new OffscreenCanvas(W, H), g = canvas.getContext('2d')
+    let failure = null
+    // the GPU reset the canvas (out of video memory, a driver hiccup): stop with a clear message
+    canvas.addEventListener?.('contextlost', () => (failure ??= new Error('видеокарта сбросила холст — попробуй 30 fps или закрой тяжёлые вкладки')))
     const vcfg = { codec: 'avc1.640033', width: W, height: H, bitrate: o.quality === 'high' ? 16e6 : 8e6, framerate: fps, latencyMode: 'quality' }
     if (!(await VideoEncoder.isConfigSupported(vcfg)).supported) vcfg.codec = 'avc1.4d0028'
     // Windows' AAC encoder (Media Foundation) only takes 96–192 kbps: try down from 256k before Opus
@@ -106,7 +109,6 @@ export async function makeVideo(o) {
       video: { codec: 'avc', width: W, height: H, frameRate: fps },
       audio: { codec: acodec, sampleRate: SR, numberOfChannels: 2 },
     })
-    let failure = null
     const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => (failure = e) })
     venc.configure(vcfg)
     const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => (failure = e) })
@@ -139,7 +141,9 @@ export async function makeVideo(o) {
       const frame = new VideoFrame(canvas, { timestamp: Math.round(tsec * 1e6), duration: Math.round(1e6 / fps) })
       venc.encode(frame, { keyFrame: f % (fps * 2) === 0 })
       frame.close()
-      if (venc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 1))
+      // back-pressure: a queued 1080p frame holds ~8 MB of video memory; drawing faster than the encoder
+      // encodes (60 fps, a software encoder) would pile them up until the GPU process gives out
+      while (venc.encodeQueueSize > 3 && !failure && !cancelled) await dequeued(venc)
       if (f % 15 === 0) {
         t.set(`🎬 кадр ${f} / ${frames}`, 0.27 + 0.72 * (f / frames))
         await new Promise(r => setTimeout(r, 0))
@@ -159,6 +163,11 @@ export async function makeVideo(o) {
     t.done('видео: ' + (e.message ?? e), 'err')
   }
 }
+// the next 'dequeue' of the encoder (or 20 ms, for browsers without the event)
+const dequeued = enc => new Promise(r => {
+  const t = setTimeout(r, 20)
+  enc.addEventListener('dequeue', () => { clearTimeout(t); r() }, { once: true })
+})
 // title and "made of math" caption for the dark styles
 function caption(g, W, H, k, title, subtitle, aspect) {
   g.globalAlpha = 1

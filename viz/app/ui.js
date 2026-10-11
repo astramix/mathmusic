@@ -122,11 +122,16 @@ export function toast(text, { kind = '', ms = 3500, progress = false, action = n
       if (bar && p != null) bar.style.width = `${Math.round(100 * p)}%`
     },
     close,
+    // an error stays until it's clicked away: a long export may fail while nobody is looking
     done: (t, k = 'ok') => {
       el.className = 'toast ' + k
       el.querySelector('.tx').textContent = t
       bar?.parentElement.remove()
-      setTimeout(close, 4000)
+      if (k === 'err') {
+        el.title = 'клик — закрыть'
+        el.style.cursor = 'pointer'
+        el.addEventListener('click', close)
+      } else setTimeout(close, 4000)
     },
   }
 }
