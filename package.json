@@ -1,0 +1,10 @@
+{
+  "name": "math-music",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node render.js songs/hardstyle.js",
+    "device": "node max/build-device.js",
+    "viz": "node viz/build.js"
+  }
+}

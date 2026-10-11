@@ -1,0 +1,7 @@
+# rendered audio, MIDI and graphs — rebuild with `node render.js`
+out/
+# built visualiser — rebuild with Visualizer.bat or `npm run viz`
+MathMusic Live.html
+node_modules/
+.claude/settings.local.json
+*.log
