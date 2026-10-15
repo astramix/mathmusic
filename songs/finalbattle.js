@@ -472,6 +472,7 @@ const fx = {
 
 export default {
   name: 'finalbattle',
+  style: 'boss',
   bpm: 160,
   key: 'Em',
   length: END,

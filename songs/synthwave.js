@@ -182,6 +182,7 @@ const lead = {
 
 export default {
   name: 'synthwave',
+  style: 'synthwave',
   bpm: 120,
   key: 'Em',
   length: END,

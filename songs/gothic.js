@@ -192,6 +192,7 @@ const impact = {
 
 export default {
   name: 'gothic',
+  style: 'gothic',
   bpm: 140,
   key: 'Dm',
   length: END,

@@ -1,6 +1,6 @@
 // The 🎲 menu: a new song in a style, mutations of the current generated song (new melodies / new
 // arrangement / new instruments, everything else kept), the endless radio and the generation
-// dialog. Generated songs land in "Сгенерированные": edit them, export them, save them to songs/.
+// dialog. Generated songs land in "Сгенерированные" (files in my_songs/): edit, export, save to songs/.
 import { app } from './app.js'
 import { h, esc, toast, modal, seg } from './ui.js'
 import { generate, STYLES, STYLE_LIST, describe } from './generate.js'
@@ -32,16 +32,16 @@ async function create(opts, { save = true, quiet = false } = {}) {
   const { source, meta } = res
   let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta, pristine: true }
   if (save) {
-    entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta, pristine: true })
+    entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta, pristine: true }, { pick: !quiet })
     // keep the library tidy: forget the oldest generated songs nobody touched — never one that was
     // saved, renamed or edited (pristine: false; songs from before the flag existed count as touched),
     // one with unsaved edits, or the one playing
     const old = app.lib.list().filter(e => e.kind === 'generated' && e.pristine === true && !app.drafts.has(e.id) && e.id !== app.current?.id && e.id !== entry.id)
-    for (const e of old.slice(KEEP - 1)) await app.lib.remove(e.id)
+    for (const e of old.slice(KEEP - 1)) await app.lib.remove(e.id, { pick: false }).catch(() => {}) // the folder isn't connected: next time
     app.refreshSongList()
   }
   await app.open(entry)
-  t?.done(describe(meta) + (save ? ' · в «Сгенерированных»' : ''), 'ok')
+  t?.done(describe(meta) + (!save ? '' : entry.where === 'disk' ? ` · my_songs/${entry.file}` : ' · ⏳ ждёт папку my_songs (Песня → Подключить)'), 'ok')
   return meta
 }
 

@@ -280,6 +280,7 @@ const sfx = {
 
 export default {
   name: 'chiptune',
+  style: 'chiptune',
   bpm: 150,
   key: 'C',
   length: END,

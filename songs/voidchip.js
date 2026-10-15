@@ -330,6 +330,7 @@ const space = {
 
 export default {
   name: 'voidchip',
+  style: 'space',
   bpm: 120,
   key: 'Dm',
   length: END,

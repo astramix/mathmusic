@@ -170,6 +170,13 @@ li.CodeMirror-hint-active { background: color-mix(in srgb, var(--accent) 40%, tr
 .gallery { position: fixed; inset: var(--top-h) 0 0 0; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(6px); z-index: 40; overflow: auto; padding: 22px; }
 .gallery h2 { margin: 0 0 4px; font-weight: 400; font-size: 22px; }
 .gallery .sub { color: var(--dim); margin-bottom: 16px; }
+.gallery h3 { margin: 22px 0 10px; font-weight: 400; font-size: 15px; color: var(--dim); letter-spacing: .02em; }
+.gallery [hidden] { display: none !important; }
+.gallery .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.gallery .chip { border-radius: 999px; padding: 3px 11px; font-size: 13px; }
+.gallery .chip .n { margin-left: 6px; opacity: .55; font-size: 11px; }
+.gallery .chip.on { border-color: var(--accent); color: var(--accent); }
+.gallery .chip.on .n { opacity: .8; }
 .gallery .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; cursor: pointer; transition: transform .15s, border-color .15s; }
 .card:hover { transform: translateY(-2px); border-color: var(--accent); }

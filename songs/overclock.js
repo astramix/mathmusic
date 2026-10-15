@@ -420,6 +420,7 @@ const riser = {
 
 export default {
   name: 'overclock',
+  style: 'boss',
   bpm: 150,
   key: 'F#m',
   length: END,

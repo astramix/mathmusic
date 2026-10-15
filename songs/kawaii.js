@@ -262,6 +262,7 @@ const sparkles = {
 
 export default {
   name: 'kawaii',
+  style: 'kawaii',
   bpm: 168,
   key: 'A',
   length: END,

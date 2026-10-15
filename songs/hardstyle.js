@@ -196,6 +196,7 @@ const clap = {
 
 export default {
   name: 'hardstyle',
+  style: 'hardstyle',
   bpm: 150,
   key: 'Am',
   length: END,

@@ -43,6 +43,7 @@ const sub = {
 
 export default {
   name: 'example',
+  style: 'minimal',
   bpm: 120,
   key: 'Am',
   length: 16,

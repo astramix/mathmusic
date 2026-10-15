@@ -449,6 +449,7 @@ const fx = {
 
 export default {
   name: 'rawcore',
+  style: 'boss',
   bpm: 155,
   key: 'Cm',
   length: END,

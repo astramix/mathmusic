@@ -27,6 +27,7 @@ Open a source file only to change it or when something here is unclear.
 export default {
   name: 'lofi', bpm: 78, length: 224,                // length in beats
   key: 'F',                                          // 'Dm', 'E♭', 'F#m'… — note names are spelt by it
+  style: 'lofi',                                     // the gallery's filter: a generator style id, or dnb hardstyle phonk gothic minimal
   sections: [[0, 'rain'], [16, 'beat'], …],          // labels on the graph
   tracks: { name: { color, graph(x), midi(x), audio(ctx), formula }, … },
   // optional: boss: { modes: { section: 'turn' | 'build' | 'live' }, attacks: { track: { tile: 'lava' | 'slime' | 'acid' |
@@ -120,8 +121,13 @@ video frames) · editor.js (CodeMirror, lint, API hints from api.js, number slid
 LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code) · genui.js · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
 ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs) · gallery.js (right click: duplicate,
-rename, delete) · library.js (my songs in IndexedDB, unique names, file names transliterated, saving into
-songs/ asks before replacing, JSON backup/restore, tabs synced via a localStorage ping) · themes.js.
+rename, delete; built-in songs first, then my_songs/ on their own row; style chips filter by `style`) ·
+library.js (my songs are files in **my_songs/** + my_songs/library.json (id, kind, pristine, dates); build.js
+embeds the folder, the page writes it through File System Access — the handle is kept in IndexedDB, the
+browser may ask to allow it again per session; a song saved before the folder is connected waits in
+IndexedDB (`where: 'pending'`) and moves in on connect; unique names, file names transliterated, a renamed
+song moves to its new file; "write to songs/" asks before replacing; tabs synced via a localStorage ping) ·
+themes.js. `node render.js my_songs/<file>.js` renders a saved song like any other.
 Editing state: app.drafts (one localStorage key per song) holds a draft exactly while the code differs from
 the saved one — `app.setDraft(cur, src)` keeps that true, `app.dirty(cur)` is the ●; `app.apply(src, { of: cur })`
 drops edits of a song no longer open. Generated songs carry `pristine` (the 🎲 menu tidies only untouched ones).

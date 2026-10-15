@@ -309,6 +309,7 @@ const ambience = {
 
 export default {
   name: 'lofi',
+  style: 'lofi',
   bpm: 78,
   key: 'F',
   length: END,

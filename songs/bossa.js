@@ -322,6 +322,7 @@ const stringSection = {
 
 export default {
   name: 'bossa',
+  style: 'bossa',
   bpm: 120,
   key: 'C',
   length: END,

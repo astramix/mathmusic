@@ -139,6 +139,7 @@ const vinyl = {
 
 export default {
   name: 'phonk',
+  style: 'phonk',
   bpm: 130,
   length: END,
   sections: [[0, 'intro'], [DROP, 'drop'], [BREAK, 'break'], [BACK, 'drop 2']],

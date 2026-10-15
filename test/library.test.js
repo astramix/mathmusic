@@ -1,7 +1,8 @@
-// The song library's pure parts: names in the code, file names, unique names, backup / restore.
+// The song library: names and styles in the code, file names, unique names, and my_songs/ as files
+// (through a folder handle faked in memory, as File System Access gives it).
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { Library, nameIn, setName, cleanName, fileName } from '../viz/app/library.js'
+import { Library, nameIn, styleIn, setName, cleanName, fileName, fromFile, fileFor } from '../viz/app/library.js'
 
 const SONG = `const LAYER = { name: 'pad layer' }
 export default {
@@ -51,24 +52,83 @@ test('uniqueName adds a number only when the name is taken (any case, built-ins 
   assert.equal(l.uniqueName('rain', 'user:a'), 'rain') // its own name is free for itself
 })
 
-test('restore: new songs come in, unchanged are skipped, changed ones come as copies', async () => {
-  const l = lib(), drafts = new Map([['user:a', 'my draft']])
-  const data = l.backup(drafts)
-  assert.equal(data.songs.length, 2)
-  assert.deepEqual(Object.keys(data.drafts), ['user:a'])
-  const other = lib()
-  other.user.get('user:b').source = setName(SONG.replace('bpm: 80', 'bpm: 120'), 'changed here') // other code
-  other.user.get('user:b').name = 'changed here'
-  other.user.delete('user:a')
-  const d2 = new Map()
-  const r = await other.restore(JSON.parse(JSON.stringify(data)), d2)
-  assert.deepEqual(r, { added: 1, same: 0, copies: 1 })
-  assert.equal(other.user.get('user:a').source, l.user.get('user:a').source)
-  assert.equal(d2.get('user:a'), 'my draft')
-  assert.equal(other.user.get('user:b').name, 'changed here') // not overwritten
-  const copy = [...other.user.values()].find(e => !['user:a', 'user:b'].includes(e.id))
-  assert.equal(copy.name, 'rain 2') // 'rain 2' is free here: this one was renamed
-  assert.equal(nameIn(copy.source), 'rain 2')
-  assert.deepEqual(await other.restore(data, d2), { added: 0, same: 2, copies: 0 })
-  await assert.rejects(() => other.restore({ songs: [] }, d2))
+test('styleIn reads the song’s style', () => {
+  assert.equal(styleIn(`const X = { style: 'not this' }
+export default { name: 'a', style: 'lofi', bpm: 80 }`), 'lofi')
+  assert.equal(styleIn(SONG), null)
+})
+
+test('fromFile: id and kind from library.json, else from the file itself', () => {
+  const gen = 'export default { name: "g", generator: { style: "lofi", seed: 1 } }'
+  assert.deepEqual([fromFile('g.js', gen, 5).id, fromFile('g.js', gen, 5).kind, fromFile('g.js', gen, 5).pristine], ['mine:g', 'generated', false])
+  const e = fromFile('rain.js', SONG, 5, { 'rain.js': { id: 'user:x', kind: 'user', pristine: true, updated: 9 } })
+  assert.deepEqual([e.id, e.name, e.kind, e.pristine, e.updated, e.created, e.where], ['user:x', 'rain', 'user', true, 9, 5, 'disk'])
+})
+
+test('fileFor keeps a file that still fits the name, else the first free one', () => {
+  const taken = new Set(['Dozhd.js', 'Dozhd-2.js'])
+  assert.equal(fileFor('Дождь', null, taken), 'Dozhd-3.js')
+  assert.equal(fileFor('Дождь', 'Dozhd-2.js', taken), 'Dozhd-2.js')
+  assert.equal(fileFor('Снег', 'Dozhd-2.js', taken), 'Sneg.js')
+})
+
+// a folder in memory: what showDirectoryPicker() hands the page
+function fakeDir(name = 'my_songs') {
+  const files = new Map()
+  const handle = f => ({
+    kind: 'file',
+    getFile: async () => ({ text: async () => files.get(f), lastModified: 1 }),
+    createWritable: async () => { let buf = ''; return { write: async t => { buf += t }, close: async () => { files.set(f, buf) } } },
+  })
+  return {
+    name, files, kind: 'directory',
+    async *entries() { for (const f of [...files.keys()]) yield [f, handle(f)] },
+    async getFileHandle(f, { create = false } = {}) {
+      if (!files.has(f)) { if (!create) throw Object.assign(new Error(f), { name: 'NotFoundError' }); files.set(f, '') }
+      return handle(f)
+    },
+    async removeEntry(f) { if (!files.delete(f)) throw Object.assign(new Error(f), { name: 'NotFoundError' }) },
+    queryPermission: async () => 'granted', requestPermission: async () => 'granted',
+  }
+}
+
+test('my_songs/: songs are files, renamed songs move, waiting songs go in, removal deletes', async () => {
+  const dir = fakeDir()
+  dir.files.set('by-hand.js', setName(SONG, 'by hand'))
+  const l = new Library({ songs: {} })
+  // saved before the folder was there: waits (as if in IndexedDB)
+  const early = await l.save({ name: 'Дождь', source: setName(SONG, 'Дождь'), kind: 'user' })
+  assert.equal(early.where, 'pending')
+  await l.attach(dir, 'disk')
+  assert.equal(l.get(early.id).where, 'disk')
+  assert.equal(dir.files.get('Dozhd.js'), setName(SONG, 'Дождь'))
+  assert.equal(l.get('mine:by-hand').name, 'by hand')
+  const index = () => JSON.parse(dir.files.get('library.json')).songs
+  assert.equal(index()['Dozhd.js'].id, early.id)
+
+  // rename: the file moves, the id stays
+  const r = await l.save({ ...l.get(early.id), source: setName(SONG, 'Снег') })
+  assert.equal(r.id, early.id)
+  assert.equal(r.file, 'Sneg.js')
+  assert.ok(!dir.files.has('Dozhd.js') && dir.files.has('Sneg.js'))
+  assert.deepEqual(Object.keys(index()), ['Sneg.js'])
+
+  // two songs whose names make the same file name
+  const a = await l.save({ name: 'a b', source: setName(SONG, 'a b'), kind: 'user' })
+  const b = await l.save({ name: 'a_b', source: setName(SONG, 'a_b'), kind: 'user' })
+  assert.deepEqual([a.file, b.file], ['a_b.js', 'a_b-2.js'])
+
+  // what another tab (or a hand) changed in the folder is read again
+  dir.files.set('a_b.js', setName(SONG.replace('bpm: 80', 'bpm: 99'), 'a b'))
+  const seen = []
+  l.on((id, e, remote) => seen.push([id, e?.source.includes('bpm: 99'), remote]))
+  await l.reload('tab')
+  assert.deepEqual(seen, [[a.id, true, 'tab']])
+
+  await l.remove(b.id)
+  assert.ok(!dir.files.has('a_b-2.js') && !l.get(b.id))
+  assert.ok(!(b.file in index()))
+  // the page built with my_songs/ embedded shows the same songs before the folder is connected
+  const embedded = new Library({ songs: {}, mine: Object.fromEntries([...dir.files].filter(([f]) => f.endsWith('.js')).map(([f, source]) => [f, { source, mtime: 1 }])), mineIndex: JSON.parse(dir.files.get('library.json')) })
+  assert.deepEqual(embedded.list().map(e => e.id).sort(), l.list().map(e => e.id).sort())
 })

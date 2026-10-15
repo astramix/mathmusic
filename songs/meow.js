@@ -241,6 +241,7 @@ const musicbox = {
 
 export default {
   name: 'meow',
+  style: 'meow',
   bpm: 100,
   key: 'F',
   length: END,

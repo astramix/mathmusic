@@ -182,6 +182,7 @@ const timpani = {
 
 export default {
   name: 'classical',
+  style: 'classical',
   bpm: 76,
   key: 'D',
   length: END,

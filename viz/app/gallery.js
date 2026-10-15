@@ -1,54 +1,94 @@
 // The gallery: every song as a card with its cover — the song's own graph, all of it, drawn from
-// graph(x) like graph.png — key, tempo, length. "▶ оживить все" sets every cover playing at once
-// (each one scrolling through its song at its own tempo): all the songs at the same time.
+// graph(x) like graph.png — key, tempo, length. The built-in songs first, then yours (my_songs/) on a
+// row of their own; the chips above show only one style. "▶ оживить все" sets every cover playing at
+// once (each one scrolling through its song at its own tempo): all the songs at the same time.
 import { app } from './app.js'
 import { h, esc, contextMenu } from './ui.js'
 import { themeFor } from './themes.js'
 import { songKey, keyLabel } from './theory.js'
 import { trackList } from './runtime.js'
+import { styleIn } from './library.js'
+import { STYLE_LIST } from './generate.js'
 
 let el = null, alive = false, raf = 0, unwatch = null
 const covers = []
+
+// the generator's styles, then the ones only the original songs have
+const STYLE_INFO = Object.fromEntries([
+  ...STYLE_LIST.map(s => [s.id, s]),
+  ...[['dnb', 'Драм-н-бейс', '🥁'], ['hardstyle', 'Хардстайл', '🔨'], ['phonk', 'Фонк', '🚗'], ['gothic', 'Готика', '🦇'], ['minimal', 'Минимал', '✏️']].map(([id, label, emoji]) => [id, { id, label, emoji }]),
+  ['other', { id: 'other', label: 'Без стиля', emoji: '·' }],
+])
+const styleOf = e => (STYLE_INFO[styleIn(e.source)] ? styleIn(e.source) : 'other')
+let filter = 'all'
+try { filter = localStorage.getItem('mm.galleryStyle') || 'all' } catch {}
 
 export function openGallery() {
   if (el) return closeGallery()
   alive = false
   el = h('div', { class: 'gallery' })
   const animate = h('button', { onclick: () => { alive = !alive; animate.classList.toggle('on', alive); animate.textContent = alive ? '⏸ остановить' : '▶ оживить все' } }, '▶ оживить все')
+  const chips = h('div', { class: 'chips' })
+  const builtGrid = h('div', { class: 'grid' }), mineGrid = h('div', { class: 'grid' })
+  const builtHead = h('h3', {}, 'Встроенные — songs/'), mineHead = h('h3', {}, 'Мои — my_songs/')
+  const empty = h('div', { class: 'sub empty' }, 'в этом стиле песен нет')
   el.append(
     h('button', { class: 'close', onclick: closeGallery, title: 'закрыть (Esc, G)' }, '✕'),
     h('h2', {}, 'Все песни'),
     h('div', { class: 'sub' }, 'клик — открыть и играть · правый клик — дублировать, переименовать, удалить · ', animate),
+    chips, builtHead, builtGrid, mineHead, mineGrid, empty,
   )
-  const grid = h('div', { class: 'grid' })
+  const gridOf = e => (e.kind === 'builtin' ? builtGrid : mineGrid)
+  const cards = () => [...builtGrid.children, ...mineGrid.children]
+  // the style chips (with how many songs each has) and which cards show
+  const refilter = () => {
+    const list = app.lib.list(), count = { all: list.length }
+    for (const e of list) count[styleOf(e)] = (count[styleOf(e)] ?? 0) + 1
+    if (!count[filter]) filter = 'all'
+    chips.replaceChildren(...['all', ...Object.keys(STYLE_INFO)].filter(id => count[id]).map(id => {
+      const s = STYLE_INFO[id]
+      return h('button', {
+        class: 'chip' + (id === filter ? ' on' : ''),
+        onclick: () => { filter = id; try { localStorage.setItem('mm.galleryStyle', id) } catch {} refilter() },
+      }, id === 'all' ? 'Все' : `${s.emoji} ${s.label}`, h('span', { class: 'n' }, String(count[id])))
+    }))
+    for (const c of cards()) c.hidden = filter !== 'all' && c.dataset.style !== filter
+    const shown = g => [...g.children].some(c => !c.hidden)
+    builtHead.hidden = !shown(builtGrid)
+    mineHead.hidden = !shown(mineGrid) && !(filter === 'all' && !mineGrid.children.length)
+    mineHead.textContent = mineGrid.children.length ? 'Мои — my_songs/' : 'Мои — my_songs/ (пока пусто: Ctrl+S или 🎲 положат песню сюда)'
+    empty.hidden = shown(builtGrid) || shown(mineGrid) || cards().length < list.length
+  }
   // the library changes (here or in another tab): the card goes, gets its new look, or a new one comes
+  // (the newest of yours first)
   unwatch = app.lib.on((id, e) => {
-    const old = [...grid.children].find(c => c.dataset.id === id)
-    if (!e) return old?.remove()
-    const fresh = card(e)
-    if (old) old.replaceWith(fresh)
-    else grid.append(fresh)
+    const old = cards().find(c => c.dataset.id === id)
+    if (!e) old?.remove()
+    else if (old) old.replaceWith(card(e))
+    else mineGrid.prepend(card(e))
+    refilter()
   })
-  el.append(grid)
   document.body.append(el)
   covers.length = 0
   const list = app.lib.list()
   let i = 0
+  refilter()
   // build the cards a few at a time so the page stays responsive
   const step = () => {
     if (!el) return
     for (let k = 0; k < 3 && i < list.length; k++, i++) {
       // the library may have changed while the cards were being built
       const e = app.lib.get(list[i].id)
-      if (e && ![...grid.children].some(c => c.dataset.id === e.id)) grid.append(card(e))
+      if (e && !cards().some(c => c.dataset.id === e.id)) gridOf(e).append(card(e))
     }
+    refilter()
     if (i < list.length) setTimeout(step, 0)
   }
   step()
   addEventListener('keydown', onKey, true)
   const loop = t => {
     raf = requestAnimationFrame(loop)
-    if (alive) for (const c of covers) if (c.cv.isConnected) c.draw(t / 1000)
+    if (alive) for (const c of covers) if (c.cv.isConnected && !c.cv.closest('[hidden]')) c.draw(t / 1000)
   }
   raf = requestAnimationFrame(loop)
 }
@@ -69,6 +109,7 @@ function card(entry) {
   const meta = h('div', { class: 'meta' })
   const c = h('div', { class: 'card', title: entry.name }, cv, meta)
   c.dataset.id = entry.id
+  c.dataset.style = styleOf(entry)
   c.onclick = async () => {
     closeGallery()
     await app.open(entry.id ?? entry)
@@ -80,7 +121,7 @@ function card(entry) {
       { icon: '▶', label: 'Открыть', action: () => c.onclick() },
       { icon: '⧉', label: 'Дублировать', action: () => { closeGallery(); app.songs.duplicate(entry.id) } },
       { icon: '✎', label: 'Переименовать…', disabled: !mine, action: () => app.songs.rename(entry.id) },
-      { icon: '🗑', label: 'Удалить', disabled: !mine, action: () => app.songs.remove(entry.id), note: mine ? null : 'встроенные песни живут в папке songs/' },
+      { icon: '🗑', label: 'Удалить', disabled: !mine, action: () => app.songs.remove(entry.id), note: mine ? (entry.file ? `и файл my_songs/${entry.file}` : null) : 'встроенные песни живут в папке songs/' },
     ], ev.clientX, ev.clientY)
   }
   let song = null
@@ -91,7 +132,8 @@ function card(entry) {
     return c
   }
   const key = songKey(song), th = themeFor(song), secs = (song.length * 60) / song.bpm
-  const tag = entry.kind === 'generated' ? '🎲' : entry.kind === 'user' ? 'моя' : ''
+  const st = STYLE_INFO[c.dataset.style]
+  const tag = [entry.kind === 'generated' ? '🎲' : entry.kind === 'user' ? 'моя' : '', entry.where === 'pending' ? '⏳ не в папке' : '', st.id !== 'other' ? st.emoji : ''].filter(Boolean).join(' ')
   meta.innerHTML = `<b>${esc(song.name)}</b>${tag ? `<span class="tag">${tag}</span>` : ''}<div class="d">${keyLabel(key)} · ${song.bpm} BPM · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')} · ${trackList(song).length} дорожек</div>`
   // sample every curve once
   const W = 520, H = 240, res = Math.max(1, Math.round(W * 3 / song.length))
