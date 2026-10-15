@@ -27,6 +27,8 @@ const SEC = 60 / 160
 const part = arrangement(SECTIONS)
 const is = (x, ...names) => names.includes(part(x).name)
 const LIVE = x => MODES[part(x).name] === 'live'
+const ROOT_PC = { Em: 4, C: 0, Am: 9, B: 11, D: 2, F: 5, G: 7, E: 4, A: 9 }
+const SHARPS = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'], FLATS = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B']
 const η = noise(19)
 const E1 = 41.2, E2 = 82.41, E4 = 329.63, E5 = 659.26
 
@@ -180,7 +182,7 @@ const kick = {
     const k = hardKick({ tail: 0.27, drop: 5, drive: 9, bias: 0.35, tone: 5000, sub: 0.6 })
     return x => {
       const h = lastOf('kick', x)
-      return 0.95 * (h ? h.vel : 0) * k(h ? h.τ * SEC : 1, E1 * 2 ** (tr(x) / 12), !!h)
+      return 1.9 * (h ? h.vel : 0) * k(h ? h.τ * SEC : 1, E1 * 2 ** (tr(x) / 12), !!h)
     }
   },
 }
@@ -276,9 +278,10 @@ const lead = {
   color: '#ff9ad5',
   graph: x => (leadAt(x) && !hookAt(x) ? 1.1 + leadAt(x).n / 14 : null),
   midi: x => (leadAt(x) && leadAt(x).u < 0.9 ? [76 + leadAt(x).n] : []), // E5 = MIDI 76
-  formula: [String.raw`y = \Dly\Big[0.7\,d\,\ell\,\vol\!\big(1 - 0.3\min(1, t/0.3)\big)\,\LP_{10\text{k}}\,\Pi_{1/4}\big(659.26\cdot 2^{(n + v)/12}\big)\Big],\qquad v = 0.3\sin 2\pi\,6T\ (t > 0.3),\quad \ell = 0.55\ \text{под хуком}`],
+  formula: [String.raw`y = \Rev\Big[\Dly\Big[0.7\,d\,\ell\,\vol\!\big(1 - 0.3\min(1, t/0.3)\big)\,\LP_{10\text{k}}\,\Pi_{1/4}\big(659.26\cdot 2^{(n + v)/12}\big)\Big]\Big],\qquad v = 0.3\sin 2\pi\,6T\ (t > 0.3),\quad \ell = 0.55\ \text{под хуком}`],
   audio() {
     const p = pulse(0.25), p12 = pulse(0.125), lp = filter('lp'), echo = delay({ time: SEC * 0.75, feedback: 0.35, wet: 0.3 })
+    const verb = reverb({ room: 0.84, damp: 0.35, wet: 0.32 })
     return x => {
       const m = leadAt(x), held = m ? m.τ * SEC : 0
       const vib = held > 0.3 ? 0.3 * sin(TAU * 6 * x * SEC) : 0
@@ -286,7 +289,7 @@ const lead = {
       const g = m && m.u < 0.9 ? vol4(1 - 0.3 * Math.min(1, held / 0.3)) : 0
       const live = LIVE(x) && !is(x, 'chaos') ? 0.55 : 1 // under the hook it only doubles
       const y = 0.7 * live * g * pumpAt(x) * lp(is(x, 'chaos') ? b : a, 10000)
-      return echo(...pan(y, -0.2))
+      return verb(...echo(...pan(y, -0.2)))
     }
   },
 }
@@ -368,8 +371,10 @@ const piano = {
   },
 }
 
-// S(x) — strings/choir: mercy (from its second half) and PHASE 3
-const choirOn = x => x < END && ((is(x, 'mercy') && part(x).t >= 8) || is(x, 'phase 3', 'equation'))
+// S(x) — strings/choir: the mercy, PHASE 3 and the equation
+// a quiet bed under the sparse turn sections, full in the mercy and PHASE 3
+const choirOn = x => x < END && is(x, 'mercy', 'phase 3', 'equation', 'menu', 'encounter', 'victory')
+const CHOIR_SOFT = { menu: 0.45, encounter: 0.5, victory: 0.7 }
 const choir = {
   color: '#9b8fb8',
   graph: x => (choirOn(x) ? CH[chordAt(x)].map(n => -1 + (n + tr(x)) / 18) : null),
@@ -381,7 +386,7 @@ const choir = {
     return x => {
       const on = choirOn(x)
       const [l, r] = s(on ? CH[chordAt(x)].map(n => hz(n + tr(x), E4)) : [])
-      const k = 0.5 * pumpAt(x)
+      const k = 0.5 * (CHOIR_SOFT[part(x).name] ?? 1) * pumpAt(x)
       return verb(...ch(k * l, k * r))
     }
   },
@@ -472,10 +477,18 @@ export default {
   length: END,
   sections: SECTIONS,
   theme: 'chip',
-  // for Glitch Forest: how each section runs the fight, and how each track strikes the arena
+  // for Glitch Forest: how each section runs the fight (turn / build / live), which tracks strike the
+  // arena and how, the chord on every beat, where an undefeated fight loops (PHASE 3 again) and where
+  // the victory jumps (the fanfare)
   boss: {
     modes: MODES,
-    attacks: { kick: 'shockwave', growl: 'rows', rbass: 'floor', hook: 'snake', lead: 'snake', brass: 'blocks', piano: 'none', choir: 'blocks', chiparp: 'zigzag', drums: 'columns', fx: 'warning' },
+    attacks: { kick: 'pulse', drums: 'pulse', rbass: 'floor', growl: 'rumble', hook: 'melody', lead: 'melody', brass: 'rows' },
+    chord: x => {
+      const c = chordAt(x), pc = mod(ROOT_PC[c] + tr(x), 12)
+      return (tr(x) ? FLATS : SHARPS)[pc] + (c.endsWith('m') ? 'm' : '')
+    },
+    loop: 260,
+    outro: 308,
   },
   tracks: { kick, growl, rbass, hook, lead, brass, piano, choir, chiparp, drums, fx },
 }

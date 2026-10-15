@@ -50,6 +50,8 @@ const chordAt = x => {
   return p[mod(floor(t / (BAR[name] ?? 4)), p.length)]
 }
 const LIVE = x => MODES[part(x).name] === 'live'
+const ROOT_PC = { 'F#m': 6, D: 2, A: 9, E: 4, Bm: 11, G: 7, 'C#': 1 }
+const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 
 // ---- melodies [beat, n from F♯5, length] — the 3-3-2 euphoric hook -------------------------------------
 const A = [
@@ -147,7 +149,7 @@ const kick = {
     const k = hardKick({ tail: 0.32, drop: 7, drive: 8, bias: 0.3, tone: 5200, sub: 0.55 })
     return x => {
       const h = kickAt(x), f = Fs1 * 2 ** (tr(W(x)) / 12)
-      return 0.95 * (h ? h.vel : 0) * k(h ? h.τ * SEC : 1, f, !!h)
+      return 1.9 * (h ? h.vel : 0) * k(h ? h.τ * SEC : 1, f, !!h)
     }
   },
 }
@@ -210,11 +212,12 @@ const lead = {
   graph: x => (leadAt(x) ? 1.1 + leadAt(x).n / 14 : null),
   midi: x => (leadAt(x) && leadAt(x).u < 0.9 ? [78 + leadAt(x).n] : []), // F♯5 = MIDI 78
   formula: [
-    String.raw`y = \Dly\Big[0.26\,d\,\vol\!\big(1 - 0.3\min(1, t/0.3)\big)\,\LP_{10\text{k}}\,\Pi_{1/4}\big(739.99\cdot 2^{(n + v)/12}\big)\Big]`,
+    String.raw`y = \Rev\Big[\Dly\Big[0.5\,d\,\vol\!\big(1 - 0.3\min(1, t/0.3)\big)\,\LP_{10\text{k}}\,\Pi_{1/4}\big(739.99\cdot 2^{(n + v)/12}\big)\Big]\Big]`,
     String.raw`v = 0.3\sin 2\pi\,6T\ \ (t > 0.3),\qquad n_{\text{дроп II}} = \min\{k \ge n + 3 : k \bmod 12 \in \text{аккорд}\}`,
   ],
   audio() {
     const p25 = pulse(0.25), p12 = pulse(0.125), lp = filter('lp'), echo = delay({ time: SEC * 0.75, feedback: 0.45, wet: 0.4 })
+    const verb = reverb({ room: 0.84, damp: 0.35, wet: 0.35 })
     return x => {
       const m = leadAt(x), held = m ? m.τ * SEC : 0, w = W(x)
       const vib = held > 0.3 ? 0.3 * sin(TAU * 6 * x * SEC) : 0
@@ -223,7 +226,7 @@ const lead = {
       const y = 0.5 * g * pumpAt(x) * lp(is(w, 'break') ? a12 : a25, 10000)
       const [l, r] = pan(y, -0.2), wet = is(w, 'break', 'boot', 'shutdown') ? 1 : 0.3
       const [el, er] = echo(l * wet, r * wet)
-      return [l + el, r + er]
+      return verb(l + el, r + er)
     }
   },
 }
@@ -247,38 +250,40 @@ const chiparp = {
   graph: x => (arpAt(x) && arpAt(x).a > 0.12 ? arpAt(x).notes.map(n => -0.4 + n / 24) : null),
   midi: x => (arpAt(x) && arpAt(x).a > 0.15 ? arpAt(x).notes.map(n => 66 + n) : []),
   formula: [
-    String.raw`y = 0.22\,d\,\vol\!\big(0.1 + a\big)\,\LP_{11\text{k}}\,\Pi_{1/8}\big(369.99\cdot 2^{c_i/12}\big),\qquad i = \lfloor 60T\rfloor \bmod 3`,
+    String.raw`y = \Rev\Big[1.3\,d\,\vol\!\big(0.1 + a\big)\,\LP_{11\text{k}}\,\Pi_{1/8}\big(369.99\cdot 2^{c_i/12}\big)\Big],\qquad i = \lfloor 60T\rfloor \bmod 3`,
     String.raw`a = 0.5e^{-4(x \bmod \frac12)}\ \text{(ход)},\qquad 0.55e^{-10(x \bmod \frac14)},\ c = (0,1,2,3,4,3,2,1)_{\lfloor 4x\rfloor \bmod 8}\ \text{(дроп)}`,
   ],
   audio() {
-    const p = pulse(0.125), lp = filter('lp'), verb = reverb({ room: 0.7, wet: 0.25 })
+    const p = pulse(0.125), lp = filter('lp'), verb = reverb({ room: 0.78, wet: 0.35 })
     return x => {
       const s = arpAt(x), n = s ? s.notes[mod(floor(60 * x * SEC), s.notes.length)] : 0
-      const y = 0.8 * pumpAt(x) * (s ? vol4(0.1 + s.a) : 0) * lp(p(hz(n, Fs4)), 11000)
+      const y = 1.3 * pumpAt(x) * (s ? vol4(0.1 + s.a) : 0) * lp(p(hz(n, Fs4)), 11000)
       return verb(...pan(y, 0.35))
     }
   },
 }
 
-// S(x) — the pads: three 5-voice supersaws on the voice-led chord, filter opening through the break
-const padsOn = x => x < END && is(W(x), 'break', 'drop', 'drop II', 'final', 'build II')
+// S(x) — the pads: three 5-voice supersaws on the voice-led chord, filter opening through the break;
+// a darker, quieter bed under the sparse turn sections
+const padsOn = x => x < END && is(W(x), 'break', 'drop', 'drop II', 'final', 'build II', 'boot', 'theme', 'build', 'shutdown')
+const PAD_SOFT = { boot: 0.45, theme: 0.5, build: 0.6, shutdown: 0.6 }
 const pads = {
   color: '#9fd3ff',
   graph: x => (padsOn(x) ? CH[chordAt(W(x))].map(n => -1 + (n + tr(W(x))) / 16) : null),
   midi: x => (padsOn(x) ? CH[chordAt(W(x))].map(n => 54 + n + tr(W(x))) : []), // F♯3 = MIDI 54
-  formula: [String.raw`y = \Rev\Big[\Cho\Big[0.2\,d\,g\,\LP_{f_c}\sum_{j=1}^{3}\SS_5\big(184.99\cdot 2^{c_{k,j}/12}\big)\Big]\Big],\qquad f_c = 600\cdot 2^{3\min(1,\,t/32)}\ \text{(брейк)},\ 3500`],
+  formula: [String.raw`y = \Rev\Big[\Cho\Big[0.2\,d\,g\,\LP_{f_c}\sum_{j=1}^{3}\SS_5\big(184.99\cdot 2^{c_{k,j}/12}\big)\Big]\Big],\qquad f_c = 600\cdot 2^{3\min(1,\,t/32)}\ \text{(брейк)},\ 1400\ \text{(тихая подложка)},\ 3500`],
   audio() {
     const voices = [0, 1, 2].map(j => supersaw({ voices: 5, detune: 0.18, seed: 21 + j }))
     const lpL = filter('lp'), lpR = filter('lp'), g = smooth(300), ch = chorus({ rate: 0.4, mix: 0.4 }), fx = reverb({ room: 0.92, wet: 0.5 })
     return x => {
-      const on = padsOn(x), w = W(x), a = g(on ? 1 : 0)
+      const on = padsOn(x), w = W(x), a = g(on ? PAD_SOFT[part(w).name] ?? 1 : 0)
       let l = 0, r = 0
       if (a > 1e-4) for (const [j, n] of CH[chordAt(w)].entries()) {
         const [vl, vr] = voices[j](hz(n + tr(w), Fs4 / 2))
         l += vl
         r += vr
       }
-      const fc = is(w, 'break') ? 600 * 2 ** (3 * Math.min(1, part(w).t / 32)) : 3500
+      const fc = is(w, 'break') ? 600 * 2 ** (3 * Math.min(1, part(w).t / 32)) : PAD_SOFT[part(w).name] ? 1400 : 3500
       const k = 0.2 * a * pumpAt(x)
       return fx(...ch(k * lpL(l, fc), k * lpR(r, fc)))
     }
@@ -420,10 +425,18 @@ export default {
   length: END,
   sections: SECTIONS,
   theme: 'chip',
-  // for Glitch Forest: how each section runs the fight, and how each track strikes the arena
+  // for Glitch Forest: how each section runs the fight (turn / build / live), which tracks strike the
+  // arena and how, the chord on every beat, where an undefeated fight loops (the record skips back to
+  // "stuck") and where the victory jumps (the shutdown)
   boss: {
     modes: MODES,
-    attacks: { kick: 'shockwave', rbass: 'floor', hook: 'snake', lead: 'snake', chiparp: 'zigzag', pads: 'blocks', drums: 'columns', bass: 'rows', riser: 'warning' },
+    attacks: { kick: 'pulse', drums: 'pulse', rbass: 'floor', hook: 'melody', lead: 'melody' },
+    chord: x => {
+      const w = W(x), c = chordAt(w)
+      return NAMES[mod(ROOT_PC[c] + tr(w), 12)] + (c.endsWith('m') ? 'm' : '')
+    },
+    loop: 240,
+    outro: 288,
   },
   tracks: { kick, rbass, hook, lead, chiparp, pads, bass, drums, riser },
 }
