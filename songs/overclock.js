@@ -430,7 +430,8 @@ export default {
   // "stuck") and where the victory jumps (the shutdown)
   boss: {
     modes: MODES,
-    attacks: { kick: 'pulse', drums: 'pulse', rbass: 'floor', hook: 'melody', lead: 'melody' },
+    // every track's graph(x) flies at the player as Glitch Forest tiles; the kick also sets the rhythm
+    attacks: { kick: 'tree', drums: 'water', rbass: 'lava', bass: 'lava', hook: 'slime', lead: 'acid', pads: 'frost', chiparp: 'corrupt' },
     chord: x => {
       const w = W(x), c = chordAt(w)
       return NAMES[mod(ROOT_PC[c] + tr(w), 12)] + (c.endsWith('m') ? 'm' : '')
