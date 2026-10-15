@@ -1,6 +1,6 @@
 // Generates songs from the command line — the same generator as the 🎲 menu of the app.
 //   node generate.js --style lofi [--seed 42] [--key Dm] [--bpm 80] [--length short|normal|long]
-//                    [--melody N --arrangement N --instruments N] [--out songs/name.js] [--render]
+//                    [--melody N --arrangement N --instruments N] [--theme melody-id] [--out songs/name.js] [--render]
 //   node generate.js --list            styles and melody sources
 // Without --out the song goes to songs/<title>.js. --render renders it at once (render.js).
 import fs from 'node:fs'
@@ -25,6 +25,7 @@ const num = v => (v == null || v === true ? undefined : +v)
 const { source, meta } = generate({
   style: opt.style, seed: num(opt.seed) ?? 1 + Math.floor(Math.random() * 999998), key: opt.key, bpm: num(opt.bpm), length: opt.length,
   melody: num(opt.melody), arrangement: num(opt.arrangement), instruments: num(opt.instruments),
+  theme: typeof opt.theme === 'string' ? opt.theme : undefined, // theme A by its id (--list)
 })
 const out = path.resolve(opt.out ?? `songs/${meta.title}.js`)
 fs.mkdirSync(path.dirname(out), { recursive: true })

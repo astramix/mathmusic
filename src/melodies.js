@@ -2,7 +2,8 @@
 // harmony it was written over (Roman numerals, one chord per `per` beats), so a theme can move to any
 // key — and, if `modal`, between major and minor — and still sit on its own chords.
 //   notes: [beat, n, length], n = semitones from `base`; key = the original key.
-//   feel: 'straight' | 'swing';  moods: what it suits;  modal: purely diatonic (may change mode).
+//   feel: 'straight' | 'swing';  moods: what it suits;  modal: purely diatonic (may change mode);
+//   only: the one style allowed to use it (absent = every style).
 export const MELODIES = [
   {
     id: 'lofi-flute', from: 'lofi', title: 'флейта из lofi', key: 'F', base: 'F4', feel: 'swing', per: 4, modal: true,
@@ -119,6 +120,53 @@ export const MELODIES = [
     moods: ['calm', 'warm', 'night'], chords: ['i7', 'VImaj7', 'IIImaj7', 'VII6'],
     notes: [[0, 7, 1], [1, 3, 0.5], [1.5, 2, 0.5], [2, 0, 2], [4, 0, 0.5], [4.5, 3, 0.5], [5, 7, 1], [6, 8, 2],
       [8, 7, 1.5], [9.5, 5, 0.5], [10, 3, 1], [11, 2, 1], [12, 3, 1], [13, 2, 1], [14, -2, 2]],
+  },
+  // ---- boss music (`only: 'boss'` — other styles never draw these, so their seeds keep their songs) ----
+  {
+    id: 'overclock-hook', from: 'overclock', title: 'хук из overclock', key: 'F#m', base: 'F#5', feel: 'straight', per: 4, modal: true, only: 'boss',
+    moods: ['epic', 'game', 'dark'], chords: ['i', 'VI', 'III', 'VII'],
+    notes: [[0, 7, 0.75], [0.75, 3, 0.75], [1.5, 0, 0.5], [2, 3, 0.5], [2.5, 7, 0.5], [3, 12, 0.75], [3.75, 10, 0.25],
+      [4, 8, 0.75], [4.75, 7, 0.75], [5.5, 3, 0.5], [6, 8, 0.5], [6.5, 12, 0.5], [7, 15, 0.75], [7.75, 12, 0.25],
+      [8, 10, 0.75], [8.75, 7, 0.75], [9.5, 3, 0.5], [10, 7, 0.5], [10.5, 10, 0.5], [11, 15, 1],
+      [12, 14, 0.75], [12.75, 10, 0.75], [13.5, 5, 0.5], [14, 2, 1], [15, -2, 0.5], [15.5, 2, 0.5]],
+  },
+  {
+    id: 'finalbattle-theme', from: 'finalbattle', title: 'тема из finalbattle', key: 'Em', base: 'E5', feel: 'straight', per: 4, modal: false, only: 'boss',
+    moods: ['epic', 'game', 'dark'], chords: ['i', 'VI', 'iv', 'V'],
+    notes: [[0, 0, 0.25], [0.25, 0, 0.25], [0.5, 12, 0.5], [1, 7, 0.5], [1.5, 5, 0.25], [1.75, 3, 0.25], [2, 7, 0.5], [2.5, 10, 0.5], [3, 12, 0.75], [3.75, 10, 0.25],
+      [4, 8, 0.25], [4.25, 8, 0.25], [4.5, 15, 0.5], [5, 12, 0.5], [5.5, 10, 0.25], [5.75, 8, 0.25], [6, 7, 0.5], [6.5, 8, 0.5], [7, 3, 0.75], [7.75, 5, 0.25],
+      [8, 5, 0.25], [8.25, 5, 0.25], [8.5, 17, 0.5], [9, 12, 0.5], [9.5, 10, 0.25], [9.75, 8, 0.25], [10, 12, 0.5], [10.5, 15, 0.5], [11, 17, 1],
+      [12, 14, 0.5], [12.5, 11, 0.5], [13, 7, 0.5], [13.5, 11, 0.5], [14, 14, 0.25], [14.25, 15, 0.25], [14.5, 14, 0.25], [14.75, 11, 0.25], [15, 7, 0.5], [15.5, -1, 0.5]],
+  },
+  // Восхождение: the 3-3-2 arpeggio climbs a step higher every bar (A–C, then C, D, E on top), the peak
+  // held over the dominant, an E7 run down to the leading tone G♯ that falls into the next A
+  {
+    id: 'boss-ascent', from: 'boss', title: 'босс: восхождение', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'boss',
+    moods: ['epic', 'game', 'bright'], chords: ['i', 'VI', 'VII', 'V'],
+    notes: [[0, 0, 0.75], [0.75, 7, 0.75], [1.5, 12, 0.5], [2, 15, 0.5], [2.5, 14, 0.5], [3, 12, 0.5], [3.5, 7, 0.5],
+      [4, 0, 0.75], [4.75, 8, 0.75], [5.5, 12, 0.5], [6, 15, 0.5], [6.5, 12, 0.5], [7, 8, 0.5], [7.5, 3, 0.5],
+      [8, 2, 0.75], [8.75, 10, 0.75], [9.5, 14, 0.5], [10, 17, 0.75], [10.75, 19, 0.25], [11, 17, 0.5], [11.5, 14, 0.5],
+      [12, 19, 1.5], [13.5, 17, 0.5], [14, 14, 0.5], [14.5, 11, 0.5], [15, 7, 0.5], [15.5, -1, 0.5]],
+  },
+  // Реквием: a singing dotted line over the Neapolitan (i – ♭II – iv – V): it rises to E, sinks through B♭
+  // and D, anticipates the iv on the last eighth of ♭II, and turns Phrygian (E–F–E) before G♯ – B – G♯ → A
+  {
+    id: 'boss-requiem', from: 'boss', title: 'босс: реквием', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'boss',
+    moods: ['dark', 'epic'], chords: ['i', 'bII', 'iv', 'V'],
+    notes: [[0, 12, 1.5], [1.5, 15, 0.5], [2, 19, 1], [3, 17, 0.5], [3.5, 15, 0.5],
+      [4, 17, 1.5], [5.5, 13, 0.5], [6, 8, 1], [7, 13, 0.5], [7.5, 12, 0.5],
+      [8, 8, 1.5], [9.5, 5, 0.5], [10, 12, 1], [11, 10, 0.5], [11.5, 8, 0.5],
+      [12, 7, 0.5], [12.5, 8, 0.25], [12.75, 7, 0.25], [13, 11, 1], [14, 14, 1.5], [15.5, 11, 0.5]],
+  },
+  // Перегрузка: a sixteenth riff over the Andalusian cadence (i – VII – VI – V), the same figure a step lower
+  // each bar — a hammered root, a leap to the fifth, a run down the chord — and a turn up to G♯ at the end
+  {
+    id: 'boss-overdrive', from: 'boss', title: 'босс: перегрузка', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'boss',
+    moods: ['dark', 'game', 'epic'], chords: ['i', 'VII', 'VI', 'V'],
+    notes: [[0, 12, 0.25], [0.25, 12, 0.25], [0.5, 19, 0.5], [1, 17, 0.25], [1.25, 15, 0.25], [1.5, 12, 0.5], [2, 15, 0.75], [2.75, 14, 0.25], [3, 12, 0.5], [3.5, 7, 0.5],
+      [4, 10, 0.25], [4.25, 10, 0.25], [4.5, 17, 0.5], [5, 15, 0.25], [5.25, 14, 0.25], [5.5, 10, 0.5], [6, 14, 0.75], [6.75, 12, 0.25], [7, 10, 0.5], [7.5, 5, 0.5],
+      [8, 8, 0.25], [8.25, 8, 0.25], [8.5, 15, 0.5], [9, 14, 0.25], [9.25, 12, 0.25], [9.5, 8, 0.5], [10, 12, 0.75], [10.75, 10, 0.25], [11, 8, 0.5], [11.5, 3, 0.5],
+      [12, 7, 0.25], [12.25, 7, 0.25], [12.5, 14, 0.5], [13, 12, 0.25], [13.25, 11, 0.25], [13.5, 7, 0.5], [14, 11, 0.5], [14.5, 12, 0.25], [14.75, 14, 0.25], [15, 15, 0.25], [15.25, 14, 0.25], [15.5, 11, 0.5]],
   },
 ]
 

@@ -12,11 +12,12 @@ Open a source file only to change it or when something here is unclear.
   and a level table; `quiet?` = RMS > 22 dB below the loudest track, `hot?` = peak > −1.5 dB.
   Long songs take 10–60 s: use `timeout: 600000`.
 - Check the picture: Read `out/<name>/graph.png`.
-- `npm test` (~1.5 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (8 styles × 3 seeds: loads, renders, lead on its chords), theory, MIDI export, the song
+- `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
+  the generator (9 styles × 3 seeds: loads, renders, lead on its chords), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`).
-- `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--render]`
-  → `songs/<title>.js` (`--list` = styles and melodies). Same generator as the app's 🎲 menu.
+- `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]`
+  → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
+  the app's 🎲 menu.
 - App: double-click `Visualizer.bat` (or `npm run viz`; `npm run dev` rebuilds on every change) →
   standalone `MathMusic Live.html` (render.js rebuilds it too). See "The app" below.
 - `npm run device` rebuilds `MathMusic.amxd` (only after moving the folder).
@@ -87,8 +88,8 @@ Krumhansl–Kessler, bass-weighted) · `SCALES` · `QUALITIES` · `roman('V7/V',
 `chordName(ch, key)` · `voiceLead(pcs, prev, {lo, hi, voices})` smooth compact voicings · `snap(n, pcs)`.
 
 ## The generator (src/generate.js, src/melodies.js)
-`generate({ style, seed, key?, bpm?, length?, melody?, arrangement?, instruments?, sources? })` → { source, meta }.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical kawaii space meow — each: tempo/keys, forms
+`generate({ style, seed, key?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme? })` → { source, meta }.
+Styles (`STYLES`): lofi bossa chiptune synthwave classical kawaii space meow boss — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -98,7 +99,15 @@ filled, cadence). Bridge = new progression + composed melody. Computed parts: im
 from the chords or a canon, 4:3 arpeggio, half-speed outro, key change up. The emitted song is plain
 code: data (HARMONY with voice-led voicings and the chord's 3rd/5th/7th, THEME_A/B, BRIDGE, plans) +
 instrument recipes. New theme → MELODIES (+ the styles' `themes` weights); new sound → a recipe in
-generate.js; then `npm test`.
+generate.js; then `npm test`. A melody with `only: 'style'` is drawn by that style alone — this keeps every
+other style's seeds producing exactly the songs they did (check old vs new output when touching the library).
+**boss** (⚔️ Босс-битва, 148–164 BPM, minor): the sound of overclock/finalbattle — hardKick tuned to the tonic
+(`KICK_GAIN` evens out high tails), reverseBass between the kicks (rolling in the final), everything ducking
+(`pumpAt`), supersaw hook, chip lead, brass stabs, the 60 Hz chip arp, growl or 4-bit bass, hardstyle kit,
+riser/alarm fx. Extra role `build` (VI – VII – V – V, a run up to the dominant + trill, snare roll, kick
+doubling); energy 3 = a drop; the solo is an equation (two sines snapped to chord/scale, sung by the hook).
+Themes: boss-ascent, boss-requiem, boss-overdrive (written for it) + overclock-hook, finalbattle-theme,
+chip-boss. Every boss song carries a `boss` field, so tools/score-export.mjs in Glitch Forest can take it.
 
 ## The app (viz/: build.js inlines everything into MathMusic Live.html)
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
@@ -159,3 +168,6 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | overclock | boss: euphoric hardstyle × chiptune | 150 | F#m→G#m | 2 min, hardKick + reverse bass (rolling), sidechain, lead from chords, time warp "stuck" |
 | rawcore | boss: rawstyle × dark chiptune | 155 | Cm→C#m | 2 min, crushed raw kick, screech, Echo canon L(x − 4), 3-3-2 gallop, 4:3 arps, half-time W(x) |
 | finalbattle | boss: battle theme + hardstyle | 160 | Em→Gm→G | 2 min, growl bass, brass stabs, 7/8 chaos, piano mercy, melody = graph of sines |
+| iron-protocol | generated boss (seed 4, theme boss-ascent) | 151 | Dm→Em | demo of «восхождение»: 3-3-2 sequence up i–VI–VII–V |
+| final-core | generated boss (seed 5, theme boss-requiem) | 164 | Em→Gm | demo of «реквием»: dotted line over i–♭II–iv–V |
+| crimson-kernel | generated boss (seed 6, theme boss-overdrive) | 153 | Cm→Dm | demo of «перегрузка»: 16th riff, Andalusian i–VII–VI–V |
