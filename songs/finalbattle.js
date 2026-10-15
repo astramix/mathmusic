@@ -482,8 +482,13 @@ export default {
   // the victory jumps (the fanfare)
   boss: {
     modes: MODES,
-    // every track's graph(x) flies at the player as Glitch Forest tiles; the kick also sets the rhythm
-    attacks: { kick: 'tree', drums: 'water', growl: 'lava', rbass: 'lava', hook: 'slime', lead: 'acid', brass: 'corrupt', chiparp: 'corrupt', choir: 'frost', piano: 'water' },
+    // every track's graph(x) flies at the player as a Glitch Forest tile, moving its own way
+    // (snake, wave, spray, rain, pulse, stab); the kick also sets the rhythm
+    attacks: {
+      growl: { tile: 'lava', move: 'wave' }, rbass: { tile: 'tree', move: 'wave' }, kick: { tile: 'water', move: 'pulse' },
+      hook: { tile: 'slime', move: 'snake' }, lead: { tile: 'acid', move: 'snake' }, brass: { tile: 'corrupt', move: 'stab' },
+      chiparp: { tile: 'corrupt', move: 'spray' }, choir: { tile: 'frost', move: 'rain' }, piano: { tile: 'water', move: 'rain' },
+    },
     chord: x => {
       const c = chordAt(x), pc = mod(ROOT_PC[c] + tr(x), 12)
       return (tr(x) ? FLATS : SHARPS)[pc] + (c.endsWith('m') ? 'm' : '')

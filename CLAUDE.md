@@ -28,8 +28,9 @@ export default {
   key: 'F',                                          // 'Dm', 'E♭', 'F#m'… — note names are spelt by it
   sections: [[0, 'rain'], [16, 'beat'], …],          // labels on the graph
   tracks: { name: { color, graph(x), midi(x), audio(ctx), formula }, … },
-  // optional: boss: { modes: { section: 'turn' | 'build' | 'live' }, attacks: { track: 'lava' | 'slime' | 'acid' |
-  //   'frost' | 'corrupt' | 'tree' | 'water' } (the tile its graph becomes; kick = the rhythm), chord: x ⇒ 'F♯m', loop, outro (beats) } — a Glitch Forest boss; the game's
+  // optional: boss: { modes: { section: 'turn' | 'build' | 'live' }, attacks: { track: { tile: 'lava' | 'slime' | 'acid' |
+  //   'frost' | 'corrupt' | 'tree' | 'water', move: 'snake' | 'wave' | 'spray' | 'rain' | 'pulse' | 'stab' } }
+  //   (what its graph becomes and how it flies; the kick track also sets the rhythm), chord: x ⇒ 'F♯m', loop, outro (beats) } — a Glitch Forest boss; the game's
   //   tools/score-export.mjs turns it into js/score-data/<name>.js (MP3 + a score per beat)
   // optional: theme: 'lofi' (visualiser colours, viz/app/themes.js); generated songs also carry
   // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length }
