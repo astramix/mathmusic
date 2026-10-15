@@ -28,6 +28,7 @@ export default {
   key: 'F',                                          // 'Dm', 'E♭', 'F#m'… — note names are spelt by it
   sections: [[0, 'rain'], [16, 'beat'], …],          // labels on the graph
   tracks: { name: { color, graph(x), midi(x), audio(ctx), formula }, … },
+  // optional: boss: { modes: { section: 'turn' | 'build' | 'live' }, attacks: { track: kind } } — Glitch Forest boss patterns
   // optional: theme: 'lofi' (visualiser colours, viz/app/themes.js); generated songs also carry
   // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length }
 }
@@ -71,6 +72,8 @@ Builders (inside audio()): `poly(tone, {life, release})` → p(), p.hit(f, vel, 
 `pulse(duty)`, `triangle4()`, `lfsr({metal})` → n(rateHz) chip channels ·
 drums: `kickDrum()` (τ in BEATS, on), `snareDrum, clapDrum, hatDrum({decay, cutoff}), rimDrum,
 shakerDrum` (t in SECONDS, on), `brushDrum()` → w(level) · `metal(scale)` 808 cymbal source ·
+hardstyle: `hardKick({tail, drop, drive, bias, tone, sub, crush})` → k(t s, f tail Hz, on) (tune f to the key),
+`reverseBass({drive, open, q})` → r(u ∈ [0,1) | null, f), `duck(t s, depth, release)` sidechain gain ·
 textures: `vinyl()`, `rain()` → [l, r] · effects: `chorus({rate, depth, mix})`, `tape({wow, flutter,
 drive, tone})` → (l, r) ⇒ [l, r].
 
@@ -150,3 +153,6 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | chiptune | 8-bit game | 150 | C | 2 min, NES channels, 60 Hz arps, sfx, boss level |
 | bossa | bossa nova | 120 | C | 2.5 min, nylon KS, clave, 2 solos, scat voice |
 | voidchip | gothic chiptune in space | 120 | Dm→Em | 2.5 min, pulse organ, FM bells, choir, canon, 4:3 starlight, wormhole riser |
+| overclock | boss: euphoric hardstyle × chiptune | 150 | F#m→G#m | 2 min, hardKick + reverse bass (rolling), sidechain, lead from chords, time warp "stuck" |
+| rawcore | boss: rawstyle × dark chiptune | 155 | Cm→C#m | 2 min, crushed raw kick, screech, Echo canon L(x − 4), 3-3-2 gallop, 4:3 arps, half-time W(x) |
+| finalbattle | boss: battle theme + hardstyle | 160 | Em→Gm→G | 2 min, growl bass, brass stabs, 7/8 chaos, piano mercy, melody = graph of sines |

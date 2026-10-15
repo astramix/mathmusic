@@ -387,6 +387,43 @@ export function shakerDrum() {
   }
 }
 
+// ---- hardstyle --------------------------------------------------------------------------------
+// Hardstyle kick: k(t, f) with t = seconds since the hit, f = the tail's pitch (tune it to the key).
+//   pitch f·(1 + 30e^{−t/4ms} + 2e^{−t/30ms}) falls onto f and holds until `tail` s, then bends down
+//   `drop` semitones while it fades (the "tok"); two drive stages: an asymmetric tanh (even harmonics,
+//   the fat) → LP → tanh again (the punch); a click of noise on top and a clean sine sub under it.
+//   crush = N holds every N-th sample (8-bit grit: 44100/N Hz).
+export function hardKick({ tail = 0.3, drop = 7, drive = 7, bias = 0.3, tone = 5000, sub = 0.5, crush = 0 } = {}) {
+  const o = osc('sine'), s = osc('sine'), lp = filter('lp'), hp = filter('hp'), dc = filter('hp')
+  let last = Infinity, held = 0, k = 0
+  return (t, f, on = true) => {
+    if (t < last) (o.reset(), s.reset())
+    last = t
+    const bend = t > tail ? 2 ** ((-drop * clamp((t - tail) / 0.12, 0, 1)) / 12) : 1
+    const a = on ? clamp((tail + 0.1 - t) / 0.1, 0, 1) : 0
+    const body = a * o(f * bend * (1 + 30 * exp(-t / 0.004) + 2 * exp(-t / 0.03)))
+    let y = dc(tanh(drive * (body + bias)) - tanh(drive * bias), 25)
+    y = tanh(2.2 * lp(y, tone, 0.9))
+    if (crush && ++k >= crush) (k = 0), (held = y)
+    if (crush) y = held
+    const n = hp(η(), 3000), click = on ? exp(-t / 0.0015) * n : 0
+    return 0.8 * y + 0.5 * click + sub * a * s(f * bend)
+  }
+}
+// Reverse bass: r(u, f) with u ∈ [0, 1) the progress through the swell (null = silent).
+//   volume u², two detuned saws + a sine at f driven into tanh, low-pass opening 150 → 150·2^{open} Hz
+export function reverseBass({ drive = 4, open = 4, q = 1.2 } = {}) {
+  const a = osc('saw'), b = osc('saw', 0.37), s = osc('sine'), lp = filter('lp'), dc = filter('hp'), g = smooth(2)
+  return (u, f) => {
+    const on = u != null && u >= 0 && u < 1
+    const e = g(on ? u * u * clamp((1 - u) / 0.04, 0, 1) : 0)
+    const y = tanh(drive * e * (0.4 * a(f) + 0.4 * b(f * 1.006) + 0.8 * s(f)))
+    return dc(lp(y, 150 * 2 ** (open * (on ? u : 0)), q), 25)
+  }
+}
+// Sidechain pump: gain after a kick t seconds ago — dips by `depth` and comes back over `release` s
+export const duck = (t, depth = 0.7, release = 0.18) => 1 - depth * clamp(1 - t / release, 0, 1) ** 2
+
 // ---- textures -----------------------------------------------------------------------------
 // Vinyl: hiss plus sparse crackles
 export function vinyl({ hiss = 0.01, crackle = 0.25 } = {}) {
