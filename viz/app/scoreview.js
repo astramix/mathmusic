@@ -201,8 +201,14 @@ export function engrave(score, { sp = 8, width = 1000 }) {
     const w = ts.reduce((s, t, i) => s + S(ticks.get(t).lead) + room((ts[i + 1] ?? b.meter.barTicks) - t), 0) + S(1.2)
     return { ticks, ts, w: Math.max(w, S(6)) }
   })
+  // a key change inside a line: naturals for what the old signature had, then the new one
+  const sigOf = bi => score.bars[bi].sig ?? score.signature
+  const sigKey = s => s.items.map(i => i.letter + i.acc).join(',')
+  const keyChange = bi => bi > 0 && sigKey(sigOf(bi)) !== sigKey(sigOf(bi - 1))
+  const cancelled = bi => { const now = new Set(sigOf(bi).items.map(i => i.letter)); return sigOf(bi - 1).items.filter(i => !now.has(i.letter)) }
+  for (const [bi, B] of bars.entries()) if (keyChange(bi)) B.w += S((cancelled(bi).length + sigOf(bi).items.length) * 1.15 + 1)
   // systems: as many bars as fit, then justified
-  const header = (first, bi) => S(3.6) + S(Math.max(1, score.signature.items.length) * 1.15 + 0.6) + (first || score.bars[bi].time !== score.bars[bi - 1]?.time ? S(2.6) : 0)
+  const header = (first, bi) => S(3.6) + S(Math.max(1, sigOf(bi).items.length) * 1.15 + 0.6) + (first || score.bars[bi].time !== score.bars[bi - 1]?.time ? S(2.6) : 0)
   const systems = []
   let row = null
   score.bars.forEach((b, bi) => {
@@ -234,7 +240,7 @@ export function engrave(score, { sp = 8, width = 1000 }) {
     let hx = left + S(0.6)
     P.forEach((p, i) => out.push(glyph(p.clef === 'bass' ? 'fClef' : 'gClef', hx, yOf(tops[i], p.clef === 'bass' ? 6 : 2))))
     hx += S(3.2)
-    const sig = score.signature
+    const sig = sigOf(sys.bars[0])
     sig.items.forEach((it, k) => {
       const name = it.sp?.glyph ?? (it.acc > 0 ? 'accidentalSharp' : 'accidentalFlat')
       P.forEach((p, i) => {
@@ -265,6 +271,15 @@ export function engrave(score, { sp = 8, width = 1000 }) {
         P.forEach((_, i) => { out.push(digits(num, bx + S(0.5), yOf(tops[i], 6))); out.push(digits(den, bx + S(0.5), yOf(tops[i], 2))) })
       }
       let tx = x0 + S(1.0) * k + (bi !== b0 && b.time !== score.bars[bi - 1].time ? S(2.4) : 0)
+      // a key change inside the line
+      if (bi !== b0 && keyChange(bi)) {
+        const marks = [...cancelled(bi).map(it => ({ it, name: 'accidentalNatural' })), ...sigOf(bi).items.map(it => ({ it, name: it.sp?.glyph ?? (it.acc > 0 ? 'accidentalSharp' : 'accidentalFlat') }))]
+        marks.forEach(({ it, name }, j) => P.forEach((p, i) => {
+          const st = (it.acc > 0 ? SHARP_STEP : FLAT_STEP)[it.letter] - (p.clef === 'bass' ? 2 : 0)
+          out.push(glyph(name, tx + S(j * 1.15), yOf(tops[i], st)))
+        }))
+        tx += S(marks.length * 1.15 + 0.8)
+      }
       const usable = w - (tx - x0)
       const sum = B.ts.reduce((s, t, i) => s + S(B.ticks.get(t).lead) + room((B.ts[i + 1] ?? b.meter.barTicks) - t), 0) || 1
       const f = usable / (sum + S(0.2))

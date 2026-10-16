@@ -9,7 +9,7 @@ import { Library, nameIn, setName, cleanName, lf, shelfOf } from './library.js'
 import { Scene, GRID } from './view.js'
 import { THEMES, themeFor, applyUiTheme } from './themes.js'
 import { formulaOf, formulaHTML, substitute, tex, formulaImage } from './formula.js'
-import { songKey, spell, keyLabel, freq, tonicName, pc } from './theory.js'
+import { songKey, spell, keyLabel, freq, tonicName, pc, keyAt } from './theory.js'
 import { keyWithMode, MODES } from './modes.js'
 
 const SRC = MM.SRC
@@ -835,7 +835,7 @@ function valuesFor(t, x) {
 function liveFormula(t, x) {
   if (!t.formula) return ''
   const vals = valuesFor(t, x), main = substitute(t.formula[0], vals)
-  const list = Object.entries(vals).filter(([k]) => k !== 'x').map(([k, v]) => `${k} = ${k === 'n' ? v + ' (' + spell(v, app.current.key) + ')' : (+v).toFixed(k === 'f' ? 2 : 3)}`).join('   ')
+  const list = Object.entries(vals).filter(([k]) => k !== 'x').map(([k, v]) => `${k} = ${k === 'n' ? v + ' (' + spell(v, keyAt(app.current.song, x, app.current.key)) + ')' : (+v).toFixed(k === 'f' ? 2 : 3)}`).join('   ')
   return `<div class="vals">${esc(list)}</div>` + tex(main) + (t.formula.length > 1 ? '<div class="def">' + t.formula.slice(1).map(s => tex(substitute(s, vals))).join('') + '</div>' : '')
 }
 let inspKey = '', liveAt = 0
@@ -847,7 +847,7 @@ function showInspector(ins) {
   const key = [t.key, notes.join(','), pin ? 1 : 0, live ? Math.floor(performance.now() / 120) : 0].join('|')
   if (key !== inspKey) {
     inspKey = key
-    const k = app.current.key
+    const k = keyAt(app.current.song, ins.x, app.current.key)
     const list = notes.length
       ? notes.map(n => (isDrum(t) ? `<span><b>${DRUMS[n] ?? 'drum'}</b></span>` : `<span><b>${spell(n, k)}</b><small>${soundOf(app.current.song, n).hz.toFixed(2)} Гц${Math.abs(soundOf(app.current.song, n).cents) >= 0.5 ? ` · ${soundOf(app.current.song, n).cents > 0 ? '+' : '−'}${Math.abs(soundOf(app.current.song, n).cents).toFixed(1)} ¢` : ''}</small></span>`)).join('')
       : '<span class="rest">без ноты</span>'

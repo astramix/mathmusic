@@ -7,7 +7,7 @@
 //            plane you pass through.
 // The scene is a pure function of (time, levels, its own seeded particle state), so the same code
 // draws the live view and, frame by frame, the video export.
-import { spell } from './theory.js'
+import { spell, keyAt } from './theory.js'
 import { isDrum, scenery2d, sceneryBack, sceneryRoad } from './scenery.js'
 
 export const GRID = 32 // graph samples per beat
@@ -145,7 +145,8 @@ export class Scene {
   }
   noteLabel(t) {
     const m = [...t.notes]
-    return m.length && !isDrum(t.key) ? m.slice(0, 3).map(n => spell(n, this.key)).join(' ') : t.key
+    const k = keyAt(this.song, this.x, this.key) // the key of the section playing (a modulation)
+    return m.length && !isDrum(t.key) ? m.slice(0, 3).map(n => spell(n, k)).join(' ') : t.key
   }
 
   // ---- drawing ----------------------------------------------------------------------------------

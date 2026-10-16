@@ -4,14 +4,14 @@
 // notes. Shared by the app's staff view (viz/app/scoreview.js), MusicXML export (src/musicxml.js) and the tests.
 //
 //   buildScore(song, { parts: ['flute', 'piano'], key, mode, harmony }) → {
-//     title, bpm, key, signature, bars: [{ n, at, len, time: '4/4', section?, chords: [{ at, symbol }] }],
+//     title, bpm, key, signature, bars: [{ n, at, len, time: '4/4', key, sig (its signature), section?, chords: [{ at, symbol }] }],
 //     parts: [{ key, name, clef, bars: [[event…] per bar] }] }
 //   event: { at (ticks in the bar), dur, rest?, notes: [{ midi, sp (theory.spellParts), show (accidental drawn), tieStart, tieStop }],
 //            type ('whole' … '64th'), dots, tuplet?: { actual: 3, normal: 2, first, last }, grace?: [note…], beams: ['begin'…] }
 // Ticks: a quarter note = 48 (MusicXML divisions), so 64ths (3), triplet eighths (16) and triplet sixteenths (8) are whole.
 // x (the song's beats) is a quarter note, or a dotted quarter in compound meters (song.meter '12/8': 112 BPM counts
 // dotted quarters). Meters: song.meter ('4/4', '12/8', '7/8'…) or song.meters [[beat, '7/8'], …] per section.
-import { spellParts, pc, chordName, roman } from './theory.js'
+import { spellParts, pc, chordName, roman, keyAt } from './theory.js'
 
 export const DIV = 48 // ticks per quarter note
 const VALUES = [[288, 'whole', 1], [192, 'whole', 0], [144, 'half', 1], [96, 'half', 0], [72, 'quarter', 1], [48, 'quarter', 0], [36, 'eighth', 1], [24, 'eighth', 0],
@@ -33,6 +33,7 @@ export function parseMeter(m = '4/4') {
   } else groups = Array(N).fill(unitTicks)
   return { text: `${N}/${D}`, beats: N, unit: D, compound, xTicks: compound ? 72 : DIV, barTicks, groups }
 }
+// (a song that modulates says so in song.keys: each bar takes the signature and the spelling of its key)
 // the song's bars: [{ n, at (x), len (x), meter }]
 export function songBars(song) {
   const list = song.meters?.length ? song.meters : [[0, song.meter ?? '4/4']]
@@ -198,7 +199,7 @@ export function songChords(song, bars, key, source = null) {
       }
       // the chord before stays unless the new one explains the notes clearly better (no flicker inside a bar)
       if (prev && score(prev.root, prev.quality, TEMPLATES.find(t => t[0] === prev.quality)[1]) >= bestS - 0.15 * total) continue
-      if (best && bestS > 0.25 * total) out.push({ at: a, symbol: chordName(best, key) }), (prev = best)
+      if (best && bestS > 0.25 * total) out.push({ at: a, symbol: chordName(best, keyAt(song, a, key)) }), (prev = best)
     }
   }
   return dedupe(out)
@@ -298,7 +299,10 @@ export function buildScore(song, { parts = null, key, mode = null, source = null
   const keys = parts ?? guessParts(song)
   const sw = (() => { const m = source?.match(/const SW = ([\d.]+)/); return m && +m[1] > 0.52 ? +m[1] : null })()
   const sections = song.sections ?? []
-  const outBars = bars.map(b => ({ n: b.n, at: b.at, len: b.len, time: b.meter.text, meter: b.meter, section: sections.find(s => s[0] >= b.at - 1e-6 && s[0] < b.at + b.len - 1e-6)?.[1] ?? null, chords: [] }))
+  const outBars = bars.map(b => {
+    const k = keyAt(song, b.at, key)
+    return { n: b.n, at: b.at, len: b.len, time: b.meter.text, meter: b.meter, key: k, sig: k === key ? sig : keySignature(k), section: sections.find(s => s[0] >= b.at - 1e-6 && s[0] < b.at + b.len - 1e-6)?.[1] ?? null, chords: [] }
+  })
   for (const c of songChords(song, bars, key, source)) {
     const b = outBars.findLast(b => b.at <= c.at + 1e-6)
     if (b) b.chords.push({ at: Math.round((c.at - b.at) * b.meter.xTicks), symbol: c.symbol })
@@ -383,7 +387,7 @@ export function buildScore(song, { parts = null, key, mode = null, source = null
       tuplets(evs)
       part.bars.push(evs)
     }
-    accidentals(part, sig, key)
+    accidentals(part, outBars)
     beams(part, bars)
   }
   return out
@@ -405,9 +409,9 @@ function tuplets(evs) {
 }
 // accidentals: shown where the note's alteration differs from the signature or from what the bar already said for that
 // letter and octave; a tied note never repeats it
-function accidentals(part, sig, key) {
-  for (const evs of part.bars) {
-    const said = new Map()
+function accidentals(part, bars) {
+  for (const [bi, evs] of part.bars.entries()) {
+    const said = new Map(), sig = bars[bi].sig, key = bars[bi].key
     for (const e of evs) for (const n of [...(e.grace ?? []).map(g => ({ midi: g, grace: true })), ...e.notes]) {
       const sp = spellParts(n.midi, key)
       const where = sp.letter + sp.oct, now = said.has(where) ? said.get(where) : sig.alter[sp.letter] ?? 0

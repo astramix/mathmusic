@@ -136,6 +136,15 @@ export function spell(n, key = { tonic: 0, mode: 'major' }, octave = true) {
   return s.name + (octave ? s.oct : '') + centsText(s.cents)
 }
 
+// the key at beat x of a song that changes key (song.keys: [[beat, 'G'], …]) — else `home`
+export function keyAt(song, x, home) {
+  if (!song?.keys?.length) return home
+  let k = null
+  for (const [at, name] of song.keys) if (at <= x + 1e-6) k = name
+  const p = parseKey(k ?? song.keys[0][1])
+  return p && (p.tonic !== home?.tonic || p.mode !== home?.mode) ? p : home
+}
+
 // Krumhansl–Kessler key profiles → the most likely key of a pitch-class histogram (weights ≥ 0)
 const KK_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
 const KK_MINOR = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]

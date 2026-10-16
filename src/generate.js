@@ -454,6 +454,10 @@ export function generate(opts = {}) {
   let form = pick(RA, S.forms).map(([name, bars, role, energy, o]) => ({ name, bars, role, energy, ...(o ?? {}) }))
   const target = { short: 95, normal: 160, long: 220 }[opts.length ?? 'normal'] // seconds
   form = fitForm(form, target, bpm, RA)
+  // modulations: their own dice; none in a mode of its own or on a quarter-tone tonic
+  const RMod = rng((seeds.arrangement ^ 0xa11ce) >>> 0)
+  const mods = opts.modulations && !mode && !tonicShift ? planModulations(form, key, styleId, RMod) : {}
+  const iBridge = form.findIndex(f => f.role === 'bridge'), bridgeKey = mods[iBridge]?.key ?? key
 
   // themes from the library: the style's own list (weights), only those that can live in this mode;
   // A and B preferably from different songs. A melody marked `only` belongs to its style alone
@@ -494,12 +498,26 @@ export function generate(opts = {}) {
   }
   const A = treat(melA, 'A'), B = treat(melB, 'B')
   // the bridge: a new progression, a new melody on the rhythm of a third theme
-  const progs = PROGRESSIONS[key.mode]
-  const bridgeProg = pick(RA, progs).map(s => roman(s, key))
+  const progs = PROGRESSIONS[bridgeKey.mode]
+  const bridgeProg = pick(RA, progs).map(s => roman(s, bridgeKey))
   const melR = pick(RM, LIB.filter(m => m.id !== melA.id && m.id !== melB.id))
   const bridgeLen = 16, bridgeAt = b => bridgeProg[Math.floor(b / 4) % 4]
   const rhythm = melR.notes.filter(([b]) => b < bridgeLen).map(([b, , d]) => [b, Math.min(d, bridgeLen - b)])
-  const BR = { notes: compose({ rhythm, chordAt: bridgeAt, key, lo: 64, hi: 81, r: RM, end: 'open' }), chords: bridgeProg, per: 4, length: bridgeLen, from: melR.from }
+  const BR = { notes: compose({ rhythm, chordAt: bridgeAt, key: bridgeKey, lo: 64, hi: 81, r: RM, end: 'open' }), chords: bridgeProg, per: 4, length: bridgeLen, from: melR.from }
+  // theme II in another key: the relative key needs the theme written in that mode (a modal theme, or one born in it);
+  // the dominant is the theme moved up a fifth or down a fourth, whichever keeps it in its register
+  let BL = null
+  const iB = form.findIndex(f => f.role === 'themeB'), mB = mods[iB]
+  if (mB?.type === 'relative') {
+    if (melB.modal || parseKey(melB.key).mode === mB.key.mode) {
+      BL = shape(adaptTheme(melB, mB.key), ...ranges.lead)
+      const chordAt = b => BL.chords[Math.floor(b / BL.per) % BL.chords.length]
+      if (B.how === 'ornamented') BL.notes = ornament(BL.notes, mB.key, chordAt, RMod)
+      if (B.how === 'recomposed') { const ns = BL.notes.map(e => e[1]); BL.notes = compose({ rhythm: BL.notes.map(([b, , d]) => [b, d]), chordAt, key: mB.key, lo: Math.min(...ns) - 2, hi: Math.max(...ns) + 2, r: RMod }) }
+    } else mods[iB] = { key: { tonic: (key.tonic + 7) % 12, mode: key.mode }, type: 'dominant' }
+  }
+  const midOf = th => { const ns = th.notes.map(e => e[1]); return (Math.min(...ns) + Math.max(...ns)) / 2 }
+  const trOf = (i, th) => { const t = (((mods[i].key.tonic - key.tonic) % 12) + 12) % 12; return t === 0 ? 0 : midOf(th) + t <= 78 ? t : t - 12 }
   // the build-up (the 'build' role, 16 beats): the theme's opening rhythm recomposed over VI – VII, eight
   // eighths up the (harmonic) scale from the dominant, then a trill on it — the countdown before a drop
   let RUN = null
@@ -527,20 +545,23 @@ export function generate(opts = {}) {
   // timeline: sections, harmony, who plays what
   const sections = [], harmony = [], plans = { lead: [], lead2: [], counter: [] }, sectionInfo = []
   let at = 0
-  for (const sec of form) {
-    const beats = sec.bars * 4, tr = sec.keyUp ?? 0
+  for (const [si, sec] of form.entries()) {
+    const md = mods[si], beats = sec.bars * 4
+    // a section in another key of the same mode is its music moved there; the bridge and a relative theme II are
+    // written in their key already
+    const tr = md && sec.role === 'themeB' && !BL ? trOf(si, B) : md ? 0 : sec.keyUp ?? 0
     sections.push([at, sec.name])
     // the harmony of the section: a theme's chords, the bridge progression, or the A chords
-    const src = sec.role === 'themeB' ? B : sec.role === 'bridge' ? BR : sec.role === 'build' && RUN ? RUN : A
+    const src = sec.role === 'themeB' ? (md && BL ? BL : B) : sec.role === 'bridge' ? BR : sec.role === 'build' && RUN ? RUN : A
     for (let b = 0; b < beats; b += src.per) {
       const ch = src.chords[Math.floor(b / src.per) % src.chords.length]
       const len = Math.min(src.per, beats - b)
-      harmony.push({ at: at + b, len, ch, tr })
+      harmony.push({ at: at + b, len, ch, tr, ...(md ? { lk: md.key } : {}) })
     }
     // melodic plans: [start, phrase, transpose, stretch]
     const repeat = (plan, ph, phLen) => { for (let b = 0; b + phLen <= beats + 1e-6; b += phLen) plan.push([at + b, ph, tr, 1]) }
     if (sec.role === 'theme') repeat(plans.lead, 'A', A.length)
-    else if (sec.role === 'themeB') { plans.lead.push([at, 'REST', 0, 1]); repeat(plans.lead2, 'B', B.length) }
+    else if (sec.role === 'themeB') { plans.lead.push([at, 'REST', 0, 1]); repeat(plans.lead2, md && BL ? 'BL' : 'B', B.length) }
     else if (sec.role === 'bridge') { plans.lead.push([at, 'REST', 0, 1]); repeat(plans.lead2, 'BRIDGE', BR.length) }
     else if (sec.role === 'solo' && styleId === 'boss') { plans.lead.push([at, 'SOLO', 0, 1]); plans.lead2.push([at, 'REST', 0, 1]) } // the hook sings the equation
     else if (sec.role === 'solo') { plans.lead.push([at, 'REST', 0, 1]); plans.lead2.push([at, 'SOLO', 0, 1]) }
@@ -553,10 +574,44 @@ export function generate(opts = {}) {
     else plans.lead.push([at, 'REST', 0, 1])
     if (!['bridge', 'solo', 'themeB', 'build'].includes(sec.role)) plans.lead2.push([at, 'REST', 0, 1])
     if (sec.role !== 'final') plans.counter.push([at, 'REST', 0, 1])
-    sectionInfo.push({ ...sec, at, beats })
+    sectionInfo.push({ ...sec, at, beats, ...(md ? { lk: md.key, modType: md.type } : {}) })
     at += beats
   }
   const END = at
+  // transition bars: the last bar before a section in another key (and before the one that comes home) gets
+  // [pivot, V7 of the new key] and a link in the melody — composed over those chords, ending open on 5̂ or 2̂
+  const LINKS = []
+  const keyOfSec = i => sectionInfo[i]?.lk ?? key
+  sectionInfo.forEach((s, i) => {
+    if (!i) return
+    const a = keyOfSec(i - 1), b = keyOfSec(i)
+    if (!mods[i] && !mods[i - 1]) return
+    if (a.tonic === b.tonic && a.mode === b.mode) return
+    const T = s.at, type = mods[i]?.type ?? 'home'
+    const [c1, c2] = transitionChords(a, b, type === 'home' ? 'pivot' : type)
+    for (const h of harmony) if (h.at < T && h.at + h.len > T - 4) h.len = Math.max(0, T - 4 - h.at)
+    for (let k = harmony.length - 1; k >= 0; k--) if (harmony[k].len <= 0) harmony.splice(k, 1)
+    harmony.push({ at: T - 4, len: 2, ch: c1, tr: 0, lk: type === 'enharmonic' ? a : b, transition: type }, { at: T - 2, len: 2, ch: c2, tr: 0, lk: b, transition: type })
+    harmony.sort((x, y) => x.at - y.at)
+    // the voice singing at that bar gets the link
+    for (const plan of [plans.lead, plans.lead2]) {
+      const row = [...plan].reverse().find(r => r[0] <= T - 4)
+      if (!row || row[1] === 'REST' || row[1] === 'SOLO') continue
+      const ph = { A, B, BL, BRIDGE: BR, RUN }[row[1]]
+      if (!ph) continue
+      const rel = (T - 4 - row[0]) / row[3]
+      const inBar = ph.notes.filter(([b]) => b >= rel - 1e-6 && b < rel + 4 / row[3] - 1e-6).map(([b, , d]) => [(b - rel) * row[3], Math.min(d * row[3], 4 - (b - rel) * row[3])])
+      if (!inBar.length) continue
+      const ns = ph.notes.map(e => e[1] + row[2])
+      const notes = compose({ rhythm: inBar, chordAt: b => (b < 2 ? c1 : c2), key: b, lo: Math.min(...ns) - 1, hi: Math.max(...ns) + 1, r: RMod, end: 'open' })
+      const name = 'LINK' + (LINKS.length + 1)
+      LINKS.push({ name, notes, at: T - 4, from: keyName(a), to: keyName(b), type })
+      plan.push([T - 4, name, 0, 1])
+      plan.sort((x, y) => x[0] - y[0])
+      // the phrase that was singing goes on after the link if its section does
+      break
+    }
+  })
   // voicings with voice leading, the bass root in its range
   let prev = null
   for (const h of harmony) {
@@ -567,7 +622,7 @@ export function generate(opts = {}) {
     if (bass < S.bassRange[0] + 4) bass += 12
     h.voicing = v
     h.bass = bass
-    h.symbol = chordName({ ...ch, root: (ch.root + h.tr) % 12 }, key)
+    h.symbol = chordName({ ...ch, root: (ch.root + h.tr) % 12 }, h.lk ?? key)
     // the chord's own third, fifth and seventh above the root (the fifth of a ø7 chord is diminished!)
     h.ivs = [ch.ivs.find(i => i === 3 || i === 4) ?? 4, ch.ivs.find(i => i === 6 || i === 7 || i === 8) ?? 7, ch.ivs.find(i => i === 9 || i === 10 || i === 11) ?? 10]
   }
@@ -586,10 +641,11 @@ export function generate(opts = {}) {
   const meta = {
     style: styleId, seed, seeds, length: opts.length ?? 'normal', key: keyName(key), mode: modeIn ? opts.mode : null, modeName: modeIn?.name ?? null, bpm, title, form: form.map(f => f.name),
     fixedKey: opts.key ?? null, micro: opts.micro ?? null, temperament: temperament?.id ?? null,
+    modulations: opts.modulations ? sectionInfo.filter(s => s.lk).map(s => ({ at: s.at, section: s.name, key: keyName(s.lk), type: s.modType })) : null,
     themes: { A: { from: melA.from, title: melA.title, how: A.how }, B: { from: melB.from, title: melB.title, how: B.how }, bridge: { rhythmFrom: melR.from } },
     instruments: inst,
   }
-  const source = emit({ S, styleId, key, mode, modeIn, micro, temperament, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI })
+  const source = emit({ S, styleId, key, mode, modeIn, micro, temperament, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI, BL, LINKS })
   return { source, meta }
 }
 
@@ -627,7 +683,7 @@ const PAD_ON = `const padOn = x => chordAt(x) && ['themeB', 'bridge', 'break', '
 const lane = { lead: [1.1, 3], lead2: [1, 2.9], counter: [0.8, 2.4], chords: [-1, 0.4], bass: [-3, -2], pad: [-1.7, -0.6], arp: [0.3, 1.2], texture: [-2.95, -2.85] }
 
 function emit(P) {
-  const { S, styleId, key, mode, modeIn = mode, micro = null, temperament = null, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r } = P
+  const { S, styleId, key, mode, modeIn = mode, micro = null, temperament = null, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r, BL = null, LINKS = [] } = P
   const skey = keyWithMode(key, meta.mode) // the key the notes are spelt in (with a microtonal mode's degrees)
   const ivText = m => (m.grid ? `${m.grid}-EDO` : m.iv.map(round).join(' '))
   const used = { engine: new Set(['mod', 'floor', 'exp', 'sin', 'TAU', 'hz', 'filter', 'reverb', 'delay', 'smooth']), instruments: new Set(['notesAt', 'hash', 'pan', 'arrangement', 'trigger', 'poly']) }
@@ -647,6 +703,7 @@ function emit(P) {
   head.push(`// composed on the rhythm of a theme from ${BR.from}. Computed parts: ${[solo ? (boss ? 'a solo that is an equation (the graph of two sines)' : 'an improvised solo') : null, 'a counter-melody from the chords', plans.counter.some(p => p[1] === 'CANON') ? 'a canon' : null, RUN ? 'a run up to the dominant in every build-up' : null, hard ? 'a reverse bass that rolls in the final' : null, 'the theme at half speed in the outro', sectionInfo.some(s => s.keyUp) ? 'a key change up' : null].filter(Boolean).join(', ')}.`)
   if (hard && !boss) head.push(`// Japanese instruments over the boss machinery: the hardstyle kick's tail and the reverse bass sit on the tonic,\n// every part ducks under the kick in the drops, d(t) = 1 − 0.7(1 − t/0.18)²; the taiko roll doubles through each build.`)
   if (boss) head.push(`// The hardstyle kick's tail and the reverse bass sit on the tonic; every part ducks under the kick in the drops,\n// d(t) = 1 − 0.7(1 − t/0.18)². \`boss\` below makes it a Glitch Forest boss song (tools/score-export.mjs).`)
+  if (meta.modulations?.length) head.push(`// Modulations: ${meta.modulations.map(m => `${m.section} in ${keyLabel(parseKey(m.key))} (${MOD_NAMES[m.type]})`).join(', ')}; every change is prepared by a bar of\n// [pivot, V7 of the new key] with a composed link in the melody, and the music comes home by its dominant seventh.`)
   head.push(`// It is an ordinary song file: change anything; the melodies can be drawn in the piano roll (P).`)
   head.push(`// x is time in beats; n counts semitones from C4 (MIDI 60).`)
 
@@ -685,7 +742,11 @@ const SOLO = improvise({
   start: ${solo.at}, length: ${solo.beats - 2}, rate: 2, seed: ${1 + Math.floor(r() * 999)}, swing: SW, lo: ${A.notes.reduce((a, e) => Math.min(a, e[1]), 99) - 60 - 2}, hi: ${A.notes.reduce((a, e) => Math.max(a, e[1]), 0) - 60 + 3},
   phrase: 8, rest: 0.2, hold: 0.3, scale: () => SCALE, chord: x => (chordAt(x)?.[3] ?? [0]).map(n => mod(n, 12)),
 }).map(${micro ? `([b, n, d], j, a) => [b - ${solo.at}, n + MICRO(n, b, a[j + 1]?.[1]), d]` : `([b, n, d]) => [b - ${solo.at}, n, d]`})` : 'const SOLO = []'}
-const PHRASES = { A: THEME_A, B: THEME_B, BRIDGE, REST, SOLO${RUN ? ', RUN' : ''} }
+${BL ? `// theme II in ${keyLabel(meta.modulations?.find(m => m.type === 'relative') ? sectionInfo.find(s => s.modType === 'relative').lk : key)} — the same theme written in that mode
+const THEME_BL = ${fmtNotes(BL.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
+` : ''}${LINKS.map(l => `// a link into ${l.to} (${MOD_NAMES[l.type] ?? l.type}): composed over the transition's pivot and V7
+const ${l.name} = ${fmtNotes(l.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
+`).join('')}const PHRASES = { A: THEME_A, B: THEME_B, BRIDGE, REST, SOLO${RUN ? ', RUN' : ''}${BL ? ', BL: THEME_BL' : ''}${LINKS.map(l => ', ' + l.name).join('')} }
 
 // who plays which phrase: [start beat, phrase, transpose, stretch (2 = half speed)]
 const LEAD = ${JSON.stringify(plans.lead.map(([s, p, t, k]) => [s, p, t, k]))}
@@ -792,7 +853,8 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   length: END,
   theme: '${S.theme}',
   style: '${styleId}',
-  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}) })},
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}) })},${meta.modulations?.length ? `
+  keys: ${JSON.stringify(keysField(key, sectionInfo))}, // the key of each stretch (the score's signatures, note names)` : ''}
   sections: SECTIONS,${bossField}
   tracks: ${temperament ? 'withNow(' : ''}{ ${tracks.map((t, i) => `${JSON.stringify(t.key)}: track${i}`).join(', ')} }${temperament ? ')' : ''},
 }
@@ -2526,6 +2588,65 @@ const KEY_UPS = ${JSON.stringify(sectionInfo.filter(s => s.keyUp).map(s => [s.at
 const temperNow = () => { let T = TEMPER; for (const [s, k] of KEY_UPS) if (s <= NOW) T = TEMPER_UP[k]; return T }
 const off = m => temperNow()[mod(m, 12)]` : 'const off = m => TEMPER[mod(m, 12)]'}
 ${interp}`
+}
+
+// ---- modulations (opts.modulations) --------------------------------------------------------------------------------
+// Which sections leave home and how. Theme II goes to a closely related key by a pivot chord (classical: the dominant
+// of a major key, the relative major of a minor one); the bridge goes further — the parallel key, a key a minor third
+// away by the enharmonic diminished seventh (B°7 in C is D°7 in E♭), a chromatic mediant (C → A♭: a common tone), the
+// relative or the subdominant; the section after a modulated one comes home by the dominant seventh. Every change
+// gets a transition bar: [pivot, V7 of the new key] in the harmony and a newly composed link in the melody.
+const MOD_STYLE = {
+  classical: { themeB: true, bridge: ['enharmonic', 'subdominant', 'relative'] },
+  romantic: { themeB: true, bridge: ['enharmonic', 'mediant', 'parallel'] },
+  lofi: { themeB: false, bridge: ['mediant', 'parallel', 'relative'] },
+  bossa: { themeB: false, bridge: ['mediant', 'relative', 'subdominant'] },
+  space: { themeB: false, bridge: ['enharmonic', 'mediant', 'parallel'] },
+  default: { themeB: false, bridge: ['relative', 'parallel', 'mediant'] },
+}
+const MOD_NAMES = { dominant: 'доминанта', relative: 'параллельная', subdominant: 'субдоминанта', parallel: 'одноимённая', enharmonic: 'энгармоническая (через Ум7)', mediant: 'хроматическая медианта', home: 'домой' }
+// → { [section index]: { key: the local key, type } } — keys as { tonic, mode }
+function planModulations(form, key, styleId, r) {
+  const st = MOD_STYLE[styleId] ?? MOD_STYLE.default, plan = {}
+  const iA = form.findIndex(f => f.role === 'theme'), iB = form.findIndex(f => f.role === 'themeB')
+  const iBr = form.findIndex(f => f.role === 'bridge')
+  const rel = key.mode === 'major' ? { tonic: (key.tonic + 9) % 12, mode: 'minor' } : { tonic: (key.tonic + 3) % 12, mode: 'major' }
+  const by = (t, mode = key.mode) => ({ tonic: (((key.tonic + t) % 12) + 12) % 12, mode })
+  if (st.themeB && iB > iA && iA >= 0) plan[iB] = key.mode === 'major' ? { key: by(7), type: 'dominant' } : { key: rel, type: 'relative' }
+  if (iBr >= 0) {
+    const type = st.bridge[Math.floor(r() * st.bridge.length)]
+    const k = type === 'parallel' ? by(0, key.mode === 'major' ? 'minor' : 'major')
+      : type === 'enharmonic' ? by(r() < 0.5 ? 3 : -3)
+      : type === 'mediant' ? by(key.mode === 'major' ? (r() < 0.6 ? -4 : 4) : -4)
+      : type === 'relative' ? rel : by(5)
+    plan[iBr] = { key: k, type }
+  }
+  return plan
+}
+// the song's keys field: [[beat, 'G'], …] — home, each modulated section and the way back
+function keysField(key, sectionInfo) {
+  const out = []
+  for (const s of sectionInfo) {
+    const k = keyName(s.lk ?? key)
+    if (!out.length || out[out.length - 1][1] !== k) out.push([s.at, k])
+  }
+  return out
+}
+// the two chords of a transition bar from key a to key b (as roman() objects, absolute roots)
+function transitionChords(a, b, type) {
+  const V7 = roman('V7', b)
+  const sc = k => (k.mode === 'minor' ? SCALES.harmonic : MAJ).map(i => (i + k.tonic) % 12)
+  // the enharmonic one: the old key's leading-tone °7 (C♯°7 in D) is the new key's too (E°7 in F: C♯ = D♭) — written as heard
+  if (type === 'enharmonic') {
+    const old = roman('vii°7', { ...a, mode: 'major' }), nu = roman('vii°7', { ...b, mode: 'major' })
+    return [old.tones.every(t => nu.tones.includes(t)) ? old : nu, V7]
+  }
+  if (type === 'mediant') return [roman(a.mode === 'minor' ? 'i' : 'I', a), V7] // the old tonic, straight to the new V7
+  if (type === 'parallel') return [roman(b.mode === 'minor' ? 'iv' : 'IV', b), V7]
+  // a pivot: a chord of the new key (ii / IV / vi, or iv / VI / iiø) whose notes are all in the old key
+  const cands = (b.mode === 'minor' ? ['iv', 'VI', 'iiø7', 'i'] : ['ii', 'IV', 'vi', 'I']).map(s => roman(s, b))
+  const inA = sc(a), pivot = cands.find(c => c.tones.every(t => inA.includes(t))) ?? cands[0]
+  return [pivot, V7]
 }
 
 // describe a generated song for the UI

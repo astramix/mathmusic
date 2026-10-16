@@ -16,7 +16,8 @@ Open a source file only to change it or when something here is unclear.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
   the generator (11 styles × 3 seeds: loads, renders, lead on its chords), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
-- `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]`
+- `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
+  [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations]`
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
   the app's 🎲 menu.
 - Program: `npm run exe [-- --shortcut]` → `MathMusic.exe` (viz/build-exe.js: page without my_songs, icon drawn in
@@ -46,6 +47,7 @@ export default {
   //   tools/score-export.mjs turns it into js/score-data/<name>.js (MP3 + a score per beat)
   // optional: theme: 'lofi' (visualiser colours, viz/app/themes.js); generated songs also carry
   // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length, key?, mode?, micro?, temperament? }
+  // optional: keys: [[0, 'D'], [80, 'F'], …] — a song that modulates: the score's signatures, note names by section
   // optional: meter: '12/8' (x is then a dotted quarter) | meters: [[0, '4/4'], [120, '7/8'], …] per section — for the score
   // optional: mode: 'rast' (a modes.js id — a microtonal one makes the app spell E𝄳, B♭¹, D♯−37¢);
   //   tuning: { id: 'werckmeister3', name, offsets: [12 cents of C … B from 12-TET] } — what the song sounds in (export, inspector)
@@ -208,7 +210,13 @@ filled, cadence). Bridge = new progression + composed melody. Computed parts: im
 from the chords or a canon, 4:3 arpeggio, half-speed outro, key change up. The emitted song is plain
 code: data (HARMONY with voice-led voicings and the chord's 3rd/5th/7th, THEME_A/B, BRIDGE, plans) +
 instrument recipes. New theme → MELODIES (+ the styles' `themes` weights); new sound → a recipe in
-generate.js; then `npm test`. A melody with `only: 'style'` (or a list of styles) is drawn by those alone — this keeps every
+generate.js; then `npm test`. `modulations: true` (`planModulations`, its own rng): theme II to the dominant (major) or the
+relative major (minor; the theme re-adapted, else the minor dominant) by a pivot chord where the style is classical/romantic;
+the bridge by the style's list — parallel, enharmonic (the old key's leading-tone °7 = the new key's: C♯°7 = E°7), chromatic
+mediant, relative, subdominant — composed in its key; the section after comes home. Each change: the bar before it gets
+[pivot, V7 of the new key] (`transitionChords`) and a composed LINK phrase in the singing voice; chords spelt by `lk`
+(the local key); the song gets `keys`. The 🎲 menu makes new songs with modulations; regenerating keeps a song's own.
+A melody with `only: 'style'` (or a list of styles) is drawn by those alone — this keeps every
 other style's seeds producing exactly the songs they did (check old vs new output when touching the library).
 **boss** (⚔️ Босс-битва, 148–164 BPM, minor): the sound of overclock/finalbattle — hardKick tuned to the tonic
 (`KICK_GAIN` evens out high tails), reverseBass between the kicks (rolling in the final), everything ducking

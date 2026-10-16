@@ -73,10 +73,12 @@ ${score.parts.map((p, i) => {
     const ms = score.bars.map((b, bi) => {
       let x = `<measure number="${b.n}">`
       const prev = score.bars[bi - 1]
-      if (bi === 0 || prev.time !== b.time) {
+      const newKey = bi > 0 && b.sig && prev.sig && JSON.stringify(b.sig.items.map(i => i.letter + i.acc)) !== JSON.stringify(prev.sig.items.map(i => i.letter + i.acc))
+      if (bi === 0 || prev.time !== b.time || newKey) {
         x += '<attributes>'
-        if (bi === 0) x += `<divisions>${DIV}</divisions>${keyXml(score.signature)}`
-        x += timeXml(b.time)
+        if (bi === 0) x += `<divisions>${DIV}</divisions>${keyXml(b.sig ?? score.signature)}`
+        else if (newKey) x += keyXml(b.sig)
+        if (bi === 0 || prev.time !== b.time) x += timeXml(b.time)
         if (bi === 0) x += clefXml(p.clef)
         x += '</attributes>'
       }

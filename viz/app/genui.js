@@ -39,7 +39,9 @@ async function create(opts,{ save = true, quiet = false, from = 0 } = {}) {
   if (app.tonality && !('key' in opts)) opts = { ...opts, key: keyFor(app.tonality.tonic, app.tonality.mode), mode: app.tonality.mode }
   // the tuning chosen in «Строй», unless the call brings its own (a mutation keeps the song's)
   if (app.temperament && !('temperament' in opts)) opts = { ...opts, temperament: app.temperament }
-  for (const k of ['key', 'mode', 'temperament', 'micro']) if (opts[k] == null) delete opts[k]
+  // new songs modulate (the dialog can say no); a song made again keeps what it had (older ones: none)
+  if (!('modulations' in opts)) opts = { ...opts, modulations: last.modulations ?? true }
+  for (const k of ['key', 'mode', 'temperament', 'micro', 'modulations']) if (opts[k] == null) delete opts[k]
   const t = quiet ? null : toast(`${STYLES[opts.style]?.emoji ?? '🎲'} сочиняю…`, { progress: true })
   await new Promise(r => setTimeout(r, 30))
   let res
@@ -67,14 +69,14 @@ export async function mutate(which) {
   const seeds = { ...g.seeds, [which]: newSeed() }
   const label = { melody: '🔁 новые мелодии', arrangement: '🎚 новая аранжировка', instruments: '🎻 новые инструменты' }[which]
   toast(label + '…', { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, ...seeds })
+  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, modulations: g.modulations ?? false, ...seeds })
 }
 // the current generated song again — the same seeds, in another tonic and mode
 export function regenerate(t, { from = 0 } = {}) {
   const g = genOf()
   if (!g) return toast('пересочинить можно только сгенерированную песню — 🎲 «Новая песня в этом ладу»')
   toast(`↻ ${g.style} · seed ${g.seed} → ${t.tonic} …`, { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null }, { from })
+  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null, modulations: g.modulations ?? false }, { from })
 }
 // the music playing now, in another tonic and mode, going on from the same beat (paused stays paused): a generated
 // song is made again from its seeds; any other — a built-in one too — becomes a retuned copy (src/retune.js: every
@@ -163,6 +165,7 @@ function dialog() {
   for (const t of TEMPERAMENTS) temper.append(new Option(t.name + (t.alt ? ` — ${t.alt}` : ''), t.id === 'equal' ? '' : t.id))
   temper.value = last.temperament ?? app.temperament ?? ''
   const micro = seg([['', 'нет'], ['quarter', '¼ тона'], ['eighth', '⅛ тона']], last.micro ?? '', v => (last.micro = v || null))
+  const mods = h('input', { type: 'checkbox', checked: last.modulations ?? true })
   const bpm = h('input', { type: 'number', min: 40, max: 220, placeholder: 'авто', value: last.bpm ?? '', style: 'width:90px' })
   const length = seg([['short', '≈ 1.5 мин'], ['normal', '≈ 2.5 мин'], ['long', '≈ 3.5 мин']], last.length, v => (last.length = v))
   const seed = h('input', { type: 'number', min: 1, value: newSeed(), style: 'width:110px' })
@@ -186,6 +189,7 @@ function dialog() {
     h('div', { class: 'row' }, h('label', {}, 'Лад'), mode, h('span', { class: 'dim' }, 'тоника — из тональности')),
     h('div', { class: 'row' }, h('label', {}, 'Строй'), temper, h('span', { class: 'dim' }, 'как звучат 12 нот: темперации, чистый строй')),
     h('div', { class: 'row' }, h('label', {}, 'Микротоны'), micro, h('span', { class: 'dim' }, 'мелодии в четвертях или восьмых тона')),
+    h('div', { class: 'row' }, h('label', {}, 'Модуляции'), h('label', { style: 'display:inline-flex;gap:6px;align-items:center' }, mods, 'тема II и бридж в других тональностях'), h('span', { class: 'dim' }, 'через общий аккорд, Ум7, одноимённую, медианту')),
     h('div', { class: 'row' }, h('label', {}, 'Темп, BPM'), bpm),
     h('div', { class: 'row' }, h('label', {}, 'Длина'), length),
     h('div', { class: 'row' }, h('label', {}, 'Seed'), seed, reroll, h('span', { class: 'dim' }, 'одинаковый seed — одинаковая песня')),
@@ -194,9 +198,9 @@ function dialog() {
   modal('🎲 Новая песня', box, [{ label: 'Отмена' }, {
     label: 'Сочинить', primary: true, action: () => {
       const sources = srcBoxes.filter(s => s[1].checked).map(s => s[0])
-      last = { style: style.value, length: length.value, key: key.value || null, mode: mode.value || null, bpm: +bpm.value || null, sources: sources.length === songs.length ? null : sources, temperament: temper.value || null, micro: last.micro || null }
+      last = { style: style.value, length: length.value, key: key.value || null, mode: mode.value || null, bpm: +bpm.value || null, sources: sources.length === songs.length ? null : sources, temperament: temper.value || null, micro: last.micro || null, modulations: mods.checked }
       remember()
-      create({ style: last.style, key: last.key ?? null, mode: last.mode ?? null, bpm: last.bpm ?? undefined, seed: +seed.value || newSeed(), sources: last.sources ?? undefined, length: last.length, temperament: last.temperament, micro: last.micro })
+      create({ style: last.style, key: last.key ?? null, mode: last.mode ?? null, bpm: last.bpm ?? undefined, seed: +seed.value || newSeed(), sources: last.sources ?? undefined, length: last.length, temperament: last.temperament, micro: last.micro, modulations: last.modulations })
     },
   }])
 }
