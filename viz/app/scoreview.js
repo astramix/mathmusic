@@ -251,7 +251,7 @@ export function engrave(score, { sp = 8, width = 1000 }) {
     hx += S(sig.items.length * 1.15 + (sig.items.length ? 0.6 : 0.2))
     const b0 = sys.bars[0]
     if (si === 0 || score.bars[b0].time !== score.bars[b0 - 1]?.time) {
-      const [num, den] = score.bars[b0].time.split('/')
+      const num = score.bars[b0].meter.beats, den = score.bars[b0].meter.unit // 2+2+3/8 is drawn 7/8 (its beams show the groups)
       P.forEach((_, i) => {
         out.push(digits(num, hx, yOf(tops[i], 6)))
         out.push(digits(den, hx, yOf(tops[i], 2)))
@@ -267,7 +267,7 @@ export function engrave(score, { sp = 8, width = 1000 }) {
       const B = bars[bi], b = score.bars[bi], x0 = bx, w = B.w * k, xs = new Map()
       // a time change inside the system
       if (bi !== b0 && b.time !== score.bars[bi - 1].time) {
-        const [num, den] = b.time.split('/')
+        const num = b.meter.beats, den = b.meter.unit
         P.forEach((_, i) => { out.push(digits(num, bx + S(0.5), yOf(tops[i], 6))); out.push(digits(den, bx + S(0.5), yOf(tops[i], 2))) })
       }
       let tx = x0 + S(1.0) * k + (bi !== b0 && b.time !== score.bars[bi - 1].time ? S(2.4) : 0)

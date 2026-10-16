@@ -449,11 +449,13 @@ export function generate(opts = {}) {
   const mode = modeIn?.grid ? null : modeIn
   if (opts.mode && !modeIn?.grid) key.mode = opts.mode === 'major' || opts.mode === 'minor' ? opts.mode : parentMode(mode.iv)
   const micro = opts.micro ?? (modeIn?.grid === 24 ? 'quarter' : modeIn?.grid === 48 ? 'eighth' : null)
+  // a meter other than 4/4 (not for the hardstyle machinery of boss and jbattle: its kick is four on the floor)
+  const meter = opts.meter && METERS[opts.meter] && !S.hard && styleId !== 'boss' ? METERS[opts.meter] : null
   const temperament = opts.temperament && opts.temperament !== 'equal' && !(modeIn && !modeIn.grid && modeIn.iv.some(v => v !== Math.round(v))) ? temperOf(opts.temperament) : null
   const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
   let form = pick(RA, S.forms).map(([name, bars, role, energy, o]) => ({ name, bars, role, energy, ...(o ?? {}) }))
   const target = { short: 95, normal: 160, long: 220 }[opts.length ?? 'normal'] // seconds
-  form = fitForm(form, target, bpm, RA)
+  form = fitForm(form, meter ? (target * meter.pin) / meter.pout : target, bpm, RA)
   // modulations: their own dice; none in a mode of its own or on a quarter-tone tonic
   const RMod = rng((seeds.arrangement ^ 0xa11ce) >>> 0)
   const mods = opts.modulations && !mode && !tonicShift ? planModulations(form, key, styleId, RMod) : {}
@@ -577,7 +579,7 @@ export function generate(opts = {}) {
     sectionInfo.push({ ...sec, at, beats, ...(md ? { lk: md.key, modType: md.type } : {}) })
     at += beats
   }
-  const END = at
+  let END = at
   // transition bars: the last bar before a section in another key (and before the one that comes home) gets
   // [pivot, V7 of the new key] and a link in the melody — composed over those chords, ending open on 5̂ or 2̂
   const LINKS = []
@@ -634,6 +636,13 @@ export function generate(opts = {}) {
   }
   if (tonicShift) shiftPitches({ key, by: tonicShift, name: tonicLabel, themes: [A, B, BR, RUN], harmony, id: opts.mode })
   const solo = sectionInfo.find(s => s.role === 'solo')
+  // the meter: everything made in 4/4 is mapped onto it
+  let variants = null
+  if (meter) {
+    const P = { sections, sectionInfo, harmony, plans, END, phrases: { A: A.notes, B: B.notes, BRIDGE: BR.notes, ...(BL ? { BL: BL.notes } : {}), ...Object.fromEntries(LINKS.map(l => [l.name, l.notes])) } }
+    variants = toMeter(meter, P)
+    END = P.END
+  }
   const names = NAMES[styleId] ?? NAMES.lofi
   // the name follows the arrangement; a mutated melody or sound gets a variant number
   const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
@@ -641,11 +650,18 @@ export function generate(opts = {}) {
   const meta = {
     style: styleId, seed, seeds, length: opts.length ?? 'normal', key: keyName(key), mode: modeIn ? opts.mode : null, modeName: modeIn?.name ?? null, bpm, title, form: form.map(f => f.name),
     fixedKey: opts.key ?? null, micro: opts.micro ?? null, temperament: temperament?.id ?? null,
+    meter: meter ? opts.meter : null,
     modulations: opts.modulations ? sectionInfo.filter(s => s.lk).map(s => ({ at: s.at, section: s.name, key: keyName(s.lk), type: s.modType })) : null,
     themes: { A: { from: melA.from, title: melA.title, how: A.how }, B: { from: melB.from, title: melB.title, how: B.how }, bridge: { rhythmFrom: melR.from } },
     instruments: inst,
   }
-  const source = emit({ S, styleId, key, mode, modeIn, micro, temperament, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI, BL, LINKS })
+  MT = meter
+  let source
+  try {
+    source = emit({ S, styleId, key, mode, modeIn, micro, temperament, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI, BL, LINKS, meter, variants })
+  } finally {
+    MT = null
+  }
   return { source, meta }
 }
 
@@ -682,8 +698,11 @@ const fmtNotes = (notes, indent = '') => {
 const PAD_ON = `const padOn = x => chordAt(x) && ['themeB', 'bridge', 'break', 'final', 'intro'].includes(role(x)) && x < END - 2`
 const lane = { lead: [1.1, 3], lead2: [1, 2.9], counter: [0.8, 2.4], chords: [-1, 0.4], bass: [-3, -2], pad: [-1.7, -0.6], arp: [0.3, 1.2], texture: [-2.95, -2.85] }
 
+let MT = null // the meter of the song being written (emit), null in 4/4
 function emit(P) {
-  const { S, styleId, key, mode, modeIn = mode, micro = null, temperament = null, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r, BL = null, LINKS = [] } = P
+  const { S, styleId, key, mode, modeIn = mode, micro = null, temperament = null, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r, BL = null, LINKS = [], meter = null, variants = null } = P
+  // a phrase as the song plays it (mapped onto the meter)
+  const ph = (name, notes) => variants?.get(name) ?? notes
   const skey = keyWithMode(key, meta.mode) // the key the notes are spelt in (with a microtonal mode's degrees)
   const ivText = m => (m.grid ? `${m.grid}-EDO` : m.iv.map(round).join(' '))
   const used = { engine: new Set(['mod', 'floor', 'exp', 'sin', 'TAU', 'hz', 'filter', 'reverb', 'delay', 'smooth']), instruments: new Set(['notesAt', 'hash', 'pan', 'arrangement', 'trigger', 'poly']) }
@@ -703,6 +722,7 @@ function emit(P) {
   head.push(`// composed on the rhythm of a theme from ${BR.from}. Computed parts: ${[solo ? (boss ? 'a solo that is an equation (the graph of two sines)' : 'an improvised solo') : null, 'a counter-melody from the chords', plans.counter.some(p => p[1] === 'CANON') ? 'a canon' : null, RUN ? 'a run up to the dominant in every build-up' : null, hard ? 'a reverse bass that rolls in the final' : null, 'the theme at half speed in the outro', sectionInfo.some(s => s.keyUp) ? 'a key change up' : null].filter(Boolean).join(', ')}.`)
   if (hard && !boss) head.push(`// Japanese instruments over the boss machinery: the hardstyle kick's tail and the reverse bass sit on the tonic,\n// every part ducks under the kick in the drops, d(t) = 1 − 0.7(1 − t/0.18)²; the taiko roll doubles through each build.`)
   if (boss) head.push(`// The hardstyle kick's tail and the reverse bass sit on the tonic; every part ducks under the kick in the drops,\n// d(t) = 1 − 0.7(1 − t/0.18)². \`boss\` below makes it a Glitch Forest boss song (tools/score-export.mjs).`)
+  if (meter) head.push(`// In ${meter.label}: made in 4/4, then mapped bar by bar onto the meter (${meter.compound ? 'every eighth becomes the triplet one' : 'the notes stay on the grid'}); the drums, the\n// comping and the bass are made for its groups of beats.`)
   if (meta.modulations?.length) head.push(`// Modulations: ${meta.modulations.map(m => `${m.section} in ${keyLabel(parseKey(m.key))} (${MOD_NAMES[m.type]})`).join(', ')}; every change is prepared by a bar of\n// [pivot, V7 of the new key] with a composed link in the melody, and the music comes home by its dominant seventh.`)
   head.push(`// It is an ordinary song file: change anything; the melodies can be drawn in the piano roll (P).`)
   head.push(`// x is time in beats; n counts semitones from C4 (MIDI 60).`)
@@ -716,24 +736,26 @@ const is = (x, ...names) => names.includes(part(x).name)
 const C4 = 440 * 2 ** (-9 / 12) // 261.63 Hz, exact equal temperament
 const SW = ${sw} // the off-beat eighth lands at ${sw} of the beat
 ${roleOf}
-
+${meter ? meterCode(meta.meter, meter) + '\n' : ''}
 // ---- harmony: [start beat, length, bass MIDI, voicing MIDI (voice-led), chord, [3rd, 5th, 7th]] --
 const HARMONY = [
 ${H}
 ]
-const BY_BEAT = []
+${meter ? `const BY_EIGHTH = [] // chords change on bar lines, and bars may end on a half beat
+for (const h of HARMONY) for (let b = Math.round(h[0] * 2); b < Math.round((h[0] + h[1]) * 2); b++) BY_EIGHTH[b] = h
+const chordAt = x => BY_EIGHTH[floor(2 * x)] ?? null` : `const BY_BEAT = []
 for (const h of HARMONY) for (let b = h[0]; b < h[0] + h[1]; b++) BY_BEAT[b] = h
-const chordAt = x => BY_BEAT[floor(x)] ?? null
+const chordAt = x => BY_BEAT[floor(x)] ?? null`}
 ${PAD_ON} // pads play here
 const SCALE = [${(mode ? mode.iv : key.mode === 'minor' ? MIN : MAJ).map(i => round((i + key.tonic) % 12)).join(', ')}] // ${keyText}, pitch classes from C
 ${hard ? bossData({ need, key, bpm, sectionInfo }) : ''}${temperament ? temperData({ temperament, key, sectionInfo }) + '\n' : ''}
 // ---- melodies: [beat, n from C4, length] — draw them in the piano roll ------------------------------
 // A — ${meta.themes.A.title}, ${meta.themes.A.how}; in ${keyText}
-const THEME_A = ${fmtNotes(A.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
+const THEME_A = ${fmtNotes(ph('A', A.notes).map(([b, m, d]) => [round(b), m - 60, d]))}
 // B — ${meta.themes.B.title}, ${meta.themes.B.how}
-const THEME_B = ${fmtNotes(B.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
+const THEME_B = ${fmtNotes(ph('B', B.notes).map(([b, m, d]) => [round(b), m - 60, d]))}
 // the bridge — composed over ${BR.chords.map(c => chordName(c, key)).join(' – ')}
-const BRIDGE = ${fmtNotes(BR.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
+const BRIDGE = ${fmtNotes(ph('BRIDGE', BR.notes).map(([b, m, d]) => [round(b), m - 60, d]))}
 const REST = []
 ${RUN ? `// the build-up: the theme's opening over ${RUN.chords.slice(0, 2).map(c => chordName(c, key)).join(' – ')}, a run up from the dominant, a trill on it
 const RUN = ${fmtNotes(RUN.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
@@ -743,10 +765,12 @@ const SOLO = improvise({
   phrase: 8, rest: 0.2, hold: 0.3, scale: () => SCALE, chord: x => (chordAt(x)?.[3] ?? [0]).map(n => mod(n, 12)),
 }).map(${micro ? `([b, n, d], j, a) => [b - ${solo.at}, n + MICRO(n, b, a[j + 1]?.[1]), d]` : `([b, n, d]) => [b - ${solo.at}, n, d]`})` : 'const SOLO = []'}
 ${BL ? `// theme II in ${keyLabel(meta.modulations?.find(m => m.type === 'relative') ? sectionInfo.find(s => s.modType === 'relative').lk : key)} — the same theme written in that mode
-const THEME_BL = ${fmtNotes(BL.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
+const THEME_BL = ${fmtNotes(ph('BL', BL.notes).map(([b, m, d]) => [round(b), m - 60, d]))}
 ` : ''}${LINKS.map(l => `// a link into ${l.to} (${MOD_NAMES[l.type] ?? l.type}): composed over the transition's pivot and V7
-const ${l.name} = ${fmtNotes(l.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
-`).join('')}const PHRASES = { A: THEME_A, B: THEME_B, BRIDGE, REST, SOLO${RUN ? ', RUN' : ''}${BL ? ', BL: THEME_BL' : ''}${LINKS.map(l => ', ' + l.name).join('')} }
+const ${l.name} = ${fmtNotes(ph(l.name, l.notes).map(([b, m, d]) => [round(b), m - 60, d]))}
+`).join('')}${variants ? [...variants].filter(([id]) => /_\d/.test(id)).map(([id, notes]) => `// ${id.replace(/_(\d+(?:_\d+)?)_(\d)$/, (m, o, k) => ` from beat ${o.replace('_', '.')} of the period${k !== '1' ? `, at 1/${k} speed` : ''}`)} — the phrase as the meter places it there
+const ${id} = ${fmtNotes(notes.map(([b, m, d]) => [round(b), m - 60, d]))}
+`).join('') : ''}const PHRASES = { A: THEME_A, B: THEME_B, BRIDGE, REST, SOLO${RUN ? ', RUN' : ''}${BL ? ', BL: THEME_BL' : ''}${LINKS.map(l => ', ' + l.name).join('')}${variants ? [...variants.keys()].filter(id => /_\d/.test(id)).map(id => ', ' + id).join('') : ''} }
 
 // who plays which phrase: [start beat, phrase, transpose, stretch (2 = half speed)]
 const LEAD = ${JSON.stringify(plans.lead.map(([s, p, t, k]) => [s, p, t, k]))}
@@ -853,7 +877,8 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   length: END,
   theme: '${S.theme}',
   style: '${styleId}',
-  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}) })},${meta.modulations?.length ? `
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}), ...(meta.meter ? { meter: meta.meter } : {}) })},${meta.meter ? `
+  meter: '${METERS[meta.meter].text}', // ${METERS[meta.meter].label}${METERS[meta.meter].compound ? ' — a beat (x) is a dotted quarter' : ''}` : ''}${meta.modulations?.length ? `
   keys: ${JSON.stringify(keysField(key, sectionInfo))}, // the key of each stretch (the score's signatures, note names)` : ''}
   sections: SECTIONS,${bossField}
   tracks: ${temperament ? 'withNow(' : ''}{ ${tracks.map((t, i) => `${JSON.stringify(t.key)}: track${i}`).join(', ')} }${temperament ? ')' : ''},
@@ -1030,14 +1055,29 @@ function chipLead(o, duty, color) {
 }
 
 // comping: hits from the style's pattern [position in bar, velocity, length], by section energy
-const compHit = comp => `const COMP = ${JSON.stringify(comp)}
+const compHit = comp => (MT ? compHitMeter() : `const COMP = ${JSON.stringify(comp)}
 const compAt = x => {
   const e = energy(x)
   if (e < 0 || role(x) === 'end') return null
   let h = null
   for (const c of COMP[e] ?? COMP[1]) if (c[0] <= mod(x, 4)) h = c
   return h && { at: floor(x / 4) * 4 + h[0], vel: h[1], d: h[2] }
+}`)
+// the comping of a song in another meter: by its groups of beats (compFor), a list per kind of bar
+const compHitMeter = () => {
+  const lists = MT.bars.map(bm => compFor(bm)), COMP = Object.fromEntries([0, 1, 2, 3].map(e => [e, lists.length > 1 ? lists.map(l => l[e]) : lists[0][e]]))
+  return `const COMP = ${JSON.stringify(COMP)} // by energy: [beat in the bar, velocity, length]${lists.length > 1 ? ', a list per kind of bar' : ''}
+const compAt = x => {
+  const e = energy(x)
+  if (e < 0 || role(x) === 'end') return null
+  const b = barIndex(x), P = COMP[e] ?? COMP[1], list = Array.isArray(P[0][0]) ? P[b % 2] : P
+  let h = null
+  for (const c of list) if (c[0] <= x - barStartOf(b) + 1e-9) h = c
+  return h && { at: barStartOf(b) + h[0], vel: h[1], d: h[2] }
 }`
+}
+// a chord held through the bar, let go just before its end
+const GATE = v => (MT ? `inBar(x) < barLen(x) - ${round(4 - v)}` : `mod(x, 4) < ${v}`)
 const CHORDS = {
   rhodes: o => polyComp(o, 'epianoTone', '#ffcf9f', 0.09, 'rhodes', ['E(f,t,v) = v\\Big(\\sin\\!\\big(2\\pi ft + (0.5+1.8v^2)e^{-4t}\\sin 2\\pi ft\\big)\\,e^{-t/(1+250/f)} + \\ldots\\Big)', 'y = \\Tape\\,\\Cho\\big[(1 \\mp 0.25\\sin 2\\pi\\,3.5T)\\sum_j E(f_j, t, v)\\big]']),
   piano: o => polyComp(o, 'pianoTone', '#ffffff', 0.16, 'piano', ['P(f,t,v) = 0.35\\sum_{k=1}^{6}\\frac{v^{0.4+0.25k}}{k^{1.15}}\\big(0.7e^{-d_k t}+0.3e^{-0.12d_k t}\\big)\\big(\\sin 2\\pi f_k t+\\sin(2\\pi\\cdot1.0006 f_k t+k)\\big)', 'y = \\Rev\\sum_j P(f_j, t, v),\\quad f_j \\text{ — голоса аккорда}']),
@@ -1088,7 +1128,7 @@ const CHORDS = {
     return `{
   color: '#7f6bd6',
   graph: x => (chordAt(x) && energy(x) >= 0 ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
-  midi: x => (chordAt(x) && energy(x) >= 0 && mod(x, 4) < 3.9 ? chordAt(x)[3] : []),
+  midi: x => (chordAt(x) && energy(x) >= 0 && ${GATE(3.9)} ? chordAt(x)[3] : []),
   formula: ${JSON.stringify(['y = \\vol(v)\\,\\Pi_{1/4}\\big(f_{\\lfloor 60T\\rfloor \\bmod 3}\\big)\\quad\\text{— аккорд по ноте за кадр 60 Гц, как в NES}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, p = pulse(0.25), lp = filter('lp'), level = smooth(20)
@@ -1106,7 +1146,7 @@ const CHORDS = {
     return `{
   color: '#7f6bd6',
   graph: x => (chordAt(x) && energy(x) >= 0 ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
-  midi: x => (chordAt(x) && energy(x) >= 0 && mod(x, 4) < 3.9 ? chordAt(x)[3] : []),
+  midi: x => (chordAt(x) && energy(x) >= 0 && ${GATE(3.9)} ? chordAt(x)[3] : []),
   formula: ${JSON.stringify(['O = \\Rev\\Big[g\\,\\LP_{2500}\\tfrac13\\sum_{j}\\Pi_{1/2}(f_j)\\Big]\\quad\\text{— орган из квадратов}'])},
   audio() {
     const voices = [0, 1, 2, 3].map(() => pulse(0.5)), lp = filter('lp'), level = smooth(120), verb = reverb({ room: 0.92, damp: 0.5, wet: 0.5 })
@@ -1124,7 +1164,7 @@ const CHORDS = {
     return `{
   color: '#ff6fd8',
   graph: x => (chordAt(x) && energy(x) >= 0 ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
-  midi: x => (chordAt(x) && energy(x) >= 0 && mod(x, 4) < 3.9 ? chordAt(x)[3] : []),
+  midi: x => (chordAt(x) && energy(x) >= 0 && ${GATE(3.9)} ? chordAt(x)[3] : []),
   formula: ${JSON.stringify(['P = \\Rev\\Big[a\\,\\LP_{f_c}\\sum_{j}\\SS_5(f_j)\\Big],\\quad a = 1 - 0.6e^{-6\\tau}\\ \\text{(накачка от бочки)}'])},
   audio({ bpm }) {
     const saws = [0, 1, 2, 3].map(j => supersaw({ voices: 5, detune: 0.22, width: 0.9, seed: 11 + j })), lp = [filter('lp'), filter('lp')], level = smooth(150), cut = smooth(300)
@@ -1168,7 +1208,7 @@ const PADS = {
     return `{
   color: '#d9b8ff',
   graph: x => (padOn(x) ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 30) : null),
-  midi: x => (padOn(x) && mod(x, 4) < 3.9 ? chordAt(x)[3].map(n => n - 12 * (n > 64)) : []),
+  midi: x => (padOn(x) && ${GATE(3.9)} ? chordAt(x)[3].map(n => n - 12 * (n > 64)) : []),
   formula: ${JSON.stringify(['S = \\Rev\\,\\Cho\\,\\LP\\,\\HP\\sum_{j}\\sum_{u=-1}^{1}\\saw\\!\\Big(f_j\\,2^{\\,(0.09u + 0.12\\sin 2\\pi r_{j,u}T)/12}\\Big)'])},
   audio() {
     const s = strings({ voices: 4, attack: 700, release: 1400, cutoff: 2600, gain: ${round(0.036 * (o.gain ?? 1))} }), ch = chorus({ mix: 0.4 }), verb = reverb({ room: 0.9, wet: 0.45 })
@@ -1184,7 +1224,7 @@ const PADS = {
     return `{
   color: '#c9b6ff',
   graph: x => (padOn(x) ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 30) : null),
-  midi: x => (padOn(x) && mod(x, 4) < 3.9 ? chordAt(x)[3] : []),
+  midi: x => (padOn(x) && ${GATE(3.9)} ? chordAt(x)[3] : []),
   formula: ${JSON.stringify(['Ch = \\Rev\\sum_{j} \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\BP_{F_i}\\,\\saw(f_j),\\quad F = \\text{«а»}'])},
   audio() {
     const vs = [0, 1, 2, 3].map(j => voice({ size: 1 - 0.04 * j, breath: 0.05 })), level = smooth(400), verb = reverb({ room: 0.92, wet: 0.55 })
@@ -1201,7 +1241,7 @@ const PADS = {
 
 // bass: the style's line from the chord's root ('R'), fifth, octave, third, or a chromatic approach
 // to the next root ('A'); 'eighths' = octave-jumping eighths; 'octaves' = root/octave bounce
-const bassData = line => `const BASS_LINE = ${JSON.stringify(line)}
+const bassData = line => (MT ? bassDataMeter(line) : `const BASS_LINE = ${JSON.stringify(line)}
 const bassAt = x => {
   const c = chordAt(x), e = energy(x)
   if (!c || e < 1 || x >= END - 1) return null
@@ -1216,7 +1256,27 @@ const bassAt = x => {
   const next = chordAt(bar + 4) ?? c, [third, fifth] = c[5]
   const n = hit[1] === 'R' ? c[2] : hit[1] === '5' ? c[2] + fifth : hit[1] === '8' ? c[2] + 12 : hit[1] === '3' ? c[2] + third : next[2] - 1
   return { n, at: bar + hit[0], d: hit[2] }`}
+}`)
+// the bass in another meter: eighths and octaves fill the bar; a line goes root – octave – … – fifth by the groups
+const bassDataMeter = line => {
+  const lines = MT.bars.map(bassFor)
+  return `const BASS_LINE = ${JSON.stringify(lines.length > 1 ? lines : lines[0])} // [beat in the bar, R / 8 / 5, length], by the meter's groups
+const bassAt = x => {
+  const c = chordAt(x), e = energy(x)
+  if (!c || e < 1 || x >= END - 1) return null
+  const p = inBar(x), bar = barStart(x), L = barLen(x)
+  ${line === 'eighths' ? `const k = floor(2 * p)
+  return mod(p, 0.5) < 0.4 ? { n: c[2] + 12 * (k % 2), at: bar + k / 2, d: 0.4 } : null`
+    : line === 'octaves' ? `const k = floor(2 * p)
+  return mod(p, 0.5) < 0.42 ? { n: c[2] + (k === floor(2 * L) - 1 ? c[5][1] : k % 2 ? 12 : 0), at: bar + k / 2, d: 0.42 } : null`
+    : `const list = Array.isArray(BASS_LINE[0][0]) ? BASS_LINE[barIndex(x) % 2] : BASS_LINE
+  let hit = null
+  for (const h of list) if (h[0] <= p && p < h[0] + h[2]) hit = h
+  if (!hit) return null
+  const fifth = c[5][1]
+  return { n: hit[1] === 'R' ? c[2] : hit[1] === '5' ? c[2] + fifth : c[2] + 12, at: bar + hit[0], d: hit[2] }`}
 }`
+}
 const BASSES = {
   upright: o => {
     o.need('instruments', 'uprightTone')
@@ -1417,7 +1477,7 @@ function polyArp(o, tone, color, gain, formula) {
 }
 
 // drums: patterns as strings, 16 steps per bar; swing moves the off-beat eighths to SW
-const drumData = drums => `// drum patterns: 16 steps per bar — x hit, o ghost, - rest; by section energy
+const drumData = drums => (MT ? drumDataMeter(drums) : `// drum patterns: 16 steps per bar — x hit, o ghost, - rest; by section energy
 const GROOVES = ${JSON.stringify(drums, null, 2).replace(/\n/g, '\n')}
 const GROOVE_BY_ENERGY = [null, 'light', 'full', 'busy']
 const barCache = new Map()
@@ -1449,7 +1509,46 @@ function lastHit(x, drum) {
     if (best) return best
   }
   return null
+}`)
+// the drums of another meter: the style's grooves made again for its bars (grooveFor) — kicks and backbeats on its groups
+const drumDataMeter = drums => {
+  const G = Object.fromEntries(Object.entries(drums).map(([name, lines]) => [name, MT.bars.length > 1 ? MT.bars.map(bm => grooveFor(lines, bm, name)) : grooveFor(lines, MT.bars[0], name)]))
+  const comp = MT.compound
+  return `// drum patterns in ${MT.label}: ${comp ? 'triplet eighths (3 a beat)' : 'sixteenths'} — x hit, o ghost, - rest; by section energy${MT.bars.length > 1 ? '; a pattern per kind of bar' : ''}
+const GROOVES = ${JSON.stringify(G, null, 2)}
+const GROOVE_BY_ENERGY = [null, 'light', 'full', 'busy']
+const barCache = new Map()
+function barHits(b) {
+  if (barCache.has(b)) return barCache.get(b)
+  const x = barStartOf(b), L = barLenOf(b), e = energy(x), hits = []
+  const name = e >= 0 ? GROOVE_BY_ENERGY[e] : null
+  const last = b % 8 === 7 || (x + L < END && energy(x + L) !== e)
+  const pick = g => (Array.isArray(g) ? g[b % 2] : g)
+  if (name) {
+    const g = { ...pick(GROOVES[name]), ...(last && e >= 2 && GROOVES.fill ? pick(GROOVES.fill) : {}) }
+    for (const [drum, steps] of Object.entries(g)) {
+      for (let i = 0; i < steps.length; i++) {
+        const c = steps[i]
+        if (c !== 'x' && c !== 'o') continue
+        const pos = ${comp ? 'i / 3' : 'Math.floor(i / 4) + (i % 4 === 2 ? SW : (i % 4) / 4)'}
+        hits.push([pos, drum, (c === 'x' ? 1 : 0.4) * (0.82 + 0.18 * hash(16 * b + i, drum.length))])
+      }
+    }
+  }
+  if (role(x) === 'outro' && x === sectionOf(x)[0]) hits.push([0, 'kick', 0.8]) // a last downbeat
+  barCache.set(b, hits.sort((a, c) => a[0] - c[0]))
+  return hits
+}
+// the latest hit of a drum at x → { τ (beats), vel } or null
+function lastHit(x, drum) {
+  for (let b = barIndex(x); b >= barIndex(x) - 1 && b >= 0; b--) {
+    let best = null
+    for (const [p, d, v] of barHits(b)) if (d === drum && barStartOf(b) + p <= x) best = { τ: x - barStartOf(b) - p, vel: v }
+    if (best) return best
+  }
+  return null
 }`
+}
 const drumGraph = `graph: x => {
     const h = lastHit(x, 'kick') ?? lastHit(x, 'timp')
     return h && h.τ < 2 ? 3 + 1.4 * h.vel * exp(-5 * h.τ) : null
@@ -2079,13 +2178,13 @@ CHORDS.pipeorgan = o => {
   return `{
   color: '#c9a227',
   graph: x => (chordAt(x) && energy(x) >= 0 ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
-  midi: x => (chordAt(x) && energy(x) >= 0 && mod(x, 4) < 3.9 ? chordAt(x)[3] : []),
+  midi: x => (chordAt(x) && energy(x) >= 0 && ${GATE(3.9)} ? chordAt(x)[3] : []),
   formula: ${JSON.stringify(['O = \\Rev\\sum_{j}\\sum_{s \\in \\{1, 2, 3, 4\\}} a_s\\sin\\big(2\\pi\\,s f_j\\,(1 \\pm 0.0008)\\,t\\big) + \\text{«чифф»}\\ 0.25e^{-t/0.05}\\BP_{3f}\\eta\\quad\\text{— регистры } 8^\\prime, 4^\\prime, 2\\tfrac23^\\prime, 2^\\prime'])},
   audio() {
     const o = organ({ voices: 4, gain: 0.1 }), level = smooth(200), verb = reverb({ room: 0.94, damp: 0.35, wet: 0.5 })
     return x => {
       const c = chordAt(x), e = energy(x), a = level(c && e >= 0 ? [0.6, 0.75, 0.9, 1][e] : 0)
-      const [l, r] = o(c && e >= 0 && mod(x, 4) < 3.95 ? c[3].map(n => hz(n - 60, C4)) : [])
+      const [l, r] = o(c && e >= 0 && ${GATE(3.95)} ? c[3].map(n => hz(n - 60, C4)) : [])
       return verb(a * l, a * r)
     }
   },
@@ -2588,6 +2687,136 @@ const KEY_UPS = ${JSON.stringify(sectionInfo.filter(s => s.keyUp).map(s => [s.at
 const temperNow = () => { let T = TEMPER; for (const [s, k] of KEY_UPS) if (s <= NOW) T = TEMPER_UP[k]; return T }
 const off = m => temperNow()[mod(m, 12)]` : 'const off = m => TEMPER[mod(m, 12)]'}
 ${interp}`
+}
+
+// ---- meters (opts.meter) ---------------------------------------------------------------------------------------------
+// A song is made in 4/4 and then its whole time is mapped onto the meter by a piecewise-linear w over a period of `pin`
+// beats of 4/4 → `pout` beats, chosen so the notes stay on the grid: 7/8 halves the last beat (2+2+3 eighths), 9/8
+// doubles the last eighth (2+2+2+3, aksak), 5/4 doubles the second beat (3+2, as in «Take Five»), 3/4 doubles the first
+// beat of every half bar (a waltz), 7/4 halves the last two beats of every two bars (4+3), 7/8+9/8 alternates (2+2+3 |
+// 2+2+2+3, two bars of 4/4 in all), 12/8 and 6/8 turn every eighth into the triplet one (a beat = a dotted quarter).
+// The drums, the comping and the bass are made for the meter itself: by its groups of beats.
+export const METERS = {
+  '3/4': { label: '3/4 — вальс', text: '3/4', pin: 2, pout: 3, w: u => (u < 1 ? 2 * u : u + 1), bars: [{ len: 3, groups: [1, 1, 1], kick: [0], back: [2, 4] }] },
+  '5/4': { label: '5/4 — 3 + 2', text: '3+2/4', pin: 4, pout: 5, w: u => (u <= 1 ? u : u <= 2 ? 1 + 2 * (u - 1) : u + 1), bars: [{ len: 5, groups: [3, 2], kick: [0, 6], back: [4, 8] }] },
+  '7/8': { label: '7/8 — 2 + 2 + 3', text: '2+2+3/8', pin: 4, pout: 3.5, w: u => (u <= 3 ? u : 3 + (u - 3) / 2), bars: [{ len: 3.5, groups: [1, 1, 1.5], kick: [0, 4], back: [2, 6] }] },
+  '9/8': { label: '9/8 — 2 + 2 + 2 + 3 (аксак)', text: '2+2+2+3/8', pin: 4, pout: 4.5, w: u => (u <= 3.5 ? u : 3.5 + (u - 3.5) * 2), bars: [{ len: 4.5, groups: [1, 1, 1, 1.5], kick: [0, 4], back: [2, 6] }] },
+  '7/4': { label: '7/4 — 4 + 3', text: '4+3/4', pin: 8, pout: 7, w: u => (u <= 6 ? u : 6 + (u - 6) / 2), bars: [{ len: 7, groups: [2, 2, 3], kick: [0, 8], back: [4, 12] }] },
+  '7/8+9/8': { label: '7/8 + 9/8 — чередуются', text: '2+2+3/8 | 2+2+2+3/8', pin: 8, pout: 8, w: u => (u <= 3 ? u : u <= 4 ? 3 + (u - 3) / 2 : u <= 7.5 ? u - 0.5 : 7 + (u - 7.5) * 2),
+    bars: [{ len: 3.5, groups: [1, 1, 1.5], kick: [0, 4], back: [2, 6] }, { len: 4.5, groups: [1, 1, 1, 1.5], kick: [0, 4], back: [2, 6] }] },
+  '12/8': { label: '12/8 — четыре доли по три восьмых', text: '12/8', compound: true, pin: 1, pout: 1, w: u => (u <= 0.5 ? (u * 4) / 3 : 2 / 3 + ((u - 0.5) * 2) / 3), bars: [{ len: 4, groups: [1, 1, 1, 1], kick: [0, 6], back: [3, 9], compound: true }] },
+  '6/8': { label: '6/8 — две доли по три восьмых', text: '6/8', compound: true, pin: 1, pout: 1, w: u => (u <= 0.5 ? (u * 4) / 3 : 2 / 3 + ((u - 0.5) * 2) / 3), bars: [{ len: 2, groups: [1, 1], kick: [0], back: [3], compound: true }] },
+}
+export const METER_LIST = [['4/4', '4/4 — как всегда'], ...Object.entries(METERS).map(([id, m]) => [id, m.label])]
+// the song's time in 4/4 → in the meter
+const warpOf = M => x => {
+  const k = Math.floor(x / M.pin + 1e-9), u = x - k * M.pin
+  return round(k * M.pout + M.w(Math.max(0, Math.min(M.pin, u))))
+}
+// a drum groove of the style, made again for one kind of bar: kicks and backbeats where the meter's groups put them, the
+// time-keepers as dense as in 4/4 (16ths, eighths, off-beat eighths, quarters), the open hat on the last eighth, the fill
+// across the last group. Steps: sixteenths (or triplet eighths in a compound meter)
+function grooveFor(lines, bm, name) {
+  const s = bm.compound ? 3 : 4, N = Math.round(bm.len * s), e8 = bm.compound ? 1 : 2, out = {}
+  const starts = []
+  let acc = 0
+  for (const g of bm.groups) { starts.push(Math.round(acc * s)); acc += g }
+  const eighthStep = i => (bm.compound ? i : i * 2) // the positions in the bar tables are eighths
+  for (const [drum, str] of Object.entries(lines)) {
+    const arr = Array(N).fill('-'), hits = [...str].filter(c => c === 'x').length
+    if (name === 'fill') {
+      const from = starts[starts.length - 1]
+      for (let i = from; i < N; i++) arr[i] = (i - from) % e8 === 0 ? 'x' : 'o'
+      out[drum] = arr.join('')
+      continue
+    }
+    const kind = /kick|timp|don/.test(drum) ? 'kick' : /snare|clap|rim|brush|tom|naga/.test(drum) ? 'back' : /open|crash/.test(drum) ? 'open' : 'time'
+    if (kind === 'kick') {
+      for (const p of bm.kick) arr[eighthStep(p)] = 'x'
+      if (name === 'busy' || hits >= 4) for (const p of bm.back) { const q = eighthStep(p) - e8; if (q > 0 && arr[q] === '-') arr[q] = 'x' }
+      if (name === 'light') for (let i = 1; i < N; i++) if (i !== eighthStep(bm.kick[0])) arr[i] = '-'
+    } else if (kind === 'back') {
+      const list = name === 'light' ? bm.back.slice(0, 1) : bm.back
+      for (const p of list) arr[eighthStep(p)] = 'x'
+      if (name === 'busy') for (const p of bm.back) { const q = eighthStep(p) + (bm.compound ? 2 : 3); if (q < N && arr[q] === '-') arr[q] = 'o' }
+    } else if (kind === 'open') {
+      arr[N - e8] = 'x'
+    } else {
+      // how dense was it in 4/4: sixteenths, eighths, off-beat eighths only, or quarters
+      const on = [...str].map((c, i) => (c !== '-' ? i : -1)).filter(i => i >= 0)
+      const six = on.some(i => i % 2 === 1), off = on.length && on.every(i => i % 4 === 2), quarters = on.length && on.every(i => i % 4 === 0)
+      for (let i = 0; i < N; i++) {
+        const isE8 = i % e8 === 0, isBeat = i % s === 0, groupStart = starts.includes(i)
+        if (bm.compound) { if (!off || i % 3 === 2) arr[i] = groupStart ? 'x' : isBeat ? 'x' : 'o' }
+        else if (six) arr[i] = isE8 ? 'x' : 'o'
+        else if (off) arr[i] = isE8 && !isBeat && i % 4 === 2 ? 'x' : '-'
+        else if (quarters) arr[i] = isBeat ? 'x' : '-'
+        else arr[i] = isE8 ? 'x' : '-'
+      }
+    }
+    out[drum] = arr.join('')
+  }
+  return out
+}
+// comping hits and the bass line for a kind of bar, by energy: [pos, vel, length] / [pos, 'R' | '5' | '8', length]
+function compFor(bm, vel = 0.6) {
+  const starts = [], out = {}
+  let acc = 0
+  for (const g of bm.groups) { starts.push([acc, g]); acc += g }
+  out[0] = [[0, vel * 0.8, bm.len * 0.95]]
+  out[1] = starts.map(([p, g]) => [p, vel * 0.85, g * 0.9])
+  out[2] = starts.flatMap(([p, g], i) => (g >= 1.5 && !bm.compound ? [[p, vel, g / 2], [p + g / 2, vel * 0.75, g / 2 * 0.9]] : [[p, i ? vel * 0.85 : vel, g * 0.9]]))
+  out[3] = starts.flatMap(([p, g]) => {
+    const step = bm.compound ? 1 / 3 * 2 : 0.5, hits = []
+    for (let q = 0; q < g - 1e-6; q += step) hits.push([round(p + q), q ? vel * 0.7 : vel, step * 0.9])
+    return hits
+  })
+  return out
+}
+function bassFor(bm) {
+  const out = []
+  let acc = 0
+  bm.groups.forEach((g, i) => {
+    out.push([acc, i === bm.groups.length - 1 && bm.groups.length > 1 ? '5' : i % 2 ? '8' : 'R', round(g * 0.9)])
+    acc += g
+  })
+  return out
+}
+// the meter's own code in the song: the bar geometry everything else asks
+const meterCode = (id, M) => {
+  const b = M.bars
+  const geo = b.length === 1
+    ? `const BAR = ${b[0].len} // beats a bar
+const barIndex = x => floor(x / BAR + 1e-9), barStartOf = i => i * BAR, barLenOf = i => BAR`
+    : `const PERIOD = ${b.reduce((s, x) => s + x.len, 0)}, BAR_LENS = [${b.map(x => x.len).join(', ')}] // bars alternate
+const barIndex = x => { const k = floor(x / PERIOD + 1e-9), u = x - k * PERIOD; return 2 * k + (u >= BAR_LENS[0] - 1e-9 ? 1 : 0) }
+const barStartOf = i => PERIOD * floor(i / 2) + (i % 2 ? BAR_LENS[0] : 0), barLenOf = i => BAR_LENS[i % 2]`
+  return `// ---- the meter: ${M.label} -----------------------------------------------------------------------
+${geo}
+const barStart = x => barStartOf(barIndex(x)), inBar = x => x - barStart(x), barLen = x => barLenOf(barIndex(x))`
+}
+// the 4/4 song → the meter: sections, harmony, phrases (a copy per offset in the period and per speed), plans, the solo
+function toMeter(M, P) {
+  const W = warpOf(M)
+  for (const s of P.sections) s[0] = W(s[0])
+  for (const s of P.sectionInfo) { const a = W(s.at), b = W(s.at + s.beats); s.at = a; s.beats = round(b - a) }
+  for (const h of P.harmony) { const a = W(h.at), b = W(h.at + h.len); h.at = a; h.len = round(b - a) }
+  P.END = W(P.END)
+  // phrases: each plan row plays its phrase from s at speed k → the phrase warped from there
+  const variants = new Map()
+  const warpPhrase = (notes, s, k) => notes.map(([b, n, d]) => {
+    const t0 = W(s + k * b), t1 = W(s + k * (b + d))
+    return [round((t0 - W(s)) / k), n, round((t1 - t0) / k)]
+  }).filter(e => e[2] > 1e-3)
+  for (const plan of Object.values(P.plans)) for (const row of plan) {
+    const [s, name, , k] = row
+    if (!P.phrases[name]) { row[0] = W(s); continue }
+    const o = round(s % M.pin), id = o || k !== 1 ? `${name}_${String(o).replace('.', '_')}_${k}` : name
+    if (!variants.has(id)) variants.set(id, warpPhrase(P.phrases[name], o, k))
+    row[0] = W(s)
+    row[1] = id
+  }
+  return variants
 }
 
 // ---- modulations (opts.modulations) --------------------------------------------------------------------------------

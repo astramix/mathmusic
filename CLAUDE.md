@@ -17,7 +17,7 @@ Open a source file only to change it or when something here is unclear.
   the generator (11 styles × 3 seeds: loads, renders, lead on its chords), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
-  [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations]`
+  [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
   the app's 🎲 menu.
 - Program: `npm run exe [-- --shortcut]` → `MathMusic.exe` (viz/build-exe.js: page without my_songs, icon drawn in
@@ -48,7 +48,8 @@ export default {
   // optional: theme: 'lofi' (visualiser colours, viz/app/themes.js); generated songs also carry
   // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length, key?, mode?, micro?, temperament? }
   // optional: keys: [[0, 'D'], [80, 'F'], …] — a song that modulates: the score's signatures, note names by section
-  // optional: meter: '12/8' (x is then a dotted quarter) | meters: [[0, '4/4'], [120, '7/8'], …] per section — for the score
+  // optional: meter: '12/8' (x is then a dotted quarter), '2+2+3/8' (additive: its groups), '2+2+3/8 | 2+2+2+3/8' (bars in turn)
+  //   | meters: [[0, '4/4'], [120, '7/8'], …] per section — for the score (plain '9/8' is compound 3+3+3)
   // optional: mode: 'rast' (a modes.js id — a microtonal one makes the app spell E𝄳, B♭¹, D♯−37¢);
   //   tuning: { id: 'werckmeister3', name, offsets: [12 cents of C … B from 12-TET] } — what the song sounds in (export, inspector)
 }
@@ -216,6 +217,13 @@ the bridge by the style's list — parallel, enharmonic (the old key's leading-t
 mediant, relative, subdominant — composed in its key; the section after comes home. Each change: the bar before it gets
 [pivot, V7 of the new key] (`transitionChords`) and a composed LINK phrase in the singing voice; chords spelt by `lk`
 (the local key); the song gets `keys`. The 🎲 menu makes new songs with modulations; regenerating keeps a song's own.
+`meter` (`METERS`: 3/4 5/4 7/8 9/8 7/4 7/8+9/8 12/8 6/8; not boss/jbattle): the song is made in 4/4 and `toMeter` maps its
+time by a piecewise-linear w over `pin` → `pout` beats that keeps notes on the grid (7/8 halves the last beat, 9/8 doubles
+the last eighth, 5/4 = 3+2 doubles beat 2, 3/4 doubles the first beat of each half bar, 7/4 = 4+3, 12/8 turns eighths into
+triplet eighths); phrases get a copy per offset in the period and per speed; emit adds the bar geometry (barIndex,
+barStartOf, inBar, barLen), chords by eighths, and `grooveFor` / `compFor` / `bassFor` build drums (K . S . K . S in 7/8,
+waltz, 3+2, shuffle 12/8), comping and bass by the meter's groups (`MT` while emitting; 4/4 output is unchanged). The
+form is fitted to the length the song will have in the meter; the song says `meter: '2+2+3/8'`.
 A melody with `only: 'style'` (or a list of styles) is drawn by those alone — this keeps every
 other style's seeds producing exactly the songs they did (check old vs new output when touching the library).
 **boss** (⚔️ Босс-битва, 148–164 BPM, minor): the sound of overclock/finalbattle — hardKick tuned to the tonic

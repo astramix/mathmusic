@@ -20,9 +20,14 @@ const TRIPLET = [[32, 'quarter', 0], [24, 'eighth', 1], [16, 'eighth', 0], [8, '
 const near = (a, b, e = 1e-6) => Math.abs(a - b) < e
 
 // ---- meters --------------------------------------------------------------------------------------------------------
-// '7/8' → { beats: 7, unit: 8, compound, xTicks (ticks per x), barTicks, groups (beat groups in ticks) }
+// '7/8' → { beats: 7, unit: 8, compound, xTicks (ticks per x), barTicks, groups (beat groups in ticks) }; an additive
+// numerator says its groups: '2+2+3/8' (7/8 as 2 + 2 + 3), '2+2+2+3/8' (aksak 9/8), '3+2/4' (5/4)
 export function parseMeter(m = '4/4') {
-  const [N, D] = String(m).split('/').map(Number)
+  const [num, den] = String(m).trim().split('/'), D = +den, parts = num.split('+').map(Number), N = parts.reduce((a, b) => a + b, 0)
+  if (parts.length > 1) {
+    const u = (4 / D) * DIV
+    return { text: `${num}/${D}`, beats: N, unit: D, compound: false, xTicks: DIV, barTicks: N * u, groups: parts.map(p => p * u) }
+  }
   const compound = D === 8 && N % 3 === 0 && N > 3
   const unitTicks = (4 / D) * DIV, barTicks = N * unitTicks
   let groups
@@ -40,10 +45,12 @@ export function songBars(song) {
   const bars = []
   let x = 0, n = 1
   for (let i = 0; i < list.length; i++) {
-    const m = parseMeter(list[i][1]), end = list[i + 1]?.[0] ?? song.length, len = m.barTicks / m.xTicks
+    // '2+2+3/8 | 2+2+2+3/8': bars of the two meters in turn
+    const ms = String(list[i][1]).split('|').map(t => parseMeter(t)), end = list[i + 1]?.[0] ?? song.length
     x = Math.max(x, list[i][0])
-    while (x < end - 1e-6) {
-      bars.push({ n: n++, at: x, len: Math.min(len, Math.max(len, 0)), meter: m })
+    for (let j = 0; x < end - 1e-6; j++) {
+      const m = ms[j % ms.length], len = m.barTicks / m.xTicks
+      bars.push({ n: n++, at: x, len, meter: m })
       x += len
     }
   }
