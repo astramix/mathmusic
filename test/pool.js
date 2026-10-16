@@ -19,7 +19,7 @@ export async function measureAll(files, threads = Math.max(1, Math.min(files.len
 }
 
 export const dB = v => (v > 0 ? 20 * Math.log10(v) : -Infinity)
-export const AMBIENT = /ambience|rain|vinyl|wind|purr|texture|sfx|^fx|riser|sample|space|stars|noise|crackle/i
+export const AMBIENT = /ambience|rain|vinyl|wind|purr|texture|sfx|^fx|riser|thunder|sample|space|stars|noise|crackle/i
 // render.js's flags: quiet? = RMS more than 22 dB under the loudest track, hot? = peak over −1.5 dBFS
 export function flags(result) {
   const t = Object.entries(result.tracks ?? {})

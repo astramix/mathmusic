@@ -5,6 +5,9 @@
   "scripts": {
     "render": "node render.js songs/hardstyle.js",
     "device": "node max/build-device.js",
+    "app": "node viz/serve.js --open",
+    "exe": "node viz/build-exe.js",
+    "exe": "node viz/build-exe.js",
     "viz": "node viz/build.js",
     "dev": "node viz/watch.js",
     "generate": "node generate.js",

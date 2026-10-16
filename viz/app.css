@@ -32,6 +32,17 @@ kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
 #song { max-width: 210px; }
 #status { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-variant-numeric: tabular-nums; }
 #top .right { display: flex; gap: 10px; align-items: center; }
+#keynav { margin-left: auto; display: flex; }
+#keynav .mbtn { color: var(--accent2); }
+.modecard p { margin: 6px 0; line-height: 1.45; }
+.modecard .short { font-weight: 600; }
+.modecard .alt { color: var(--dim); font-size: 12px; }
+.modecard .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.modecard .notes { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.modecard .note { padding: 5px 10px; border-radius: 8px; background: #ffffff12; font-size: 15px; min-width: 26px; text-align: center; }
+.modecard .note.tonic { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.modecard .formula { margin: 6px 0; font-family: ui-monospace, monospace; font-size: 13px; }
+.modecard .chord { padding: 3px 8px; border-radius: 7px; background: #ffffff0d; }
 label.rng { display: flex; align-items: center; gap: 4px; color: var(--dim); }
 label.rng input { width: 74px; }
 @media (max-width: 1100px) { #top .right, #status { display: none; } }

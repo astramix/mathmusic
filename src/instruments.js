@@ -424,6 +424,392 @@ export function reverseBass({ drive = 4, open = 4, q = 1.2 } = {}) {
 // Sidechain pump: gain after a kick t seconds ago — dips by `depth` and comes back over `release` s
 export const duck = (t, depth = 0.7, release = 0.18) => 1 - depth * clamp(1 - t / release, 0, 1) ** 2
 
+// ---- Japan ----------------------------------------------------------------------------------------
+// A plucked string whose pitch may move: y[n] = e[n] + g·(a·y[n − D] + (1 − a)·y[n − D − 1]), D = SR/f(t) minus
+// the loop filter's phase delay, so the pitch is exact (A4 = 440) at every moment of a bend. e = the pluck, a
+// noise burst one period long, low-passed by the brightness and combed at the plucking point. g = 10^{−3/(f·T60)}.
+//   from: semitones the note slides in from (suri-age), glide s;  bend: semitones pressed in after bendAt s over
+//   bendTime s (koto oshide), back: s when the press lets go;  tension: the pitch rises while the string is loud;
+//   sawari: the bridge shortens the string on one side of its swing (the buzz of shamisen and biwa).
+function stringVoice(f, vel, η, o) {
+  const { bright = 0.6, sustain = 3, from = 0, glide = 0.06, bend = 0, bendAt = 0.3, bendTime = 0.12, back = 0, pos = 0.14, sawari = 0, tension = 0, at = 0, life = 6 } = o
+  const low = f * 2 ** (Math.min(0, from, bend) / 12) / (1 + 2 * tension)
+  const n = Math.ceil(SR / low) + 4, buf = new Float32Array(n)
+  const P = Math.max(2, Math.round(SR / f)), ex = new Float32Array(P), q = Math.max(1, Math.round(P * pos))
+  const c = clamp(0.12 + 0.8 * bright * (0.55 + 0.45 * vel), 0.05, 1)
+  let s = 0, peak = 1e-9
+  for (let i = 0; i < P; i++) ex[i] = s += c * (η() - s)
+  for (let i = P - 1; i >= q; i--) ex[i] -= ex[i - q]
+  for (let i = 0; i < P; i++) peak = Math.max(peak, Math.abs(ex[i]))
+  for (let i = 0; i < P; i++) ex[i] *= vel / peak
+  const T60 = sustain * Math.sqrt(220 / f), a = 0.5 + 0.45 * bright
+  const loss = fr => 10 ** (-3 / (fr * T60)), delayOf = fr => {
+    const ω = (TAU * fr) / SR
+    return SR / fr - Math.atan2((1 - a) * sin(ω), a + (1 - a) * cos(ω)) / ω
+  }
+  const g0 = loss(f), D0 = delayOf(f), moving = from || bend
+  let w = 0, k = -Math.round(at), prev = 0, last = 0, env = 0, mute = 1
+  const v = () => {
+    if (k < 0) return (k++, 0)
+    const t = k / SR
+    let D = D0, g = g0
+    if (moving) {
+      let st = 0
+      if (from) st += from * (1 - smoothstep(0, glide, t))
+      if (bend) st += bend * (smoothstep(bendAt, bendAt + bendTime, t) - (back ? smoothstep(back, back + bendTime, t) : 0))
+      if (st) {
+        const fr = f * 2 ** (st / 12)
+        D = delayOf(fr)
+        g = loss(fr)
+      }
+    }
+    if (tension) D /= 1 + tension * env
+    if (sawari) D *= 1 - sawari * Math.max(0, last)
+    let p = w - D
+    if (p < 0) p += n
+    const i = floor(p), i1 = i + 1 === n ? 0 : i + 1, r = buf[i] + (buf[i1] - buf[i]) * (p - i)
+    const y = g * mute * (a * r + (1 - a) * prev) + (k < P ? ex[k] : 0)
+    prev = r
+    buf[w] = y
+    w = w + 1 === n ? 0 : w + 1
+    env += 0.002 * (Math.abs(y) - env)
+    last = y
+    if (v.muting) mute = v.muting
+    k++
+    v.done = k > life * SR || (k > 0.3 * SR && env < 2e-5)
+    return y
+  }
+  v.t = () => k / SR
+  // a finger on the string: from now on it dies within ~τ seconds
+  v.mute = (τ = 0.03) => (v.muting = Math.exp(-1 / (f * τ)))
+  return v
+}
+// A set of strings plucked one after another: p() → [string, attack] sums; hits may be delayed (at, in samples).
+function stringSet(defaults, { mono = false, max = 8, seed = 7 } = {}) {
+  const η = noise(seed), voices = []
+  const p = () => {
+    let y = 0, atk = 0
+    for (let i = voices.length - 1; i >= 0; i--) {
+      const v = voices[i]
+      y += v.s()
+      const t = v.s.t()
+      if (t > 0 && t < 0.05) atk += v.vel * η() * exp(-t / v.click) + v.vel * v.thump * sin(TAU * v.tf * t) * exp(-t / 0.025)
+      if (v.s.done) voices.splice(i, 1)
+    }
+    return [y, atk]
+  }
+  p.hit = (f, vel = 0.7, o = {}) => {
+    const opts = { ...defaults, ...o }
+    if (mono && !o.keep) for (const v of voices) v.s.mute(0.025)
+    voices.push({ s: stringVoice(f, vel, η, opts), vel, click: opts.click ?? 0.004, thump: opts.thump ?? 0, tf: opts.thumpHz ?? 180 })
+    if (voices.length > max) voices.shift()
+  }
+  p.mute = τ => voices.forEach(v => v.s.mute(τ))
+  return p
+}
+// Shamisen: three silk strings over a skin. The big bachi slaps the skin with every note (a crack of noise
+// and a thump), sawari makes the low string buzz, the skin's resonances (≈ 450, 1800, 3200 Hz) give the
+// nasal bite. Monophonic like a melody on one string; s.hit(f, vel, { from, bend, keep }) — keep = a double stop.
+export function shamisen({ sawari = 0.012, sustain = 2.2, bright = 0.82, slap = 0.5, seed = 11 } = {}) {
+  const set = stringSet({ bright, sustain, sawari, tension: 0.012, pos: 0.09, click: 0.005, thump: 0.5, thumpHz: 210 }, { mono: true, max: 4, seed })
+  const hp = filter('hp'), b1 = filter('bp'), b2 = filter('bp'), b3 = filter('bp'), sb = filter('bp')
+  const s = () => {
+    const [y, atk] = set(), x = hp(y, 140)
+    return 0.45 * x + 1.1 * b1(x, 450, 1.4) + 0.75 * b2(x, 1800, 2.2) + 0.35 * b3(x, 3200, 3) + slap * sb(atk, 1700, 0.8)
+  }
+  s.hit = set.hit
+  s.mute = set.mute
+  return s
+}
+// Koto: thirteen silk strings on movable bridges, plucked with ivory picks (tsume) — a bright "chin" click;
+// a long paulownia body (≈ 210, 650 Hz). Strings ring on; oshide = hit(f, vel, { bend: 1 or 2, bendAt }).
+export function koto({ sustain = 3.2, bright = 0.72, click = 0.35, seed = 13 } = {}) {
+  const set = stringSet({ bright, sustain, sawari: 0.002, tension: 0.006, pos: 0.12, click: 0.0025 }, { max: 10, seed })
+  const lp = filter('lp'), b1 = filter('bp'), b2 = filter('bp'), ch = filter('hp')
+  const k = () => {
+    const [y, atk] = set()
+    return 0.75 * lp(y, 6500) + 0.7 * b1(y, 210, 1.8) + 0.4 * b2(y, 650, 2.4) + click * ch(atk, 2500)
+  }
+  k.hit = set.hit
+  k.mute = set.mute
+  return k
+}
+// Biwa: the lute of the tale-singers — four strings, high frets, a lot of sawari, a heavy bachi on a wooden
+// face: dark (≈ 300, 1100 Hz), buzzing, with a hard knock.
+export function biwa({ sawari = 0.02, sustain = 2.2, bright = 0.6, seed = 17 } = {}) {
+  const set = stringSet({ bright, sustain, sawari, tension: 0.015, pos: 0.11, click: 0.006, thump: 0.8, thumpHz: 140 }, { mono: true, max: 4, seed })
+  const lp = filter('lp'), b1 = filter('bp'), b2 = filter('bp'), sb = filter('bp'), hp = filter('hp')
+  const b = () => {
+    const [y, atk] = set(), x = hp(y, 70)
+    return 0.6 * lp(x, 3500) + 1.0 * b1(x, 300, 1.5) + 0.45 * b2(x, 1100, 2) + 0.6 * sb(atk, 900, 0.9)
+  }
+  b.hit = set.hit
+  b.mute = set.mute
+  return b
+}
+
+// Shakuhachi: the end-blown bamboo flute — a lot of breath (noise around f and 2f), a soft fundamental, the
+// note entered from below (meri: −0.7 semitone rising in 0.14 s), a breath burst on accents (muraiki), the
+// head-shaking vibrato (yuri, 4.6 Hz, ±0.3 semitone) that only comes on long notes.
+// sh(f, on, { accent 0–1, vib }) → sample; a new pitch while on = a new note.
+export function shakuhachi({ breath = 0.16, scoop = 0.7, seed = 19 } = {}) {
+  const η = noise(seed), o1 = osc('sine'), o2 = osc('sine'), o3 = osc('sine')
+  const bA = filter('bp'), bB = filter('bp'), hp = filter('hp'), level = ar(60, 160), glide = smooth(18)
+  let t = 0, held = 0, cur = 0, acc = 0
+  return (f, on, { accent = 0, vib = 1 } = {}) => {
+    t += 1 / SR
+    if (on && (held === 0 || Math.abs(f / cur - 1) > 0.01)) (held = 0), (cur = f), (acc = accent)
+    held = on ? held + 1 / SR : 0
+    const meri = on ? -scoop * (1 - smoothstep(0, 0.14, held)) : 0
+    const yuri = vib * 0.3 * smoothstep(0.35, 0.9, held) * sin(TAU * 4.6 * t)
+    const g = glide(cur || f) * 2 ** ((meri + yuri) / 12)
+    const a = level(on ? 1 : 0), n = η()
+    const tone = 0.62 * o1(g) + 0.15 * o2(2 * g) + 0.06 * o3(3 * g)
+    const burst = on ? (0.3 + acc) * exp(-held / 0.07) : 0
+    const air = breath * (bA(n, g, 3) + 0.5 * bB(n, 2 * g, 4)) + 0.3 * burst * hp(n, 1500)
+    return a * ((0.85 + 0.15 * smoothstep(0, 0.6, held)) * tanh(1.2 * tone) + air)
+  }
+}
+// Shinobue: the festival flute — high, bright, a chiff of air on every note, a quick small vibrato.
+export function shinobue({ breath = 0.05, seed = 23 } = {}) {
+  const η = noise(seed), os = [1, 2, 3, 4].map(() => osc('sine')), bp = filter('bp'), hp = filter('hp'), level = ar(15, 90), glide = smooth(8)
+  let t = 0, held = 0, cur = 0
+  return (f, on, { vib = 1 } = {}) => {
+    t += 1 / SR
+    if (on && (held === 0 || Math.abs(f / cur - 1) > 0.01)) (held = 0), (cur = f)
+    held = on ? held + 1 / SR : 0
+    const g = glide(cur || f) * 2 ** ((vib * 0.15 * smoothstep(0.25, 0.6, held) * sin(TAU * 5.8 * t)) / 12)
+    const a = level(on ? 1 : 0), n = η()
+    const tone = 0.55 * os[0](g) + 0.28 * os[1](2 * g) + 0.15 * os[2](3 * g) + 0.05 * os[3](4 * g)
+    return a * (tone + breath * bp(n, 2 * g, 3) + (on ? 0.4 * exp(-held / 0.03) : 0) * hp(n, 4000))
+  }
+}
+
+// Taiko: d(t, on) with t in seconds since the hit. The skin's modes f·(1, 1.52, 1.98, 2.46, 2.92), each decaying
+// faster than the one below, start a little sharp and sink onto the pitch (tension: +bend semitones falling
+// in 30 ms); the bachi cracks (high-passed noise), the barrel booms (noise around f). Odaiko ≈ 60–90 Hz with a
+// long decay; nagado ≈ 110–150 Hz; shime-daiko ≈ 350–450 Hz, short and crisp.
+export function taikoDrum({ pitch = 90, decay = 0.9, bend = 3, crack = 0.35, boom = 0.3, drive = 1.4, seed = 29 } = {}) {
+  const η = noise(seed), hp = filter('hp'), bp = filter('bp'), lp = filter('lp')
+  const R = [1, 1.52, 1.98, 2.46, 2.92], A = [1, 0.45, 0.28, 0.16, 0.1], K = [1, 1.7, 2.4, 3.2, 4]
+  const gl = 2 ** (bend / 12) - 1, τg = 0.03
+  return (t, on = true) => {
+    const n = η(), c = hp(n, 1800), b = bp(n, pitch, 2.5)
+    if (!on || t > 6 * decay) return (lp(0, 3000), 0)
+    const ph = TAU * pitch * (t + gl * τg * (1 - exp(-t / τg)))
+    let y = 0
+    for (let k = 0; k < 5; k++) y += A[k] * exp((-t * K[k] * 2.6) / decay) * sin(R[k] * ph)
+    y += crack * exp(-t / 0.004) * c + boom * exp(-t / (0.35 * decay)) * b
+    return tanh(drive * lp(y, 3000)) / tanh(drive)
+  }
+}
+// Kotsuzumi: the shoulder drum — a "pon" whose pitch the player bends by squeezing the cords (bend semitones)
+export const kotsuzumi = ({ pitch = 280, bend = -4, seed = 31 } = {}) => taikoDrum({ pitch, decay: 0.28, bend, crack: 0.25, boom: 0.15, drive: 1.1, seed })
+// Hyoshigi / the rim of a taiko ("ka"): two hard woods — 2.3 and 3.6 kHz ringing a few ms, and a click
+export function woodClack({ f = 2300, seed = 37 } = {}) {
+  const η = noise(seed), bp = filter('bp')
+  return (t, on = true) => {
+    const n = bp(η(), 3000, 1.5)
+    return on && t < 0.2 ? exp(-t / 0.012) * (0.6 * sin(TAU * f * t) + 0.4 * sin(TAU * 1.56 * f * t)) + 0.8 * exp(-t / 0.002) * n : 0
+  }
+}
+// Atarigane (kane): the small hand gong of the festival — partials 1, 2.32, 3.86, 5.81 of ≈ 1250 Hz; damp = a
+// muted "chiki" instead of an open "chan"
+export function kaneDrum({ f = 1250, decay = 0.7 } = {}) {
+  const R = [1, 2.32, 3.86, 5.81], A = [1, 0.7, 0.45, 0.3]
+  return (t, on = true, damp = false) => {
+    if (!on || t > 4 * decay) return 0
+    const d = damp ? 0.06 : decay
+    let y = 0
+    for (let k = 0; k < 4; k++) y += A[k] * exp((-t * (1 + k)) / d) * sin(TAU * R[k] * f * t)
+    return 0.4 * y
+  }
+}
+// Temple bell (bonshō): hum ½f, prime f, a minor-third tierce 1.2f, quint 1.5f, nominal 2f, … each partial a
+// beating pair (±0.075 %), the low ones ringing for many seconds; a strike transient on top
+export function templeBellTone(f, t, vel = 1) {
+  const R = [0.5, 1, 1.2, 1.5, 2, 2.52, 3.01], A = [0.8, 1, 0.6, 0.3, 0.45, 0.2, 0.15], T = [9, 6, 4, 3, 2.5, 1.5, 1]
+  let y = 0
+  for (let k = 0; k < 7; k++) {
+    const e = exp(-t / T[k])
+    if (e < 1e-4) continue
+    y += A[k] * e * (sin(TAU * R[k] * f * 0.99925 * t) + 0.7 * sin(TAU * R[k] * f * 1.00075 * t + k))
+  }
+  return 0.3 * vel * (y + 0.6 * exp(-t / 0.01) * sin(TAU * 4.3 * f * t))
+}
+// Kakegoe: the drummers' shouts — 'yo' ("iyooo": i → o, the pitch rising then falling), 'ha' (a breath, then a
+// falling "a"), 'sa' (a hiss, then "a"). k(word, t seconds since the shout, on) → sample.
+export function kakegoe({ size = 0.85, pitch = 165, seed = 41 } = {}) {
+  const η = noise(seed), v = voice({ size, breath: 0.12, rough: 0.6 }), hp = filter('hp'), bp = filter('bp')
+  const I = VOWELS.i, O = VOWELS.o, Aa = VOWELS.a
+  return (word, t, on = true) => {
+    const n = η(), h = hp(n, 1500), s = bp(n, 6000, 2)
+    if (!on || t > 1) return v(pitch, Aa, 0)
+    if (word === 'yo') {
+      const st = 7 * sin(PI * Math.min(1, t / 0.6)) - 6 * smoothstep(0.35, 0.8, t)
+      return 1.4 * v(pitch * 2 ** (st / 12), blend(I, O, smoothstep(0.05, 0.16, t)), env(t / 0.8, 0.05, 0.3))
+    }
+    const st = 4 - 7 * smoothstep(0.05, 0.3, t), body = 1.4 * v(pitch * 1.3 * 2 ** (st / 12), Aa, t > 0.05 ? env((t - 0.05) / 0.3, 0.1, 0.4) : 0)
+    return body + (word === 'sa' ? 0.5 * exp(-t / 0.04) * s : 0.6 * exp(-t / 0.05) * h)
+  }
+}
+
+// ---- orchestra ---------------------------------------------------------------------------------------
+// Timpani: the kettle's modes 1, 1.5, 1.98, 2.44, 2.94 (the air in the kettle tunes them almost harmonic, so
+// the drum has a pitch) and an inharmonic 1.65; the head starts a little sharp; the felt mallet's thump.
+// Pure (f, t, vel), for poly(); low notes ring longer.
+export function timpaniTone(f, t, vel = 0.8) {
+  const R = [1, 1.5, 1.98, 2.44, 2.94, 1.65], A = [1, 0.5, 0.32, 0.18, 0.1, 0.12], K = [1, 1.4, 1.9, 2.6, 3.3, 6]
+  const d = 1.3 * Math.sqrt(f / 100), ph = TAU * f * (t + 0.01 * 0.05 * (1 - exp(-t / 0.05)))
+  let y = 0
+  for (let k = 0; k < 6; k++) y += A[k] * vel ** (0.6 + 0.3 * k) * exp(-t * K[k] * d) * sin(R[k] * ph)
+  return 0.6 * y + 0.35 * vel * exp(-t / 0.006) * sin(TAU * 0.7 * f * t)
+}
+// Harp: 10 partials of a string plucked at 1/7 of its length with the fingertip (soft: the highs weaker on soft
+// notes), each dying faster than the one below; a 3 ms rise. Pure (f, t, vel) for poly(), and incremental.
+export function harpTone(f, t, vel = 0.7) {
+  const d = 0.4 * Math.sqrt(f / 220)
+  let y = 0
+  for (let k = 1; k <= 10; k++) {
+    if (k * f > 10000) break
+    const e = exp(-t * d * (1 + 0.35 * k ** 1.3))
+    if (e < 1e-4) continue
+    y += (Math.abs(sin((PI * k) / 7)) / k ** 1.4) * vel ** (0.3 + 0.12 * k) * e * sin(TAU * k * f * t)
+  }
+  return 0.55 * Math.min(1, t / 0.003) * y
+}
+harpTone.voice = (f, vel, t0) => {
+  const d = 0.4 * Math.sqrt(f / 220), P = []
+  for (let k = 1; k <= 10; k++) {
+    if (k * f > 10000) break
+    const dk = d * (1 + 0.35 * k ** 1.3), th = TAU * k * f * t0, de = (TAU * k * f) / SR
+    P.push({ s: sin(th), c: cos(th), ds: sin(de), dc: cos(de), e: (0.55 * Math.abs(sin((PI * k) / 7)) / k ** 1.4) * vel ** (0.3 + 0.12 * k) * exp(-dk * t0), q: exp(-dk / SR) })
+  }
+  let t = t0
+  return () => {
+    let y = 0
+    for (const p of P) {
+      y += p.e * p.s
+      const s = p.s * p.dc + p.c * p.ds
+      p.c = p.c * p.dc - p.s * p.ds
+      p.s = s
+      p.e *= p.q
+    }
+    t += 1 / SR
+    return Math.min(1, t / 0.003) * y
+  }
+}
+// Celesta: hammered steel bars over wooden resonators — an almost pure tone, a 4th partial that dies fast,
+// a tiny "tink"
+export const celestaTone = (f, t, vel = 0.7) =>
+  vel * exp(-t * (1.2 + f / 900)) * (sin(TAU * f * t) + 0.25 * exp(-9 * t) * sin(TAU * 4 * f * t) + 0.08 * vel * exp(-60 * t) * sin(TAU * 9.2 * f * t)) * Math.min(1, t / 0.002)
+
+// Pipe organ: o(freqs) → [l, r]. Every key opens one pipe per stop (ratios: 1 = 8′, 2 = 4′, 3 = 2⅔′, 4 = 2′, …),
+// the ranks a cent apart and spread across the case, a "chiff" of air when a pipe speaks, wind ramping in.
+export function organ({ voices = 4, stops = [[1, 1], [2, 0.5], [3, 0.18], [4, 0.25]], chiff = 0.25, gain = 0.12, seed = 43 } = {}) {
+  const η = noise(seed)
+  const bank = Array.from({ length: voices }, (_, j) => ({
+    pipes: stops.map(([r, a], i) => ({ o: osc('sine', hash(j * 7 + i, 3)), r: r * 2 ** ((i % 2 ? 1 : -1) * 0.0008), a, p: 0.6 * Math.sin(1.7 * i + j) })),
+    env: ar(45, 160), f: 0, held: 0, bp: filter('bp'),
+  }))
+  return freqs => {
+    let l = 0, r = 0
+    bank.forEach((v, j) => {
+      const on = j < freqs.length
+      if (on && Math.abs(freqs[j] / (v.f || 1) - 1) > 0.001) (v.f = freqs[j]), (v.held = 0)
+      v.held = on ? v.held + 1 / SR : 0
+      const a = v.env(on ? 1 : 0), n = v.bp(η(), 3 * (v.f || 220), 4)
+      if (a < 1e-4) return
+      for (const p of v.pipes) {
+        const y = a * p.a * p.o(v.f * p.r)
+        l += y * (0.5 - 0.5 * p.p)
+        r += y * (0.5 + 0.5 * p.p)
+      }
+      const c = chiff * a * exp(-v.held / 0.05) * n
+      l += c
+      r += c
+    })
+    return [gain * l, gain * r]
+  }
+}
+// One brass player: two saws 4 cents apart through a low-pass that opens as the note gets louder (brass is
+// brighter when loud), the note "blatted" in from a quarter-tone below, a late vibrato.
+function brassVoice({ bright = 1, seed = 47 } = {}) {
+  const a = osc('saw', hash(seed, 1)), b = osc('saw', hash(seed, 2)), lp = filter('lp'), lp2 = filter('lp'), level = ar(35, 180), glide = smooth(12)
+  let t = 0, held = 0, cur = 0
+  return (f, on, vel = 0.8) => {
+    t += 1 / SR
+    if (on && (held === 0 || Math.abs(f / cur - 1) > 0.01)) (held = 0), (cur = f)
+    held = on ? held + 1 / SR : 0
+    const e = level(on ? vel : 0)
+    if (e < 1e-4 && !on) return (lp(0, 500), lp2(0, 500), 0)
+    const st = (on ? -0.5 * exp(-held / 0.025) : 0) + 0.12 * smoothstep(0.3, 0.8, held) * sin(TAU * 5.2 * t)
+    const g = glide(cur || f) * 2 ** (st / 12)
+    const fc = 250 + 4200 * bright * e ** 1.6 + 1.5 * g
+    return e * lp2(lp(0.5 * a(g) + 0.5 * b(g * 1.0023), fc, 0.8), fc * 1.6)
+  }
+}
+// French horn (h(f, on, vel), mellow, a broad formant around 450 Hz) / trumpet: horn({ bright: 2.2 })
+export function horn({ bright = 0.55, seed = 53 } = {}) {
+  const v = brassVoice({ bright, seed }), bp = filter('bp')
+  return (f, on, vel = 0.8) => {
+    const y = v(f, on, vel)
+    return 0.7 * y + 0.5 * bp(y, 450, 1.2)
+  }
+}
+// Brass section: b(freqs, vel) → [l, r], a player per note spread across the stage
+export function brass({ voices = 4, bright = 1, gain = 0.3 } = {}) {
+  const ps = Array.from({ length: voices }, (_, j) => ({ v: brassVoice({ bright, seed: 60 + j }), p: voices > 1 ? 0.6 * ((2 * j) / (voices - 1) - 1) : 0, f: 220 }))
+  return (freqs, vel = 0.8) => {
+    let l = 0, r = 0
+    ps.forEach((p, j) => {
+      if (j < freqs.length) p.f = freqs[j]
+      const y = p.v(p.f, j < freqs.length, vel)
+      l += y * Math.sqrt((1 - p.p) / 2)
+      r += y * Math.sqrt((1 + p.p) / 2)
+    })
+    return [gain * l, gain * r]
+  }
+}
+// Double reeds and the clarinet: r(f, on, vib) → sample.
+//   oboe: a narrow pulse (every harmonic) through nasal formants 1.1 and 2.8 kHz, vibrato;
+//   clarinet: a square (odd harmonics — the hollow chalumeau), no vibrato;  bassoon: formants 450 and 1150 Hz.
+export function reed({ kind = 'oboe', breath = 0.03, seed = 59 } = {}) {
+  const K = { oboe: { duty: 0.18, F: [1100, 2800], Q: [4, 4], G: [1, 0.6], hp: 350, vib: 0.14, lp: 6000 }, clarinet: { duty: 0.5, F: [1500, 3000], Q: [1.2, 3], G: [0.3, 0.15], hp: 120, vib: 0, lp: 3200 }, bassoon: { duty: 0.25, F: [450, 1150], Q: [3, 4], G: [1, 0.5], hp: 60, vib: 0.1, lp: 3500 } }[kind]
+  const η = noise(seed), p = pulse(K.duty), b1 = filter('bp'), b2 = filter('bp'), hp = filter('hp'), lp = filter('lp'), bn = filter('bp'), level = ar(30, 90), glide = smooth(15)
+  let t = 0, held = 0, cur = 0
+  return (f, on, vib = 1) => {
+    t += 1 / SR
+    if (on && (held === 0 || Math.abs(f / cur - 1) > 0.01)) (held = 0), (cur = f)
+    held = on ? held + 1 / SR : 0
+    const g = glide(cur || f) * 2 ** ((vib * K.vib * smoothstep(0.2, 0.6, held) * sin(TAU * 5.4 * t)) / 12)
+    const a = level(on ? 1 : 0), src = lp(hp(p(g), K.hp), K.lp), n = η()
+    const y = 0.5 * src + K.G[0] * b1(src, K.F[0], K.Q[0]) + K.G[1] * b2(src, K.F[1], K.Q[1])
+    return a * (0.6 * y + breath * bn(n, 2 * g, 2) + (on ? 0.15 * exp(-held / 0.015) : 0) * n * 0.2)
+  }
+}
+// Choir: c(freqs, F) → [l, r]; two singers per part (a few cents apart, their own vibrato), F = vowel formants
+export function choir({ voices = 4, size = 1, breath = 0.06, rough = 0, gain = 0.3 } = {}) {
+  const parts = Array.from({ length: voices }, (_, j) => ({
+    a: voice({ size: size * (1 - 0.02 * j), breath, rough }), b: voice({ size: size * (0.97 - 0.02 * j), breath, rough }),
+    env: ar(180, 500), glide: smooth(40), f: 220, p: voices > 1 ? 0.7 * ((2 * j) / (voices - 1) - 1) : 0, r: 4.8 + 0.6 * hash(j, 5),
+  }))
+  let t = 0
+  return (freqs, F = VOWELS.a) => {
+    t += 1 / SR
+    let l = 0, r = 0
+    parts.forEach((v, j) => {
+      const on = j < freqs.length
+      if (on) v.f = freqs[j]
+      const e = v.env(on ? 1 : 0), g = v.glide(v.f), vib = 2 ** ((0.12 * sin(TAU * v.r * t + j)) / 12)
+      const y = v.a(0.998 * g * vib, F, e) + v.b((1.002 * g) / vib, F, e)
+      l += y * Math.sqrt((1 - v.p) / 2)
+      r += y * Math.sqrt((1 + v.p) / 2)
+    })
+    return [gain * l, gain * r]
+  }
+}
+
 // ---- textures -----------------------------------------------------------------------------
 // Vinyl: hiss plus sparse crackles
 export function vinyl({ hiss = 0.01, crackle = 0.25 } = {}) {
@@ -496,6 +882,47 @@ export function tape({ wow = 0.0012, flutter = 0.00012, drive = 1.3, tone = 9000
 }
 
 // ---- composition -------------------------------------------------------------------------------
+// Voice leading: chords = [[root, third, fifth(, seventh)] as pitch classes, …] → MIDI voicings (low → high).
+// Each voicing is the cheapest move from the one before: Σ|moves| + 8 per parallel fifth or octave between
+// any two voices + 3 per leap over a fourth; every chord tone present, only the root or the fifth doubled
+// (never the third — in V that is the leading tone), adjacent voices at most an octave apart, all in [lo, hi].
+export function voiceChords(chords, { lo = 55, hi = 76, voices = 4 } = {}) {
+  const pcOf = m => ((m % 12) + 12) % 12, out = []
+  let prev = null
+  for (const ch of chords) {
+    const notes = []
+    for (let m = lo; m <= hi; m++) if (ch.includes(pcOf(m))) notes.push(m)
+    let best = null, bestCost = Infinity
+    const rec = (i, acc) => {
+      if (acc.length === voices) {
+        const pcs = acc.map(pcOf)
+        if (!ch.slice(0, voices).every(p => pcs.includes(p))) return
+        if (ch.length < voices && pcs.filter(p => p === ch[1]).length > 1) return
+        let cost = 0
+        if (prev) {
+          for (let k = 0; k < voices; k++) {
+            const a = Math.abs(acc[k] - prev[k])
+            cost += a + (a > 5 ? 3 : 0)
+            for (let j = k + 1; j < voices; j++) {
+              const was = pcOf(prev[j] - prev[k]), now = pcOf(acc[j] - acc[k])
+              if ((now === 0 || now === 7) && was === now && acc[k] !== prev[k] && Math.sign(acc[k] - prev[k]) === Math.sign(acc[j] - prev[j])) cost += 8
+            }
+          }
+        } else cost = Math.abs((acc[0] + acc[voices - 1]) / 2 - (lo + hi) / 2) + 0.2 * (acc[voices - 1] - acc[0])
+        if (cost < bestCost) (bestCost = cost), (best = acc)
+        return
+      }
+      for (let j = i; j < notes.length; j++) {
+        if (acc.length && notes[j] - acc[acc.length - 1] > 12) break
+        rec(j + 1, [...acc, notes[j]])
+      }
+    }
+    rec(0, [])
+    prev = best ?? prev ?? notes.slice(0, voices)
+    out.push(prev)
+  }
+  return out
+}
 // improvise(opts) → note events [beat, n, d] for a solo, deterministic for a given seed.
 //   A walk over the notes of scale(x) (pitch classes) between lo and hi, steps of ±1/±2 scale
 //   notes pulled toward a phrase arch c(t) = mid + span·sin(πt/phrase); notes on the beat snap to

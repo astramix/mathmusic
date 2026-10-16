@@ -27,6 +27,31 @@ test('same seeds → the same song; another melody seed → other melodies, same
   assert.deepEqual(c.meta.instruments, a.meta.instruments)
 })
 
+// modes: every pitch of the themes and chords moves into the mode; songs load, render and stay in it
+test('modes: the lead stays in the mode (before any key change), the song renders', async () => {
+  const { MODES } = await import('../src/modes.js')
+  for (const [style, key, mode] of [['lofi', 'D', 'dorian'], ['classical', 'E', 'phrygian'], ['romantic', 'F', 'lydian'], ['bossa', 'G', 'mixolydian'],
+    ['jbattle', 'B', 'locrian'], ['jbattle', 'E', 'hirajoshi'], ['jbattle', 'D', 'in'], ['lofi', 'A', 'blues'], ['space', 'C', 'wholeTone'], ['boss', 'E', 'phrygianDom']]) {
+    const { source, meta } = generate({ style, seed: 5, key, mode })
+    assert.equal(meta.mode, mode)
+    const song = await load(`mode-${mode}`, source)
+    assert.equal(song.mode, mode)
+    const tonic = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[key], scale = new Set(MODES[mode].iv.map(v => (v + tonic) % 12))
+    const plan = JSON.parse(source.match(/const LEAD = (\[.*\])/)[1]), firstUp = plan.find(r => r[2] !== 0)?.[0] ?? song.length
+    const lead = Object.values(song.tracks)[0]
+    let notes = 0, off = 0
+    for (let x = 0; x < Math.min(firstUp, song.length); x += 0.25) for (const n of lead.midi(x)) { notes++; if (!scale.has(pc(n))) off++ }
+    assert.ok(notes > 20 && off === 0, `${mode}: ${off}/${notes} lead notes outside the mode`)
+    for (const [k, tr] of Object.entries(song.tracks)) {
+      const f = tr.audio({ bpm: song.bpm, sample: () => null })
+      for (let i = 0; i < 44100 * 2; i++) {
+        const y = f(i / 44100 / (60 / song.bpm)), v = typeof y === 'number' ? y : y[0]
+        assert.ok(Number.isFinite(v), `${mode} ${k}: NaN`)
+      }
+    }
+  }
+})
+
 for (const style of Object.keys(STYLES)) {
   for (const seed of [1, 2, 3]) {
     test(`${style} #${seed}`, async t => {

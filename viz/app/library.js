@@ -1,8 +1,9 @@
 // The song library: the built-in songs (songs/*.js) and your own — edited copies, generated songs,
 // imported files — kept as files in the project's my_songs/ folder. Both folders are embedded at build
-// time, so the page shows every song at once; to write, the page needs the folder itself (File System
-// Access: chosen once, the handle is remembered — the browser may ask to allow it again in a new
-// session). my_songs/library.json keeps what the code can't say: id, kind, untouched flag, dates.
+// time, so the page shows every song at once. Started by Visualizer.bat the page comes from viz/serve.js,
+// which reads and writes the folder itself (serverFolder: no dialogs). Opened as a file (or from a
+// website) the page needs the folder from the browser (File System Access: chosen once, the handle is
+// remembered — the browser may ask to allow it again in a new session). my_songs/library.json keeps what the code can't say: id, kind, untouched flag, dates.
 // A song saved while the folder isn't connected (or in a browser without File System Access) waits in
 // IndexedDB and moves into the folder as soon as it is. Tabs of the app see each other's changes
 // (a ping through localStorage). Writing a copy into songs/ (render.js / Ableton) stays as it was.
@@ -82,6 +83,46 @@ export function fileFor(name, old, taken) {
   return file
 }
 
+// a folder of viz/serve.js that looks like a File System Access directory handle (the same calls)
+export function serverFolder(api, name) {
+  const H = { 'x-mathmusic': '1' }, url = f => `${api}/${encodeURIComponent(f)}`
+  const missing = f => Object.assign(new Error(f), { name: 'NotFoundError' })
+  const ok = async (r, f) => {
+    if (r.status === 404) throw missing(f)
+    if (!r.ok) throw new Error(`${name}/${f}: ${r.status} ${await r.text()}`)
+    return r
+  }
+  const file = (f, mtime) => ({
+    kind: 'file',
+    async getFile() {
+      const r = await ok(await fetch(url(f), { headers: H }), f), text = await r.text()
+      return { text: async () => text, lastModified: +r.headers.get('x-mtime') || mtime || Date.now() }
+    },
+    async createWritable() {
+      let body = ''
+      return { write: async t => { body += t }, close: async () => { await ok(await fetch(url(f), { method: 'PUT', headers: H, body }), f) } }
+    },
+  })
+  return {
+    kind: 'directory', name, server: true,
+    async *entries() {
+      const list = await (await ok(await fetch(api, { headers: H }), '')).json()
+      for (const { name: f, mtime } of list) yield [f, file(f, mtime)]
+    },
+    async getFileHandle(f, { create = false } = {}) {
+      if (!create) await ok(await fetch(url(f), { headers: H }), f) // there, or NotFoundError
+      return file(f)
+    },
+    async removeEntry(f) { await ok(await fetch(url(f), { method: 'DELETE', headers: H }), f) },
+    queryPermission: async () => 'granted', requestPermission: async () => 'granted',
+  }
+}
+// the page came from viz/serve.js (Visualizer.bat): it saves through it
+async function onServer() {
+  if (typeof location === 'undefined' || !location.protocol.startsWith('http')) return false
+  try { return (await (await fetch('/api/hello')).json()).app === 'mathmusic' } catch { return false }
+}
+
 export class Library {
   constructor(SRC) {
     this.SRC = SRC
@@ -90,6 +131,8 @@ export class Library {
     this.dir = null // my_songs/, connected and writable
     this.stored = null // its remembered handle, before the browser allows it again
     this.denied = false // the browser said no this session: don't keep asking on every keystroke
+    this.server = false // the page came from viz/serve.js: my_songs/ and songs/ are written through it
+    this.beforePick = async () => true // the app explains the folder dialog before it opens the first time
     this.listeners = new Set()
     // my_songs/ as it was at build time — shown before (or without) the folder itself
     const index = SRC.mineIndex?.songs ?? {}
@@ -99,7 +142,7 @@ export class Library {
     }
   }
   get canConnect() {
-    return typeof window !== 'undefined' && !!window.showDirectoryPicker
+    return this.server || (typeof window !== 'undefined' && !!window.showDirectoryPicker)
   }
   get pending() {
     return [...this.user.values()].filter(e => e.where === 'pending')
@@ -107,13 +150,21 @@ export class Library {
   async init() {
     try {
       this.db = await idb()
-      // songs waiting for the folder (and the songs of older versions, which all lived here)
-      for (const e of (await tx(this.db, STORE, 'readonly', s => s.getAll())) ?? []) this.user.set(e.id, { ...e, source: lf(e.source), where: 'pending' })
-      const dir = await this.getMeta('mineDir')
-      if (dir && (await dir.queryPermission(RW)) === 'granted') await this.attach(dir, 'disk')
-      else this.stored = dir ?? null
     } catch (e) {
-      console.warn('no IndexedDB / folder: songs saved now live only in this tab', e)
+      console.warn('no IndexedDB', e)
+    }
+    try {
+      // songs waiting for the folder (and the songs of older versions, which all lived here)
+      if (this.db) for (const e of (await tx(this.db, STORE, 'readonly', s => s.getAll())) ?? []) this.user.set(e.id, { ...e, source: lf(e.source), where: 'pending' })
+      if ((this.server = await onServer())) {
+        await this.attach(serverFolder('/api/mine', DIR), 'disk')
+      } else {
+        const dir = await this.getMeta('mineDir')
+        if (dir && (await dir.queryPermission(RW)) === 'granted') await this.attach(dir, 'disk')
+        else this.stored = dir ?? null
+      }
+    } catch (e) {
+      console.warn('my_songs/ not read: songs saved now wait in this browser', e)
     }
     // another tab saved or removed a song: read it again
     addEventListener('storage', async ev => {
@@ -172,8 +223,9 @@ export class Library {
   // my_songs/ itself (inside the project folder, my_songs/ is made when it isn't there yet).
   // Both need a click or a key: without one the browser refuses and the song waits in IndexedDB.
   // fresh: choose another folder (the one connected now stays if the dialog is cancelled).
+  // The first time the dialog starts in Documents (a page can't point it at a path).
   async connect({ pick = false, fresh = false } = {}) {
-    if (this.dir && !fresh) return true
+    if (this.dir && (!fresh || this.server)) return true
     if (!this.canConnect || (this.denied && !pick)) return false
     try {
       let dir = fresh ? null : this.stored ?? (await this.getMeta('mineDir'))
@@ -183,7 +235,8 @@ export class Library {
       }
       if (!dir) {
         if (!pick) return false
-        dir = await showDirectoryPicker({ id: 'mathmusic-my-songs', mode: 'readwrite' })
+        if (!this.stored && !(await this.beforePick())) return false
+        dir = await showDirectoryPicker({ id: 'mathmusic-my-songs', mode: 'readwrite', startIn: this.stored ?? 'documents' })
         if (dir.name !== DIR) dir = await dir.getDirectoryHandle(DIR, { create: true })
         await this.setMeta('mineDir', dir)
       }
@@ -334,9 +387,9 @@ export class Library {
   async saveToDisk(name, source, { ask = false, confirm = async () => 'replace' } = {}) {
     const stem = fileName(name)
     let file = stem + '.js'
-    if (window.showDirectoryPicker) {
+    if (window.showDirectoryPicker || (this.server && !ask)) {
       try {
-        let dir = ask ? null : await this.getMeta('songsDir')
+        let dir = this.server && !ask ? serverFolder('/api/songs', 'songs') : ask ? null : await this.getMeta('songsDir')
         if (dir && (await dir.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await dir.requestPermission({ mode: 'readwrite' })) !== 'granted') dir = null
         if (!dir) {
           dir = await showDirectoryPicker({ id: 'mathmusic-songs', mode: 'readwrite' })

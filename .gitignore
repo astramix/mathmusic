@@ -2,6 +2,8 @@
 out/
 # built visualiser — rebuild with Visualizer.bat or `npm run viz`
 MathMusic Live.html
+# built program — rebuild with `npm run exe`
+MathMusic.exe
 node_modules/
 .claude/settings.local.json
 *.log

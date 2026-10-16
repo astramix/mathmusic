@@ -13,13 +13,22 @@ Open a source file only to change it or when something here is unclear.
   Long songs take 10–60 s: use `timeout: 600000`.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (9 styles × 3 seeds: loads, renders, lead on its chords), theory, MIDI export, the song
+  the generator (11 styles × 3 seeds: loads, renders, lead on its chords), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]`
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
   the app's 🎲 menu.
-- App: double-click `Visualizer.bat` (or `npm run viz`; `npm run dev` rebuilds on every change) →
-  standalone `MathMusic Live.html` (render.js rebuilds it too). See "The app" below.
+- Program: `npm run exe [-- --shortcut]` → `MathMusic.exe` (viz/build-exe.js: page without my_songs, icon drawn in
+  code, viz/launcher.cs compiled by Windows' own csc, C# 5). The exe serves the page + my_songs/ itself (same API
+  and checks as serve.js — test/serve.test.js runs both), opens Chrome/Edge `--app` with its own profile
+  (%LOCALAPPDATA%MathMusicrowser) and exits when that window closes. Users need no Node.js.
+  Вид → Окно / Полноэкранное окно (work area, resizeTo) / Полный экран (Alt+Enter, F11) — main.js `setWindowMode`,
+  remembered in localStorage `mm.window`; resizing works only in such an app window, not in a browser tab.
+- App: double-click `Visualizer.bat` (= `npm run app`: viz/serve.js on http://localhost:5178, builds the page on
+  every load and writes my_songs/ and songs/ itself — no folder dialog; 127.0.0.1 only, writes need the
+  `x-mathmusic: 1` header, plain file names only). `npm run viz` builds the standalone `MathMusic Live.html`
+  (render.js rebuilds it too; opened as a file it saves via File System Access); `npm run dev` rebuilds on
+  every change. See "The app" below.
 - `npm run device` rebuilds `MathMusic.amxd` (only after moving the folder).
 
 ## Song file contract
@@ -81,6 +90,18 @@ hardstyle: `hardKick({tail, drop, drive, bias, tone, sub, crush})` → k(t s, f 
 `reverseBass({drive, open, q})` → r(u ∈ [0,1) | null, f), `duck(t s, depth, release)` sidechain gain ·
 textures: `vinyl()`, `rain()` → [l, r] · effects: `chorus({rate, depth, mix})`, `tape({wow, flutter,
 drive, tone})` → (l, r) ⇒ [l, r].
+Japan (plucked strings are a Karplus–Strong loop with a moving, exactly tuned delay: pitch error < 2 cents):
+`shamisen({sawari})`, `koto()`, `biwa()` → s() sample, s.hit(f, vel, {from, glide, bend, bendAt, bendTime,
+back, at (samples), keep}) — from = slide in (suri), bend/back = oshide pressed and let go, sawari = buzz;
+shamisen and biwa are monophonic (keep = double stop) · `shakuhachi({breath, scoop})` → sh(f, on, {accent, vib})
+(meri attack, yuri vibrato, muraiki) · `shinobue()` → fl(f, on) · `taikoDrum({pitch, decay, bend, crack, boom})`
+→ d(t s, on) (odaiko ≈ 60, nagado ≈ 120, shime ≈ 420 Hz) · `kotsuzumi({pitch, bend})` · `woodClack()` (hyoshigi,
+"ka") · `kaneDrum({f})` → k(t, on, damp) · `templeBellTone(f, t, vel)` · `kakegoe()` → k('yo'|'ha'|'sa', t s, on).
+Orchestra: `timpaniTone, harpTone, celestaTone` = (f, t, vel) for poly() · `organ({voices, stops})` → o(freqs) ⇒ [l, r]
+· `horn({bright})` → h(f, on, vel) · `brass({voices, bright, gain})` → b(freqs, vel) ⇒ [l, r] ·
+`reed({kind: 'oboe'|'clarinet'|'bassoon'})` → r(f, on, vib) · `choir({voices, size, rough})` → c(freqs, F) ⇒ [l, r].
+Composition: `voiceChords([[root, 3rd, 5th(, 7th)] pcs…], {lo, hi, voices})` → voice-led MIDI voicings (least motion,
+no parallel fifths/octaves, the third never doubled).
 
 ## theory.js (shared by the generator, the app, the tests — not imported by songs)
 `freq(n)` A4 = 440 · `pc(n)` · `parseKey('F#m')` → {tonic, mode} · `keyName`, `keyLabel` ('F♯ минор') ·
@@ -88,9 +109,18 @@ drive, tone})` → (l, r) ⇒ [l, r].
 Krumhansl–Kessler, bass-weighted) · `SCALES` · `QUALITIES` · `roman('V7/V', key)` → {root, quality, tones, ivs} ·
 `chordName(ch, key)` · `voiceLead(pcs, prev, {lo, hi, voices})` smooth compact voicings · `snap(n, pcs)`.
 
+## modes.js (shared by the app, the generator, the tests — not imported by songs)
+`MODE_GROUPS` — 77 modes in 11 groups, the well-known first: basic, church modes, pentatonics/blues, modes of melodic
+minor, harmonic minor, harmonic major, Middle East/Balkans, Japan & East Asia, islands (Ryukyu, slendro/pelog as 12-TET
+approximations, Gaelic), India (thaats), symmetric. Each { id, name, alt, iv, short, text }. `MODES[id]`,
+`parentMode(iv)` (major/minor by the third), `spellScale(tonic, iv)` (seven letters for seven notes: E♭ dorian →
+E♭ F G♭ A♭ B♭ C D♭), `modeTriads`, `stepFormula`, `degreeFormula`, `KEYS` (30 keys round the circle of fifths with signatures).
+
 ## The generator (src/generate.js, src/melodies.js)
-`generate({ style, seed, key?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme? })` → { source, meta }.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical kawaii space meow boss — each: tempo/keys, forms
+`generate({ style, seed, key?, mode?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme? })` → { source, meta }.
+`mode` (a modes.js id): made in the major/minor with the same third, then every pitch (themes, voicings, bass) moves
+into the mode by scale degree (`modeMapper`; other sizes: nearest note), chords renamed; the song gets `mode: 'dorian'`.
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -100,7 +130,7 @@ filled, cadence). Bridge = new progression + composed melody. Computed parts: im
 from the chords or a canon, 4:3 arpeggio, half-speed outro, key change up. The emitted song is plain
 code: data (HARMONY with voice-led voicings and the chord's 3rd/5th/7th, THEME_A/B, BRIDGE, plans) +
 instrument recipes. New theme → MELODIES (+ the styles' `themes` weights); new sound → a recipe in
-generate.js; then `npm test`. A melody with `only: 'style'` is drawn by that style alone — this keeps every
+generate.js; then `npm test`. A melody with `only: 'style'` (or a list of styles) is drawn by those alone — this keeps every
 other style's seeds producing exactly the songs they did (check old vs new output when touching the library).
 **boss** (⚔️ Босс-битва, 148–164 BPM, minor): the sound of overclock/finalbattle — hardKick tuned to the tonic
 (`KICK_GAIN` evens out high tails), reverseBass between the kicks (rolling in the final), everything ducking
@@ -109,6 +139,17 @@ riser/alarm fx. Extra role `build` (VI – VII – V – V, a run up to the domi
 doubling); energy 3 = a drop; the solo is an equation (two sines snapped to chord/scale, sung by the hook).
 Themes: boss-ascent, boss-requiem, boss-overdrive (written for it) + overclock-hook, finalbattle-theme,
 chip-boss. Every boss song carries a `boss` field, so tools/score-export.mjs in Glitch Forest can take it.
+**classical** (🎻 Барокко и классицизм) and **romantic** (🎼 Романтический оркестр): themes of Beethoven (Ode to Joy, the
+Fifth), Mozart (Nachtmusik, Symphony 40), Bach (Little Fugue in G minor, Toccata in D minor), Grieg (Mountain King),
+Dvořák (Largo) — public domain, harmonised with chord tones on the strong beats — plus two of our own "в духе"
+Tchaikovsky and Chopin (`only: ['classical', 'romantic']`). Recipes: violin/oboe/flute/clarinet, horn and a singing
+cello an octave down, celesta; continuo harpsichord, Alberti bass, Bach's prelude figure, pipe organ, nocturne
+left hand, harp rolls, brass choir; harp/celesta arps; real timpani (`timpaniTone`) in the orchestral kit.
+**jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
+style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
+shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
+kit (odaiko/nagado/shime/ka/kane, a roll doubling through builds), thunder/bell/riser fx. Its themes come from the
+five Japanese songs (`only: 'jbattle'`); the solo is an improvised koto/shamisen solo.
 
 ## The app (viz/: build.js inlines everything into MathMusic Live.html)
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
@@ -123,11 +164,14 @@ LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code) · 
 ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs) · gallery.js (right click: duplicate,
 rename, delete; built-in songs first, then my_songs/ on their own row; style chips filter by `style`) ·
 library.js (my songs are files in **my_songs/** + my_songs/library.json (id, kind, pristine, dates); build.js
-embeds the folder, the page writes it through File System Access — the handle is kept in IndexedDB, the
-browser may ask to allow it again per session; a song saved before the folder is connected waits in
+embeds the folder; from viz/serve.js the page writes it through the server (`serverFolder` — the same calls
+as a directory handle), opened as a file through File System Access (dialog starts in Documents after an
+explaining modal; the handle is kept in IndexedDB, the browser may ask to allow it again per session); a song saved before the folder is connected waits in
 IndexedDB (`where: 'pending'`) and moves in on connect; unique names, file names transliterated, a renamed
 song moves to its new file; "write to songs/" asks before replacing; tabs synced via a localStorage ping) ·
-themes.js. `node render.js my_songs/<file>.js` renders a saved song like any other.
+themes.js · modesui.js (the «Лады» menu: a card per mode with notes spelt on the tonic, steps, triads, ▶ scale/chords; the
+key menu on the right, #keynav: 30 keys; the choice `app.tonality` {tonic, mode} | null is kept in localStorage `mm.tonality`,
+🎲 makes new songs in it, «↻ пересочинить текущую» = the same seeds in it). `node render.js my_songs/<file>.js` renders a saved song like any other.
 Editing state: app.drafts (one localStorage key per song) holds a draft exactly while the code differs from
 the saved one — `app.setDraft(cur, src)` keeps that true, `app.dirty(cur)` is the ●; `app.apply(src, { of: cur })`
 drops edits of a song no longer open. Generated songs carry `pristine` (the 🎲 menu tidies only untouched ones).
@@ -177,3 +221,9 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | iron-protocol | generated boss (seed 4, theme boss-ascent) | 151 | Dm→Em | demo of «восхождение»: 3-3-2 sequence up i–VI–VII–V |
 | final-core | generated boss (seed 5, theme boss-requiem) | 164 | Em→Gm | demo of «реквием»: dotted line over i–♭II–iv–V |
 | crimson-kernel | generated boss (seed 6, theme boss-overdrive) | 153 | Cm→Dm | demo of «перегрузка»: 16th riff, Andalusian i–VII–VI–V |
+| score-* (10) | classical scores | 52–200 | as written | `node tools/scores.js` writes them from the classical melodies of melodies.js: the theme 2–4 times with more voices, V–I; 30–90 s each |
+| raiden | jbattle: Inazuma-like battle | 152 | Em→F#m | 2 min, miyako-bushi, shinobue/shakuhachi/shamisen/koto, spiccato ostinato, taiko, hardstyle storms, duel = inverted call, koto solo + glissandi, canon |
+| kagekiri | jbattle: rawstyle × samurai | 150 | Dm | 2 min, shamisen screech (sawari + crush + wah), kick melody (tsuba), biwa tale, euphoric koto/supersaw theme, rolling rbass |
+| oni-matsuri | jbattle: festival fight | 136 | D (yo)→Bm→E | 2 min, yo scale + sus chords, Euclidean taiko E(5,16)/E(7,16)/E(11,16) and E(5,12) (3:4), kane, hyoshigi, kotsuzumi + shouts, timpani bass |
+| shogun-requiem | jbattle: epic, half time ↔ full | 168 | Cm→Dm→D | 2 min, in-scale + ♭II, male chant choir, biwa, 7/4 koto stretto K₂ = K₁(x − 3/2) − 12, chorale, boom kick, Picardy end |
+| kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

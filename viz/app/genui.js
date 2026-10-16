@@ -6,6 +6,7 @@ import { h, esc, toast, modal, seg } from './ui.js'
 import { generate, STYLES, STYLE_LIST, describe } from './generate.js'
 import { MELODIES } from './melodies.js'
 import { keyLabel, parseKey } from './theory.js'
+import { MODE_GROUPS, keyFor } from './modes.js'
 
 const newSeed = () => 1 + Math.floor(Math.random() * 999998)
 const KEEP = 40 // untouched generated songs kept in the library; older untouched ones are dropped
@@ -19,6 +20,10 @@ app.radio = radio
 const genOf = () => app.current?.song?.generator ?? null
 
 async function create(opts, { save = true, quiet = false } = {}) {
+  // the tonality chosen in «Лады» / the key menu, unless the call brings its own key (a mutation keeps the song's)
+  if (app.tonality && !('key' in opts)) opts = { ...opts, key: keyFor(app.tonality.tonic, app.tonality.mode), mode: app.tonality.mode }
+  if (opts.key == null) delete opts.key
+  if (opts.mode == null) delete opts.mode
   const t = quiet ? null : toast(`${STYLES[opts.style]?.emoji ?? '🎲'} сочиняю…`, { progress: true })
   await new Promise(r => setTimeout(r, 30))
   let res
@@ -51,8 +56,17 @@ export async function mutate(which) {
   const seeds = { ...g.seeds, [which]: newSeed() }
   const label = { melody: '🔁 новые мелодии', arrangement: '🎚 новая аранжировка', instruments: '🎻 новые инструменты' }[which]
   toast(label + '…', { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, ...seeds })
+  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, ...seeds })
 }
+// the current generated song again — the same seeds, in another tonic and mode
+export function regenerate(t) {
+  const g = genOf()
+  if (!g) return toast('пересочинить можно только сгенерированную песню — 🎲 «Новая песня в этом ладу»')
+  toast(`↻ ${g.style} · seed ${g.seed} → ${t.tonic} …`, { ms: 1500 })
+  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode })
+}
+// a new song in a tonality: the style of the current generated song, else the last one used
+export const createIn = t => create({ style: genOf()?.style ?? last.style, key: keyFor(t.tonic, t.mode), mode: t.mode })
 
 async function radioNext() {
   const g = genOf()
@@ -100,6 +114,14 @@ function dialog() {
     key.append(new Option(keyLabel(k), t + (m === 'minor' ? 'm' : '')))
   }
   key.value = last.key ?? ''
+  const mode = h('select')
+  mode.append(new Option('авто — мажор / минор', ''))
+  for (const g of MODE_GROUPS) {
+    const og = h('optgroup', { label: g.label })
+    for (const m of g.modes) og.append(new Option(m.name, m.id))
+    mode.append(og)
+  }
+  mode.value = last.mode ?? ''
   const bpm = h('input', { type: 'number', min: 40, max: 220, placeholder: 'авто', value: last.bpm ?? '', style: 'width:90px' })
   const length = seg([['short', '≈ 1.5 мин'], ['normal', '≈ 2.5 мин'], ['long', '≈ 3.5 мин']], last.length, v => (last.length = v))
   const seed = h('input', { type: 'number', min: 1, value: newSeed(), style: 'width:110px' })
@@ -120,6 +142,7 @@ function dialog() {
     h('div', { class: 'row' }, h('label', {}, 'Стиль'), style),
     info,
     h('div', { class: 'row' }, h('label', {}, 'Тональность'), key),
+    h('div', { class: 'row' }, h('label', {}, 'Лад'), mode, h('span', { class: 'dim' }, 'тоника — из тональности')),
     h('div', { class: 'row' }, h('label', {}, 'Темп, BPM'), bpm),
     h('div', { class: 'row' }, h('label', {}, 'Длина'), length),
     h('div', { class: 'row' }, h('label', {}, 'Seed'), seed, reroll, h('span', { class: 'dim' }, 'одинаковый seed — одинаковая песня')),
@@ -128,9 +151,9 @@ function dialog() {
   modal('🎲 Новая песня', box, [{ label: 'Отмена' }, {
     label: 'Сочинить', primary: true, action: () => {
       const sources = srcBoxes.filter(s => s[1].checked).map(s => s[0])
-      last = { style: style.value, length: length.value, key: key.value || null, bpm: +bpm.value || null, sources: sources.length === songs.length ? null : sources }
+      last = { style: style.value, length: length.value, key: key.value || null, mode: mode.value || null, bpm: +bpm.value || null, sources: sources.length === songs.length ? null : sources }
       remember()
-      create({ style: last.style, key: last.key ?? undefined, bpm: last.bpm ?? undefined, seed: +seed.value || newSeed(), sources: last.sources ?? undefined, length: last.length })
+      create({ style: last.style, key: last.key ?? null, mode: last.mode ?? null, bpm: last.bpm ?? undefined, seed: +seed.value || newSeed(), sources: last.sources ?? undefined, length: last.length })
     },
   }])
 }

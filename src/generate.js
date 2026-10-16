@@ -18,8 +18,12 @@
 //      added: an improvised solo, a counter-melody from the chords, a canon, a 4:3 arpeggio, the
 //      theme at half speed in the outro, a key change up in the final chorus of pop styles.
 // "Another one like this" = the same seeds except the melody seed.
+// opts.mode (an id of src/modes.js — dorian, phrygian, hirajoshi, blues…): the song is made in the major or minor
+// with the same third, then every pitch moves into the mode by its scale degree (D minor → D dorian: B♭ → B♮,
+// the chords follow: iv becomes IV); scales of other sizes take the nearest note of the scale.
 import { MELODIES, PROGRESSIONS } from './melodies.js'
 import { parseKey, roman, voiceLead, spell, keyName, keyLabel, SCALES, pc, chordName } from './theory.js'
+import { modeOf, parentMode } from './modes.js'
 
 // ---- randomness ----------------------------------------------------------------------------------
 export function rng(seed) {
@@ -135,12 +139,14 @@ export const STYLES = {
     comp: { 0: [[0, 0.5, 4]], 1: [[0, 0.6, 4]], 2: [[0, 0.7, 4]], 3: [[0, 0.8, 4]] },
     bassline: 'eighths', arpStep: 0.25, arpPoly: false,
   },
+  // Baroque and Classical: Bach, Mozart, Haydn, Beethoven — harpsichord or pipe organ continuo, a Bach prelude figure
+  // or an Alberti bass on the piano, violin / oboe / flute / clarinet leads, harp, timpani
   classical: {
-    label: 'Барокко / оркестр', emoji: '🎻', theme: 'classical', bpm: [68, 88], swing: 0.5,
-    themes: { canon: 5, 'canon-halves': 4, 'void-orbit': 1.5, 'template-flute': 1.5, 'meow-verse': 1 },
-    keys: ['D', 'G', 'C', 'A', 'F', 'Dm', 'Am', 'Gm'], moods: ['classical', 'warm', 'epic', 'calm'],
+    label: 'Барокко и классицизм', emoji: '🎻', theme: 'classical', bpm: [68, 96], swing: 0.5,
+    themes: { canon: 4, 'canon-halves': 3, 'bach-fugue': 4, 'bach-toccata': 3, 'mozart-nachtmusik': 4, 'mozart-40': 4, 'beethoven-joy': 3, 'beethoven-fate': 3, 'void-orbit': 0.5, 'template-flute': 0.5 },
+    keys: ['D', 'G', 'C', 'A', 'F', 'Bb', 'Dm', 'Am', 'Gm', 'Cm'], moods: ['classical', 'warm', 'epic', 'calm'],
     voicing: 'close', chordRange: [50, 74], bassRange: [31, 50],
-    lead: ['violin'], lead2: ['violin', 'flute'], chords: ['harpsichord'], bass: ['cello'], pad: ['strings'], arp: ['harpsichordarp'], texture: [null], kit: 'orchestral',
+    lead: ['violin', 'oboe', 'flute'], lead2: ['violin', 'flute', 'oboe', 'clarinet'], chords: ['harpsichord', 'alberti', 'prelude', 'pipeorgan'], bass: ['cello'], pad: ['strings'], arp: ['harpsichordarp', 'harp'], texture: [null], kit: 'orchestral',
     forms: [
       [['prelude', 4, 'intro', 0], ['theme', 8, 'theme', 1], ['canon', 8, 'final', 2, { canon: true }], ['episode', 8, 'bridge', 1], ['theme II', 8, 'themeB', 2], ['cadenza', 8, 'solo', 2], ['finale', 8, 'final', 3, { canon: true }], ['coda', 4, 'outro', 0]],
     ],
@@ -150,6 +156,42 @@ export const STYLES = {
     comp: { 0: [[0, 0.4, 2], [2, 0.35, 2]], 1: [[0, 0.45, 1], [1, 0.3, 1], [2, 0.4, 1], [3, 0.3, 1]], 2: [[0, 0.5, 1], [1, 0.35, 1], [2, 0.45, 1], [3, 0.35, 1]], 3: [[0, 0.55, 0.5], [0.5, 0.3, 0.5], [1, 0.4, 0.5], [1.5, 0.3, 0.5], [2, 0.5, 0.5], [2.5, 0.3, 0.5], [3, 0.4, 0.5], [3.5, 0.3, 0.5]] },
     bassline: [[0, 'R', 0.95], [1, 'R', 0.95], [2, '5', 0.95], [3, '8', 0.95]],
     arpStep: 0.25, arpPoly: false,
+  },
+  // the Romantic orchestra: Tchaikovsky, Grieg, Dvořák, Chopin — horn, oboe or a singing cello over a nocturne piano,
+  // harp rolls, a brass choir, celesta, strings and a choir; timpani
+  romantic: {
+    label: 'Романтический оркестр', emoji: '🎼', theme: 'romantic', bpm: [64, 92], swing: 0.5,
+    themes: { 'romance-tchaikovsky': 5, 'nocturne-chopin': 5, 'dvorak-largo': 4, 'grieg-mountain': 3, 'beethoven-joy': 1.5, 'mozart-40': 1.5, 'beethoven-fate': 1.5, 'canon-halves': 1 },
+    keys: ['Bm', 'Eb', 'Db', 'Gm', 'Em', 'F', 'Ab', 'Cm', 'D', 'Fm'], moods: ['classical', 'warm', 'dark', 'epic'],
+    voicing: 'close', chordRange: [48, 72], bassRange: [28, 48],
+    lead: ['horn', 'oboe', 'violin', 'cellolead'], lead2: ['clarinet', 'flute', 'violin', 'celesta'], chords: ['nocturne', 'harpchords', 'brasschoir'], bass: ['cello', 'upright'], pad: ['strings', 'choirpad'], arp: ['harp', 'celesta'], texture: [null], kit: 'orchestral',
+    forms: [
+      [['introduction', 4, 'intro', 0], ['theme', 8, 'theme', 1], ['theme II', 8, 'themeB', 2], ['development', 8, 'bridge', 2], ['cadenza', 8, 'solo', 1], ['finale', 8, 'final', 3, { canon: true }], ['coda', 6, 'outro', 0]],
+      [['introduction', 4, 'intro', 0], ['theme II', 8, 'themeB', 1], ['theme', 8, 'theme', 2], ['storm', 8, 'bridge', 3], ['nocturne', 8, 'solo', 1], ['finale', 8, 'final', 3, { keyUp: 1 }], ['coda', 6, 'outro', 0]],
+    ],
+    drums: {
+      full: { timp: 'x-------x-------' }, busy: { timp: 'x-------x---x-x-' }, light: { timp: 'x---------------' }, fill: { timp: '--------x-xxxxxx' },
+    },
+    comp: { 0: [[0, 0.4, 4]], 1: [[0, 0.45, 2], [2, 0.35, 2]], 2: [[0, 0.5, 2], [2, 0.4, 2]], 3: [[0, 0.6, 1.5], [1.5, 0.45, 1], [2.5, 0.5, 1.5]] },
+    bassline: [[0, 'R', 1.9], [2, '5', 1.9]],
+    arpStep: 0.5, arpPoly: true,
+  },
+  // A Japanese battle: shinobue or shakuhachi over koto and shamisen, horn stabs, timpani as the bass, a taiko
+  // ensemble — and the boss machinery underneath: a hardstyle kick on the tonic, the reverse bass, the sidechain in
+  // the drops, build-ups with a run to the dominant. Themes from songs/raiden, kagekiri, oni-matsuri, shogun-requiem.
+  jbattle: {
+    label: 'Японская битва', emoji: '⛩️', theme: 'ink', bpm: [140, 164], swing: 0.5, hard: true,
+    themes: { 'raiden-theme': 5, 'raiden-eternity': 3, 'kagekiri-theme': 5, 'oni-theme': 4, 'shogun-theme': 4, 'shogun-clash': 4 },
+    keys: ['Em', 'Dm', 'Am', 'Cm', 'F#m', 'Bm', 'Gm', 'C#m'], moods: ['epic', 'dark', 'game'],
+    voicing: 'close', chordRange: [55, 76], bassRange: [28, 40],
+    lead: ['shinobue', 'shakuhachi'], lead2: ['koto', 'shamisen'], chords: ['hornstabs'], bass: ['timpani'], pad: ['strings'], arp: ['kotoarp'], texture: ['thunder'], kit: 'taiko',
+    forms: [
+      [['kaminari', 4, 'intro', 1], ['bayashi', 8, 'themeB', 2], ['build', 4, 'build', 2], ['storm', 16, 'theme', 3], ['sakoku', 8, 'bridge', 1], ['build II', 4, 'build', 2], ['duel', 8, 'solo', 3], ['final storm', 16, 'final', 3, { keyUp: 2 }], ['zanshin', 4, 'outro', 0]],
+      [['iai', 2, 'intro', 1], ['kamae', 8, 'themeB', 2], ['build', 4, 'build', 2], ['kagekiri', 16, 'theme', 3], ['koto solo', 8, 'solo', 2], ['tsuki', 8, 'bridge', 1], ['build II', 4, 'build', 2], ['final kessen', 16, 'final', 3, { keyUp: 1 }], ['yoake', 4, 'outro', 0]],
+    ],
+    drums: {},
+    comp: { 0: [[0, 0.5, 3]], 1: [[0, 0.55, 3.5]], 2: [[0, 0.7, 1.5], [2.5, 0.6, 1.5]], 3: [[0, 0.9, 1.5], [1.5, 0.75, 1.5], [3, 0.6, 1]] },
+    bassline: [[0, 'R', 0.9], [1.5, 'R', 0.4], [2, '5', 0.9], [3, 'R', 0.9]], arpStep: 0.25, arpPoly: false,
   },
   kawaii: {
     label: 'Аниме J-pop', emoji: '🌸', theme: 'kawaii', bpm: [160, 176], swing: 0.5,
@@ -375,6 +417,8 @@ const NAMES = {
   space: [['silent', 'deep', 'cold', 'distant', 'dark', 'lunar'], ['orbit', 'nebula', 'comet', 'void', 'station', 'signal']],
   meow: [['fluffy', 'sleepy', 'tiny', 'ginger', 'purring', 'naughty'], ['kitten', 'paws', 'whiskers', 'tail', 'meow', 'nap']],
   boss: [['crimson', 'final', 'iron', 'binary', 'fatal', 'glitch', 'overclocked', 'null'], ['algorithm', 'kernel', 'protocol', 'overlord', 'core', 'equation', 'warden', 'daemon']],
+  romantic: [['autumn', 'white', 'northern', 'moonlit', 'tender', 'stormy', 'distant'], ['romance', 'nocturne', 'ballade', 'elegy', 'serenade', 'rhapsody', 'waltz']],
+  jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
 }
 
 export function generate(opts = {}) {
@@ -388,7 +432,9 @@ export function generate(opts = {}) {
   const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
 
   // key, tempo, form
-  const key = parseKey(opts.key) ?? parseKey(pick(RA, S.keys))
+  const key = { ...(parseKey(opts.key) ?? parseKey(pick(RA, S.keys))) }
+  const mode = opts.mode && !['major', 'minor'].includes(opts.mode) ? modeOf(opts.mode) : null
+  if (opts.mode) key.mode = opts.mode === 'major' || opts.mode === 'minor' ? opts.mode : parentMode(mode.iv)
   const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
   let form = pick(RA, S.forms).map(([name, bars, role, energy, o]) => ({ name, bars, role, energy, ...(o ?? {}) }))
   const target = { short: 95, normal: 160, long: 220 }[opts.length ?? 'normal'] // seconds
@@ -396,7 +442,7 @@ export function generate(opts = {}) {
 
   // themes from the library: the style's own list (weights), only those that can live in this mode;
   // A and B preferably from different songs. A melody marked `only` belongs to its style alone
-  const LIB = MELODIES.filter(m => !m.only || m.only === styleId)
+  const LIB = MELODIES.filter(m => !m.only || [].concat(m.only).includes(styleId))
   const allowed = LIB.filter(m => !opts.sources || opts.sources.includes(m.from))
   const fits = m => parseKey(m.key).mode === key.mode || m.modal
   const weightOf = m => S.themes?.[m.id] ?? 0.15 * (1 + m.moods.filter(x => S.moods.includes(x)).length)
@@ -510,17 +556,19 @@ export function generate(opts = {}) {
     // the chord's own third, fifth and seventh above the root (the fifth of a ø7 chord is diminished!)
     h.ivs = [ch.ivs.find(i => i === 3 || i === 4) ?? 4, ch.ivs.find(i => i === 6 || i === 7 || i === 8) ?? 7, ch.ivs.find(i => i === 9 || i === 10 || i === 11) ?? 10]
   }
+  if (mode) toMode({ key, iv: mode.iv, themes: [A, B, BR, RUN], harmony })
   const solo = sectionInfo.find(s => s.role === 'solo')
   const names = NAMES[styleId] ?? NAMES.lofi
   // the name follows the arrangement; a mutated melody or sound gets a variant number
   const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
   const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
   const meta = {
-    style: styleId, seed, seeds, length: opts.length ?? 'normal', key: keyName(key), bpm, title, form: form.map(f => f.name),
+    style: styleId, seed, seeds, length: opts.length ?? 'normal', key: keyName(key), mode: mode ? opts.mode : null, modeName: mode?.name ?? null, bpm, title, form: form.map(f => f.name),
+    fixedKey: opts.key ?? null,
     themes: { A: { from: melA.from, title: melA.title, how: A.how }, B: { from: melB.from, title: melB.title, how: B.how }, bridge: { rhythmFrom: melR.from } },
     instruments: inst,
   }
-  const source = emit({ S, styleId, key, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI })
+  const source = emit({ S, styleId, key, mode, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI })
   return { source, meta }
 }
 
@@ -558,22 +606,23 @@ const PAD_ON = `const padOn = x => chordAt(x) && ['themeB', 'bridge', 'break', '
 const lane = { lead: [1.1, 3], lead2: [1, 2.9], counter: [0.8, 2.4], chords: [-1, 0.4], bass: [-3, -2], pad: [-1.7, -0.6], arp: [0.3, 1.2], texture: [-2.95, -2.85] }
 
 function emit(P) {
-  const { S, styleId, key, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r } = P
+  const { S, styleId, key, mode, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r } = P
   const used = { engine: new Set(['mod', 'floor', 'exp', 'sin', 'TAU', 'hz', 'filter', 'reverb', 'delay', 'smooth']), instruments: new Set(['notesAt', 'hash', 'pan', 'arrangement', 'trigger', 'poly']) }
   const need = (mod, ...n) => n.forEach(x => used[mod].add(x))
   const tracks = []
   const sw = S.swing
   const roles = sectionInfo.map(s => [s.at, s.role, s.energy])
-  const keyText = keyLabel(key)
-  const boss = styleId === 'boss'
+  const keyText = mode ? `${spell(key.tonic + 60, key, false)} — ${mode.name.toLowerCase()}` : keyLabel(key)
+  const boss = styleId === 'boss', hard = boss || !!S.hard // hard: the hardstyle kick, the reverse bass, the sidechain
 
   // ---- data
   const H = harmony.map(h => `  [${h.at}, ${h.len}, ${h.bass}, [${h.voicing.join(', ')}], '${h.symbol}', [${h.ivs.join(', ')}]],`).join('\n')
   const head = []
-  head.push(`// ${meta.title} — ${S.label.toLowerCase()} in ${spell(key.tonic + 60, key, false)} ${key.mode}, ${bpm} BPM. Generated by MathMusic`)
+  head.push(`// ${meta.title} — ${S.label.toLowerCase()} in ${spell(key.tonic + 60, key, false)} ${mode ? mode.name.toLowerCase() + ` (${mode.iv.join(' ')})` : key.mode}, ${bpm} BPM. Generated by MathMusic`)
   head.push(`// (style ${styleId}, seed ${meta.seed}): ${sections.map(s => s[1]).join(' → ')}.`)
   head.push(`// Themes: A — ${meta.themes.A.title} (${meta.themes.A.how}), B — ${meta.themes.B.title} (${meta.themes.B.how}); the bridge melody is newly`)
-  head.push(`// composed on the rhythm of a theme from ${BR.from}. Computed parts: ${[solo ? (boss ? 'a solo that is an equation (the graph of two sines)' : 'an improvised solo') : null, 'a counter-melody from the chords', plans.counter.some(p => p[1] === 'CANON') ? 'a canon' : null, RUN ? 'a run up to the dominant in every build-up' : null, boss ? 'a reverse bass that rolls in the final' : null, 'the theme at half speed in the outro', sectionInfo.some(s => s.keyUp) ? 'a key change up' : null].filter(Boolean).join(', ')}.`)
+  head.push(`// composed on the rhythm of a theme from ${BR.from}. Computed parts: ${[solo ? (boss ? 'a solo that is an equation (the graph of two sines)' : 'an improvised solo') : null, 'a counter-melody from the chords', plans.counter.some(p => p[1] === 'CANON') ? 'a canon' : null, RUN ? 'a run up to the dominant in every build-up' : null, hard ? 'a reverse bass that rolls in the final' : null, 'the theme at half speed in the outro', sectionInfo.some(s => s.keyUp) ? 'a key change up' : null].filter(Boolean).join(', ')}.`)
+  if (hard && !boss) head.push(`// Japanese instruments over the boss machinery: the hardstyle kick's tail and the reverse bass sit on the tonic,\n// every part ducks under the kick in the drops, d(t) = 1 − 0.7(1 − t/0.18)²; the taiko roll doubles through each build.`)
   if (boss) head.push(`// The hardstyle kick's tail and the reverse bass sit on the tonic; every part ducks under the kick in the drops,\n// d(t) = 1 − 0.7(1 − t/0.18)². \`boss\` below makes it a Glitch Forest boss song (tools/score-export.mjs).`)
   head.push(`// It is an ordinary song file: change anything; the melodies can be drawn in the piano roll (P).`)
   head.push(`// x is time in beats; n counts semitones from C4 (MIDI 60).`)
@@ -596,8 +645,8 @@ const BY_BEAT = []
 for (const h of HARMONY) for (let b = h[0]; b < h[0] + h[1]; b++) BY_BEAT[b] = h
 const chordAt = x => BY_BEAT[floor(x)] ?? null
 ${PAD_ON} // pads play here
-const SCALE = [${(key.mode === 'minor' ? MIN : MAJ).map(i => (i + key.tonic) % 12).join(', ')}] // ${keyText}, pitch classes from C
-${boss ? bossData({ need, key, bpm, sectionInfo }) : ''}
+const SCALE = [${(mode ? mode.iv : key.mode === 'minor' ? MIN : MAJ).map(i => (i + key.tonic) % 12).join(', ')}] // ${keyText}, pitch classes from C
+${hard ? bossData({ need, key, bpm, sectionInfo }) : ''}
 // ---- melodies: [beat, n from C4, length] — draw them in the piano roll ------------------------------
 // A — ${meta.themes.A.title}, ${meta.themes.A.how}; in ${keyText}
 const THEME_A = ${fmtNotes(A.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
@@ -651,7 +700,7 @@ const counterAt = x => {
   need('instruments', 'improvise')
   // ---- tracks
   const T = (name, code) => tracks.push({ name, code })
-  const leadCode = (id, at, laneR, gainMul = 1, panv = 0.15) => LEADS[id]({ at, lane: laneR, gain: gainMul, pan: panv, need, sw })
+  const leadCode = (id, at, laneR, gainMul = 1, panv = 0.15) => LEADS[id]({ at, lane: laneR, gain: gainMul, pan: panv, need, sw, hard })
   T(inst.lead, leadCode(inst.lead, 'leadAt', lane.lead, 1, 0.12))
   // bells carry a melody alone at full level, but next to another lead they cut through: softer
   const LEAD2_GAIN = { bells: 0.45 }
@@ -661,12 +710,12 @@ const counterAt = x => {
   // named by its instrument too ("vibes counter"), so a MIDI export knows what plays it
   const counterVoice = COUNTER_VOICE[inst.lead] ?? inst.lead2
   T(counterVoice + ' counter', leadCode(counterVoice, 'counterAt', lane.counter, 0.5 * louder * (boss ? 2 : 1), -0.4))
-  T(inst.chords, CHORDS[inst.chords]({ need, comp: S.comp, lane: lane.chords }))
-  if (inst.pad) T(inst.pad === 'strings' ? 'strings' : inst.pad, PADS[inst.pad]({ need, lane: lane.pad, gain: boss ? 3 : 1 }))
-  T('bass', BASSES[inst.bass]({ need, line: S.bassline, lane: lane.bass }))
-  if (boss) T('rbass', reverseBassTrack({ need, lane: lane.bass }))
-  if (inst.arp) T(inst.arp + ' arp', ARPS[inst.arp]({ need, step: S.arpStep, poly: S.arpPoly, lane: lane.arp }))
-  if (S.kit === 'hardstyle') T('kick', hardKickTrack({ need }))
+  T(inst.chords, CHORDS[inst.chords]({ need, comp: S.comp, lane: lane.chords, hard }))
+  if (inst.pad) T(inst.pad === 'strings' ? 'strings' : inst.pad, PADS[inst.pad]({ need, lane: lane.pad, gain: boss ? 3 : hard ? 4 : 1, hard: hard && !boss }))
+  T('bass', BASSES[inst.bass]({ need, line: S.bassline, lane: lane.bass, hard }))
+  if (hard) T('rbass', reverseBassTrack({ need, lane: lane.bass, gain: boss ? 1 : 0.7 }))
+  if (inst.arp) T(inst.arp + ' arp', ARPS[inst.arp]({ need, step: S.arpStep, poly: S.arpPoly, lane: lane.arp, hard }))
+  if (hard) T('kick', hardKickTrack({ need, gain: boss ? 1 : 0.6 }))
   T('drums', KITS[S.kit]({ need, drums: S.drums }))
   if (inst.texture) T(inst.texture, TEXTURES[inst.texture]({ need }))
 
@@ -711,11 +760,12 @@ const counterAt = x => {
     `export default {
   name: '${meta.title}',
   bpm: ${bpm},
-  key: '${keyName(key)}',
+  key: '${keyName(key)}',${mode ? `
+  mode: '${meta.mode}', // ${mode.name}: ${mode.iv.join(' ')}` : ''}
   length: END,
   theme: '${S.theme}',
   style: '${styleId}',
-  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length })},
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}) })},
   sections: SECTIONS,${bossField}
   tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.key)}: track${i}`).join(', ')} },
 }
@@ -1033,7 +1083,10 @@ const PADS = {
   formula: ${JSON.stringify(['S = \\Rev\\,\\Cho\\,\\LP\\,\\HP\\sum_{j}\\sum_{u=-1}^{1}\\saw\\!\\Big(f_j\\,2^{\\,(0.09u + 0.12\\sin 2\\pi r_{j,u}T)/12}\\Big)'])},
   audio() {
     const s = strings({ voices: 4, attack: 700, release: 1400, cutoff: 2600, gain: ${round(0.036 * (o.gain ?? 1))} }), ch = chorus({ mix: 0.4 }), verb = reverb({ room: 0.9, wet: 0.45 })
-    return x => verb(...ch(...s(padOn(x) ? chordAt(x)[3].map(n => hz(n - 60 - 12 * (n > 64), C4)) : [])))
+    return x => {
+      const [l, r] = s(padOn(x) ? chordAt(x)[3].map(n => hz(n - 60 - 12 * (n > 64), C4)) : [])${o.hard ? ', d = pumpAt(x)' : ', d = 1'}
+      return verb(...ch(d * l, d * r))
+    }
   },
 }`
   },
@@ -1676,7 +1729,7 @@ function reverseBassTrack(o) {
     const rb = reverseBass({ drive: 5, open: 4.2, q: 1.4 }), lp = filter('lp')
     return x => {
       const b = rbassAt(x)
-      return 0.7 * lp(rb(b ? b.u : null, hz(b ? b.n - 60 : -24, C4)), 2500)
+      return ${round(0.7 * (o.gain ?? 1))} * lp(rb(b ? b.u : null, hz(b ? b.n - 60 : -24, C4)), 2500)
     }
   },
 }})()`
@@ -1727,7 +1780,7 @@ function hardKickTrack(o) {
     const k = hardKick({ tail: 0.3, drop: 7, drive: 8, bias: 0.3, tone: 5200, sub: 0.55 })
     return x => {
       const h = kickAt(x)
-      return KICK_GAIN * (h ? h.vel : 0) * k(h ? h.τ * SEC : 1, hz(TONIC1 + trAt(x) - 60, C4), !!h)
+      return ${o.gain && o.gain !== 1 ? `${o.gain} * ` : ''}KICK_GAIN * (h ? h.vel : 0) * k(h ? h.τ * SEC : 1, hz(TONIC1 + trAt(x) - 60, C4), !!h)
     }
   },
 }`
@@ -1830,5 +1883,488 @@ TEXTURES.riser = o => {
 }`
 }
 
+// ---- the orchestra of the classical and romantic styles ---------------------------------------------------------
+// a sustained solo instrument built once and fed (f, on): horn, oboe, clarinet; n shifted by `dn` semitones
+const sustainedLead = ({ make, imports, color, gain, dn = 0, formula, fx = 'hall' }) => o => {
+  o.need('instruments', ...imports)
+  return `{
+  color: '${color}',
+  graph: x => { const m = ${o.at}(x); return m ? ${o.lane[0]} + (m.n + 5) * ${round((o.lane[1] - o.lane[0]) / 34)} : null },
+  midi: x => { const m = ${o.at}(x); return m && m.u < 0.92 ? [${60 + dn} + m.n] : [] },
+  formula: ${JSON.stringify(formula)},
+  audio({ bpm }) {
+    const sec = 60 / bpm, inst = ${make}, ${FX[fx].init.slice(2)}
+    let n = 0
+    return x => {
+      const m = ${o.at}(x)
+      if (m) n = m.n
+      const y = ${round(gain * o.gain)} * inst(hz(n + ${dn}, C4), !!m && m.u < 0.93)${o.hard ? ' * pumpAt(x)' : ''}
+      return ${FX[fx].out('y', o.pan)}
+    }
+  },
+}`
+}
+LEADS.horn = sustainedLead({
+  make: 'horn({ bright: 0.6 })', imports: ['horn'], color: '#f4a261', gain: 0.5, dn: -12,
+  formula: ['Hn = 0.7y + 0.5\\,\\BP_{450}y,\\quad y = \\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g + \\saw 1.0023g\\big)\\,e(t),\\quad f_c = 250 + 2500\\,e(t)^{1.6}', 'g = f\\cdot 2^{(-0.5e^{-t/25\\text{мс}} + 0.12\\,s(t)\\sin 2\\pi\\,5.2T)/12}\\ \\text{— валторна, октавой ниже темы}'],
+})
+LEADS.oboe = sustainedLead({
+  make: "reed({ kind: 'oboe' })", imports: ['reed'], color: '#ffe8a3', gain: 0.4,
+  formula: ['Ob = a\\big(0.3\\,s + \\BP_{1100}^{Q=4}s + 0.6\\BP_{2800}^{Q=4}s\\big),\\quad s = \\LP\\,\\HP_{350}\\,\\Pi_{0.18}(g)\\quad\\text{— узкий импульс, носовые форманты гобоя}'],
+})
+LEADS.clarinet = sustainedLead({
+  make: "reed({ kind: 'clarinet' })", imports: ['reed'], color: '#d8f3dc', gain: 0.75,
+  formula: ['Cl = a\\big(0.3\\,s + 0.3\\BP_{1500}s + 0.15\\BP_{3000}s\\big),\\quad s = \\LP_{3200}\\,\\Pi_{1/2}(f)\\quad\\text{— меандр: только нечётные гармоники (шалюмо)}'],
+})
+LEADS.cellolead = o => {
+  o.need('instruments', 'bowed')
+  return `{
+  color: '#c08a5a',
+  graph: x => { const m = ${o.at}(x); return m ? ${o.lane[0]} + (m.n + 5) * ${round((o.lane[1] - o.lane[0]) / 34)} : null },
+  midi: x => { const m = ${o.at}(x); return m && m.u < 0.92 ? [48 + m.n] : [] },
+  formula: ${JSON.stringify(['Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big),\\quad s = \\saw\\!\\big(f\\cdot 2^{(n - 12 + v)/12}\\big)\\quad\\text{— виолончель поёт тему октавой ниже}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, bow = bowed({ base: C4, body: 0.6, sec }), verb = reverb({ room: 0.88, damp: 0.35, wet: 0.4 })
+    return x => { const m = ${o.at}(x); return verb(...pan(${round(0.3 * o.gain)} * bow(m && { ...m, n: m.n - 12 }, x * sec), ${o.pan})) }
+  },
+}`
+}
+LEADS.celesta = o => struck('celestaTone', ['celestaTone'], { release: 0.5, life: 4, gain: 0.35, fx: FX.echoHall, formula: ['Ce = v\\,e^{-t(1.2 + f/900)}\\big(\\sin 2\\pi ft + 0.25e^{-9t}\\sin 2\\pi\\,4ft + 0.08v\\,e^{-60t}\\sin 2\\pi\\,9.2ft\\big)'] })({ ...o, color: '#fff3b0' })
+Object.assign(COUNTER_VOICE, { horn: 'clarinet', oboe: 'clarinet', clarinet: 'oboe', cellolead: 'violin', celesta: 'flute' })
+
+// Alberti bass: low – high – middle – high in eighths from the voicing (Mozart, Haydn, Clementi); a held chord when calm
+CHORDS.alberti = o => {
+  o.need('instruments', 'pianoTone')
+  return `(() => {
+  const albertiAt = x => {
+    const c = chordAt(x), e = energy(x)
+    if (!c || e < 0) return null
+    const v = c[3]
+    if (e === 0) return { notes: v, at: floor(x / 2) * 2, d: 2, vel: 0.4 }
+    const j = floor(2 * x)
+    return { notes: [[v[0], v[v.length - 1], v[1], v[v.length - 1]][j % 4]], at: j / 2, d: 0.5, vel: (j % 4 ? 0.32 : 0.45) + 0.08 * e }
+  }
+  return {
+  color: '#ffffff',
+  graph: x => { const a = albertiAt(x); return a ? a.notes.map(n => ${o.lane[0]} + (n - 48) / 20) : null },
+  midi: x => { const a = albertiAt(x); return a && x - a.at < a.d * 0.9 ? a.notes : [] },
+  formula: ${JSON.stringify(['\\text{Альберти: } (v_1, v_4, v_2, v_4)_{\\lfloor 2x\\rfloor \\bmod 4}\\ \\text{восьмыми},\\quad P(f,t,v) = 0.35\\sum_{k=1}^{6}\\frac{v^{0.4+0.25k}}{k^{1.15}}\\big(0.7e^{-d_k t}+0.3e^{-0.12d_k t}\\big)\\sin 2\\pi f_k t'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, keys = poly(pianoTone, { release: 0.3, life: 5 }), fire = trigger(), verb = reverb({ room: 0.82, damp: 0.4, wet: 0.3 })
+    return x => {
+      const a = albertiAt(x)
+      if (a && fire(a.at)) a.notes.forEach((n, i) => keys.hit(hz(n - 60, C4), a.vel, a.d * sec * 1.6, i * 0.01))
+      return verb(...pan(0.32 * keys(), 0.15))
+    }
+  },
+}})()`
+}
+// the figure of Bach's C major Prelude: two low notes, then three repeated twice — (v₁ v₂ v₃ v₄ v₂′ v₃ v₄ v₂′) per half bar
+CHORDS.prelude = o => {
+  o.need('instruments', 'pianoTone')
+  return `(() => {
+  const figureAt = x => {
+    const c = chordAt(x), e = energy(x)
+    if (!c || e < 0) return null
+    const v = c[3], j = floor(4 * x), fig = [c[2] + 12, v[0], v[1], v[2], v[3] ?? v[0] + 12, v[1], v[2], v[3] ?? v[0] + 12]
+    return { n: fig[j % 8], at: j / 4, d: j % 8 < 2 ? 2 - (j % 8) / 4 : 0.25, vel: (j % 8 === 0 ? 0.5 : 0.36) + 0.05 * e }
+  }
+  return {
+  color: '#ffffff',
+  graph: x => { const f = figureAt(x); return f ? ${o.lane[0]} + (f.n - 48) / 20 : null },
+  midi: x => { const f = figureAt(x); return f && x - f.at < 0.2 ? [f.n] : [] },
+  formula: ${JSON.stringify(['\\text{фигура прелюдии Баха: } (b,\\ v_1, v_2, v_3, v_4, v_2, v_3, v_4)_{\\lfloor 4x\\rfloor \\bmod 8}\\ \\text{шестнадцатыми, ноты тянутся (педаль)}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, keys = poly(pianoTone, { release: 0.4, life: 5 }), fire = trigger(), verb = reverb({ room: 0.85, damp: 0.4, wet: 0.32 })
+    return x => {
+      const f = figureAt(x)
+      if (f && fire(f.at)) keys.hit(hz(f.n - 60, C4), f.vel, (2 - mod(f.at, 2)) * sec)
+      return verb(...pan(0.3 * keys(), 0.1))
+    }
+  },
+}})()`
+}
+// pipe organ: the voicing held on flue pipes 8′ 4′ 2⅔′ 2′, louder stops in the louder sections
+CHORDS.pipeorgan = o => {
+  o.need('instruments', 'organ')
+  return `{
+  color: '#c9a227',
+  graph: x => (chordAt(x) && energy(x) >= 0 ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
+  midi: x => (chordAt(x) && energy(x) >= 0 && mod(x, 4) < 3.9 ? chordAt(x)[3] : []),
+  formula: ${JSON.stringify(['O = \\Rev\\sum_{j}\\sum_{s \\in \\{1, 2, 3, 4\\}} a_s\\sin\\big(2\\pi\\,s f_j\\,(1 \\pm 0.0008)\\,t\\big) + \\text{«чифф»}\\ 0.25e^{-t/0.05}\\BP_{3f}\\eta\\quad\\text{— регистры } 8^\\prime, 4^\\prime, 2\\tfrac23^\\prime, 2^\\prime'])},
+  audio() {
+    const o = organ({ voices: 4, gain: 0.1 }), level = smooth(200), verb = reverb({ room: 0.94, damp: 0.35, wet: 0.5 })
+    return x => {
+      const c = chordAt(x), e = energy(x), a = level(c && e >= 0 ? [0.6, 0.75, 0.9, 1][e] : 0)
+      const [l, r] = o(c && e >= 0 && mod(x, 4) < 3.95 ? c[3].map(n => hz(n - 60, C4)) : [])
+      return verb(a * l, a * r)
+    }
+  },
+}`
+}
+// nocturne piano: the bass, then a wide broken chord over two octaves in eighths (Chopin's left hand)
+CHORDS.nocturne = o => {
+  o.need('instruments', 'pianoTone')
+  return `(() => {
+  const nocAt = x => {
+    const c = chordAt(x), e = energy(x)
+    if (!c || e < 0) return null
+    const v = c[3], j = floor(2 * x), b = c[2] + (c[2] < 40 ? 12 : 0)
+    const fig = [b, b + 7, v[1], v[2], v[3] ?? v[0] + 12, v[2], v[1], b + 7]
+    return { n: fig[j % 8], at: j / 2, vel: (j % 8 === 0 ? 0.55 : 0.34) + 0.05 * e }
+  }
+  return {
+  color: '#ffffff',
+  graph: x => { const f = nocAt(x); return f ? ${o.lane[0]} + (f.n - 40) / 24 : null },
+  midi: x => { const f = nocAt(x); return f && x - f.at < 0.4 ? [f.n] : [] },
+  formula: ${JSON.stringify(['\\text{левая рука ноктюрна: } (b,\\ b + 7,\\ v_2, v_3, v_4, v_3, v_2,\\ b + 7)_{\\lfloor 2x\\rfloor \\bmod 8}\\ \\text{— широкое арпеджио на две октавы, педаль'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, keys = poly(pianoTone, { release: 0.5, life: 6 }), fire = trigger(), verb = reverb({ room: 0.88, damp: 0.35, wet: 0.35 })
+    return x => {
+      const f = nocAt(x)
+      if (f && fire(f.at)) keys.hit(hz(f.n - 60, C4), f.vel, (4 - mod(f.at, 4)) * sec)
+      return verb(...pan(0.3 * keys(), 0.1))
+    }
+  },
+}})()`
+}
+// harp: the chord rolled upwards (35 ms a string) with the bass under it, on the comping hits
+CHORDS.harpchords = o => {
+  o.need('instruments', 'harpTone')
+  return `(() => {
+  ${compHit(o.comp)}
+  return {
+  color: '#ffd6e0',
+  graph: x => (compAt(x) && chordAt(x) && x - compAt(x).at < 1 ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
+  midi: x => { const h = compAt(x), c = chordAt(x); return h && c && x - h.at < Math.min(1, h.d * 0.9) ? [c[2] + 12, ...c[3]] : [] },
+  formula: ${JSON.stringify(['Hp(f,t,v) = 0.55\\sum_{k=1}^{10}\\frac{|\\sin(\\pi k/7)|}{k^{1.4}}\\,v^{0.3+0.12k}e^{-0.4\\sqrt{f/220}\\,(1 + 0.35k^{1.3})t}\\sin 2\\pi kft,\\quad \\text{арпеджато вверх по 35 мс}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, p = poly(harpTone, { release: 0.6, life: 6, max: 24 }), fire = trigger(), verb = reverb({ room: 0.9, wet: 0.4 })
+    return x => {
+      const h = compAt(x), c = chordAt(x)
+      if (h && c && fire(h.at)) [c[2] + 12, ...c[3], c[3][1] + 12].forEach((n, i) => p.hit(hz(n - 60, C4), h.vel * 0.9, h.d * sec + 1, i * 0.035))
+      return verb(...pan(0.34 * p(), -0.2))
+    }
+  },
+}})()`
+}
+// a brass choir: the voicing held on four horn-like voices, swelling with the section's energy
+CHORDS.brasschoir = o => {
+  o.need('instruments', 'brass')
+  return `(() => {
+  ${compHit(o.comp)}
+  return {
+  color: '#f4a261',
+  graph: x => (compAt(x) && chordAt(x) ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
+  midi: x => { const h = compAt(x), c = chordAt(x); return h && c && x - h.at < h.d * 0.9 ? c[3] : [] },
+  formula: ${JSON.stringify(['Br = \\sum_{j}\\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g_j + \\saw 1.0023g_j\\big)e(t),\\quad f_c = 250 + 2100\\,e(t)^{1.6}\\ \\text{(чем громче, тем ярче)}'])},
+  audio() {
+    const b = brass({ voices: 4, bright: 0.5, gain: 0.26 }), verb = reverb({ room: 0.9, wet: 0.4 })
+    return x => {
+      const h = compAt(x), c = chordAt(x), on = h && c && x - h.at < h.d * 0.92
+      return verb(...b(on ? c[3].map(n => hz(n - 60, C4)) : [], h ? 0.5 + 0.5 * h.vel : 0.6))
+    }
+  },
+}})()`
+}
+ARPS.harp = o => polyArp(o, 'harpTone', '#ffd6e0', 0.26, ['Hp(f,t,v) = 0.55\\sum_{k=1}^{10}\\frac{|\\sin(\\pi k/7)|}{k^{1.4}}\\,v^{0.3+0.12k}e^{-d_k t}\\sin 2\\pi kft\\quad\\text{— арфа, щипок на } 1/7 \\text{ струны}'])
+ARPS.celesta = o => polyArp(o, 'celestaTone', '#fff3b0', 0.2, ['Ce = v\\,e^{-t(1.2 + f/900)}\\big(\\sin 2\\pi ft + 0.25e^{-9t}\\sin 2\\pi\\,4ft + \\ldots\\big)\\quad\\text{— челеста'])
+// the orchestral kit: real timpani (the kettle's modes) on the chord's bass
+KITS.orchestral = o => {
+  o.need('instruments', 'timpaniTone')
+  return `(() => {
+  ${drumData(o.drums)}
+  return {
+  color: '#d98b5f',
+  ${drumGraph}
+  formula: ${JSON.stringify(['Ti = \\sum_{k}A_k v^{0.6 + 0.3k}e^{-K_k d\\,t}\\sin\\big(2\\pi R_k f(t + 0.0005(1 - e^{-t/0.05}))\\big),\\quad R = (1, 1.5, 1.98, 2.44, 2.94, 1.65),\\ f \\text{ — бас аккорда}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, p = poly(timpaniTone, { release: 0.8, life: 4, max: 12 }), fire = trigger(), verb = reverb({ room: 0.9, damp: 0.4, wet: 0.4 })
+    return x => {
+      const h = lastHit(x, 'timp'), c = chordAt(x)
+      if (h && h.τ < 0.05 && fire(x - h.τ)) p.hit(hz((c ? c[2] : 38) + ((c ? c[2] : 38) < 41 ? 12 : 0) - 60, C4), h.vel)
+      return verb(...pan(0.26 * p(), -0.2))
+    }
+  },
+}})()`
+}
+
+// ---- the Japanese battle (jbattle) -----------------------------------------------------------------------------
+const pumpIf = o => (o.hard ? ' * pumpAt(x)' : '')
+// shinobue an octave above the theme; shakuhachi as written (meri attacks, yuri on the long notes)
+LEADS.shinobue = o => {
+  o.need('instruments', 'shinobue')
+  return `{
+  color: '#ff5a5f',
+  ${graphLead(o.at, o.lane).replace('[60 + m.n]', '[72 + m.n]')}
+  formula: ${JSON.stringify(['Sb = a\\Big(0.55\\sin 2\\pi\\!\\!\\int\\! g + 0.28\\sin 4\\pi\\!\\!\\int\\! g + 0.15\\sin 6\\pi\\!\\!\\int\\! g + 0.05\\sin 8\\pi\\!\\!\\int\\! g + 0.05\\BP_{2g}\\eta + 0.4e^{-t/30\\text{мс}}\\HP_{4000}\\eta\\Big)', 'g = 2f\\cdot 2^{0.15\\,s(t)\\sin(2\\pi\\cdot 5.8T)/12}\\ \\text{— синобуэ, октавой выше темы}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, fl = shinobue(), echo = delay({ time: sec * 0.75, feedback: 0.3, wet: 0.2 }), verb = reverb({ room: 0.86, damp: 0.4, wet: 0.3 })
+    let n = 0
+    return x => {
+      const m = ${o.at}(x)
+      if (m) n = m.n
+      const y = ${round(0.9 * o.gain)} * fl(hz(n + 12, C4), !!m && m.u < 0.93)${pumpIf(o)}
+      return verb(...echo(...pan(y, ${o.pan})))
+    }
+  },
+}`
+}
+LEADS.shakuhachi = o => {
+  o.need('instruments', 'shakuhachi')
+  return `{
+  color: '#c8e6a0',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(['Sh = a\\Big(\\tanh\\big(1.2(0.62\\sin 2\\pi\\!\\!\\int\\! g + 0.15\\sin 4\\pi\\!\\!\\int\\! g + 0.06\\sin 6\\pi\\!\\!\\int\\! g)\\big) + 0.16\\big(\\BP_{g}\\eta + \\tfrac12\\BP_{2g}\\eta\\big) + \\text{мураики}\\Big)', 'g = f\\cdot 2^{\\big(-0.7(1 - s(t/0.14)) + 0.3\\,s(\\frac{t - 0.35}{0.55})\\sin(2\\pi\\cdot4.6T)\\big)/12}\\quad\\text{— мэри снизу, юри на долгих нотах}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, sh = shakuhachi(), echo = delay({ time: sec * 1.5, feedback: 0.25, wet: 0.18 }), verb = reverb({ room: 0.92, damp: 0.3, wet: 0.42 })
+    let n = 0
+    return x => {
+      const m = ${o.at}(x)
+      if (m) n = m.n
+      const y = ${round(1.0 * o.gain)} * sh(hz(n, C4), !!m && m.u < 0.95, { accent: m && m.d * sec > 0.8 ? 0.6 : 0.1 })${pumpIf(o)}
+      return verb(...echo(...pan(y, ${o.pan})))
+    }
+  },
+}`
+}
+// koto: a pluck per note, oshide (pressed up to the next note of the key and let go) on some long notes
+LEADS.koto = o => {
+  o.need('instruments', 'koto')
+  return `{
+  color: '#8ecae6',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(['y[k] = e[k] + g\\big(a\\,y[k - D] + (1 - a)\\,y[k - D - 1]\\big),\\ D = \\tfrac{44100}{f(t)} - \\delta,\\quad f(t) = f_0\\,2^{\\,b\\,(s(\\frac{t - 0.25}{0.1}) - s(\\frac{t - t_r}{0.1}))/12}\\ \\text{(осидэ)}', 'Ko = 0.75\\,\\LP_{6500}y + 0.7\\BP_{210}y + 0.4\\BP_{650}y + 0.35\\HP_{2500}(\\text{цумэ})'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, k = koto(), fire = trigger(), verb = reverb({ room: 0.86, damp: 0.35, wet: 0.34 })
+    const upStep = n => { for (let s = 1; s < 3; s++) if (SCALE.includes(mod(n + s + 60, 12))) return s; return 0 }
+    return x => {
+      const m = ${o.at}(x)
+      if (m && fire(m.at)) {
+        const press = m.d * sec > 0.7 && SCALE.includes(mod(m.n + 60, 12)) && hash(floor(m.at * 2), 5) < 0.45 ? upStep(m.n) : 0
+        k.hit(hz(m.n, C4), 0.8, { bend: press, bendAt: 0.25, bendTime: 0.1, back: press ? 0.25 + 0.6 * m.d * sec : 0 })
+      }
+      return verb(...pan(${round(4 * o.gain)} * k()${pumpIf(o)}, ${o.pan}))
+    }
+  },
+}`
+}
+// shamisen: a pluck per note, sixteenth tremolo on notes of a beat or longer
+LEADS.shamisen = o => {
+  o.need('instruments', 'shamisen')
+  return `{
+  color: '#ffd166',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(['y[k] = e[k] + g\\big(a\\,y[k - D] + \\ldots\\big),\\quad D = \\tfrac{44100}{f}\\big(1 - 0.012\\max(0, y[k-1])\\big)\\ \\text{— савари}', 'Sm = 0.45\\HP y + 1.1\\BP_{450}y + 0.75\\BP_{1800}y + 0.35\\BP_{3200}y + 0.5\\BP_{1700}(\\text{бати}),\\quad \\text{тремоло шестнадцатыми на долгих нотах}'])},
+  audio() {
+    const s = shamisen(), fire = trigger(), verb = reverb({ room: 0.8, damp: 0.45, wet: 0.24 })
+    return x => {
+      const m = ${o.at}(x)
+      if (m && fire(m.d >= 1 ? m.at + floor(4 * m.τ) / 4 : m.at)) s.hit(hz(m.n, C4), m.τ < 0.25 ? 0.9 : 0.55)
+      return verb(...pan(${round(2.4 * o.gain)} * s()${pumpIf(o)}, ${o.pan}))
+    }
+  },
+}`
+}
+Object.assign(COUNTER_VOICE, { shinobue: 'shakuhachi', shakuhachi: 'koto', koto: 'shakuhachi', shamisen: 'koto' })
+// horn stabs: the voicing on a brass section, cut short (0.4 beat), ducked in the drops
+CHORDS.hornstabs = o => {
+  o.need('instruments', 'brass')
+  return `(() => {
+  ${compHit(o.comp)}
+  return {
+  color: '#f4a261',
+  graph: x => { const h = compAt(x), c = chordAt(x); return h && c && x - h.at < 0.45 ? c[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null },
+  midi: x => { const h = compAt(x), c = chordAt(x); return h && c && x - h.at < 0.4 ? c[3] : [] },
+  formula: ${JSON.stringify(['Br = \\sum_{j}\\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g_j + \\saw 1.0023g_j\\big)e(t),\\quad f_c = 250 + 4600\\,e(t)^{1.6},\\quad g_j = f_j\\,2^{-0.5e^{-t/25\\text{мс}}/12}'])},
+  audio() {
+    const b = brass({ voices: 4, bright: 1.1, gain: 0.6 }), verb = reverb({ room: 0.88, wet: 0.38 })
+    return x => {
+      const h = compAt(x), c = chordAt(x), on = h && c && x - h.at < Math.min(0.42, h.d)
+      const [l, r] = b(on ? c[3].map(n => hz(n - 60, C4)) : [], h ? h.vel : 0.5), g = 1${pumpIf(o)}
+      return verb(g * l, g * r)
+    }
+  },
+}})()`
+}
+// timpani as the bass: the style's line on the root and fifth; softer in the drops, where the reverse bass rules
+BASSES.timpani = o => {
+  o.need('instruments', 'timpaniTone')
+  return `(() => {
+  ${bassData(o.line)}
+  return {
+  color: '#9c6644',
+  graph: x => (bassAt(x) ? ${o.lane[0]} + (bassAt(x).n - 28) / 24 : null),
+  midi: x => (bassAt(x) && x - bassAt(x).at < 0.25 ? [bassAt(x).n + (bassAt(x).n < 38 ? 12 : 0)] : []),
+  formula: ${JSON.stringify(['Ti = \\sum_{k}A_k v^{0.6 + 0.3k}e^{-K_k d\\,t}\\sin\\big(2\\pi R_k f(t + 0.0005(1 - e^{-t/0.05}))\\big),\\quad R = (1, 1.5, 1.98, 2.44, 2.94, 1.65)\\ \\text{— литавры вместо баса'])},
+  audio() {
+    const p = poly(timpaniTone, { release: 0.6, life: 4, max: 12 }), fire = trigger(), verb = reverb({ room: 0.86, damp: 0.4, wet: 0.3 })
+    return x => {
+      const m = bassAt(x)
+      if (m && fire(m.at)) p.hit(hz(m.n + (m.n < 38 ? 12 : 0) - 60, C4), (energy(x) >= 3 ? 0.55 : 0.85) + 0.1 * hash(floor(2 * x), 4))
+      return verb(...pan(0.6 * p(), -0.1))
+    }
+  },
+}})()`
+}
+// the koto's arpeggio: the voicing an octave up in sixteenths in the drops, eighths in the themes, quarters when calm
+ARPS.kotoarp = o => {
+  o.need('instruments', 'koto')
+  return `(() => {
+  const arpAt = x => {
+    const c = chordAt(x), e = energy(x)
+    if (!c || e < 1 || x >= END - 1 || role(x) === 'build') return null
+    const step = e >= 3 ? 0.25 : e === 2 ? 0.5 : 1, j = floor(x / step), v = c[3], cyc = [0, 1, 2, 3, 2, 1]
+    return { n: v[cyc[j % 6] % v.length] + 12, at: j * step, vel: e >= 3 ? 0.45 + 0.15 * (j % 4 === 0) : 0.5 }
+  }
+  return {
+  color: '#8ecae6',
+  graph: x => (arpAt(x) && x - arpAt(x).at < 0.25 ? ${o.lane[0]} + (arpAt(x).n - 55) / 40 : null),
+  midi: x => (arpAt(x) && x - arpAt(x).at < 0.2 ? [arpAt(x).n] : []),
+  formula: ${JSON.stringify(['\\text{кото: } n_j = v_{(0,1,2,3,2,1)_{j \\bmod 6}} + 12,\\quad j = \\lfloor x/s\\rfloor,\\ s = \\tfrac14 \\text{ (дроп)},\\ \\tfrac12,\\ 1'])},
+  audio() {
+    const k = koto({ sustain: 2.4, seed: 29 }), fire = trigger(), verb = reverb({ room: 0.86, wet: 0.34 })
+    return x => {
+      const m = arpAt(x)
+      if (m && fire(m.at)) k.hit(hz(m.n - 60, C4), m.vel)
+      return verb(...pan(2.8 * k()${pumpIf(o)}, -0.35))
+    }
+  },
+}})()`
+}
+// the taiko ensemble: odaiko, nagado, shime-daiko, rims and the atarigane; patterns by role and energy, a roll
+// doubling 1 → ½ → ¼ → ⅛ through every build-up
+KITS.taiko = o => {
+  o.need('instruments', 'taikoDrum', 'woodClack', 'kaneDrum')
+  return `(() => {
+  const barCache = new Map()
+  const PAT = {
+    3: { don: 'x---------------', naga: '----x-------x---', shime: 'xoxoxoxoxoxoxoxo', ka: '--x---x---x---x-' },
+    2: { don: 'x-----x---x-----', naga: '----x-------x---', shime: 'x-oox-oox-oox-oo', ka: '--x---x---x---x-', kane: 'x---x---x---x---' },
+    1: { don: 'x-------x-------', shime: 'x---x---x---x---' },
+  }
+  function barHits(b) {
+    if (barCache.has(b)) return barCache.get(b)
+    const x = 4 * b, hits = []
+    const add = (drum, vel, ...ps) => ps.forEach(p => hits.push([p, drum, vel * (0.85 + 0.15 * hash(b * 13 + p * 5, drum.length))]))
+    if (x < END) {
+      const [s, r, e] = sectionOf(x), t = x - s, L = sectionEnd(x) - s
+      if (r === 'build') {
+        const step = t < L / 2 ? 1 : t < 0.75 * L ? 0.5 : t < 0.875 * L ? 0.25 : 0.125
+        for (let p = 0; p < 4; p += step) add('naga', 0.35 + (0.55 * (t + p)) / L, p)
+        if (t === 0) add('don', 1, 0)
+      } else if (r === 'intro') {
+        if (t === 0) add('don', 1, 0), add('kane', 1, 0)
+        if (t + 4 >= L) for (let i = 0; i < 8; i++) add('naga', 0.4 + 0.07 * i, 2 + i / 4)
+      } else if (r === 'outro') {
+        if (t === 0) add('don', 1, 0, 1.5, 3), add('naga', 1, 0, 1.5, 3), add('kane', 1, 0)
+      } else if (e >= 1) {
+        const pat = { ...PAT[Math.min(3, e)] }
+        if (e >= 3 && mod(t, 16) === 0) pat.don = 'x-------x-------'
+        if (b % 8 === 7 || x + 4 >= sectionEnd(x)) pat.naga = '----x---x-x-xxxx'
+        for (const [drum, steps] of Object.entries(pat)) for (let i = 0; i < 16; i++) if (steps[i] === 'x' || steps[i] === 'o') add(drum, steps[i] === 'x' ? 1 : 0.45, i / 4)
+      }
+    }
+    barCache.set(b, hits.sort((a, c) => a[0] - c[0]))
+    return hits
+  }
+  function lastHit(x, drum) {
+    for (let b = floor(x / 4); b >= floor(x / 4) - 2 && b >= 0; b--) {
+      let best = null
+      for (const [p, d, v] of barHits(b)) if (d === drum && 4 * b + p <= x) best = { τ: x - 4 * b - p, vel: v }
+      if (best) return best
+    }
+    return null
+  }
+  return {
+  color: '#e63946',
+  graph: x => {
+    if (x >= END) return null
+    const d = lastHit(x, 'don'), n = lastHit(x, 'naga'), s = lastHit(x, 'shime')
+    if (d && d.τ < 0.6) return 3.1 + 1.3 * d.vel * exp(-4 * d.τ)
+    if (n && n.τ < 0.3) return 2.8 + 0.9 * n.vel * exp(-8 * n.τ)
+    return s && s.τ < 0.12 ? 2.3 + 0.5 * s.vel : null
+  },
+  midi: x => (x >= END ? [] : [['don', 35], ['naga', 45], ['shime', 38], ['ka', 37], ['kane', 80]].filter(([d]) => lastHit(x, d)?.τ < 0.1).map(([, n]) => n)),
+  formula: ${JSON.stringify(['T = \\tanh\\!\\Big(1.4\\,\\LP_{3000}\\Big[\\sum_{k=1}^{5}A_k e^{-2.6K_k t/d}\\sin\\big(R_k\\,2\\pi f\\,(t + \\gamma\\tau(1 - e^{-t/\\tau}))\\big) + c\\,e^{-t/4\\text{мс}}\\HP\\eta + b\\,e^{-t/0.35d}\\BP_f\\eta\\Big]\\Big)', 'R = (1, 1.52, 1.98, 2.46, 2.92),\\quad f:\\ \\text{одайко } 62,\\ \\text{нагадо } 120,\\ \\text{симэ } 420\\ \\text{Гц};\\quad \\text{дробь в разгоне: } 1, \\tfrac12, \\tfrac14, \\tfrac18'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, don = taikoDrum({ pitch: 62, decay: 1.3, crack: 0.25, boom: 0.4, seed: 1 }), naga = taikoDrum({ pitch: 120, decay: 0.55, crack: 0.4, seed: 2 })
+    const shime = taikoDrum({ pitch: 420, decay: 0.12, crack: 0.75, bend: 1, boom: 0.1, seed: 3 }), ka = woodClack({ f: 1900 }), kane = kaneDrum({ f: 1250, decay: 0.5 })
+    const verb = reverb({ room: 0.86, damp: 0.45, wet: 0.3 })
+    const hit = (d, f, x) => { const h = x < END ? lastHit(x, d) : null; return h ? h.vel * f(h.τ * sec, true) : f(1, false) }
+    return x => verb(...pan(0.5 * hit('don', don, x) + 0.28 * hit('naga', naga, x) + 0.15 * hit('shime', shime, x) + 0.08 * hit('ka', ka, x) + 0.12 * hit('kane', kane, x)))
+  },
+}})()`
+}
+// fx: the temple bell and thunder at the start, wind in the calm, the riser of every build, a sweep into each drop
+TEXTURES.thunder = o => {
+  o.need('engine', 'noise')
+  o.need('instruments', 'templeBellTone')
+  return `{
+  color: '#6c757d',
+  graph: x => {
+    if (x >= END) return null
+    const [s, r] = sectionOf(x), t = x - s
+    if (r === 'build') return -2 + (t / (sectionEnd(x) - s)) ** 2 * 3.2
+    return r === 'intro' && t < 4 ? -2.9 + 0.2 * sin(9 * x) : null
+  },
+  formula: ${JSON.stringify(['\\text{гром: } \\LP_{120 + 900e^{-t}}\\eta\\,e^{-t/2};\\ \\text{бонсё: } \\tfrac12, 1, 1.2, 1.5, 2\\ldots f;\\ \\text{подъём: } 0.5u^2\\BP_{300\\cdot 2^{5.3u}}\\eta;\\ \\text{спуск в дроп}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, η = noise(23), lp = filter('lp'), bp = filter('bp'), bp2 = filter('bp'), wind = filter('bp'), verb = reverb({ room: 0.92, wet: 0.5 })
+    const bellF = hz(TONIC1 + 12 - 60, C4)
+    return x => {
+      const [s, r, e] = x < END ? sectionOf(x) : [END, 'end', -1], t = x - s, n = η(), T = x * sec, a = r === 'build' ? t / (sectionEnd(x) - s) : 0
+      const th = r === 'intro' ? t * sec : 9
+      let y = th < 6 ? 0.45 * exp(-th / 2) * (1 + 3 * exp(-th / 0.05)) * lp(n, 120 + 900 * exp(-th)) : lp(0, 200)
+      y += 0.5 * a * a * bp(n, 300 * 2 ** (5.3 * a), 1.5)
+      const down = e >= 3 && t < 3 ? t * sec : 9
+      y += 0.4 * exp(-1.5 * down) * bp2(n, 8000 * 2 ** (-4 * down), 1)
+      y += (r === 'bridge' ? 0.07 : 0) * wind(n, 400 * 2 ** (1.5 * sin((TAU * T) / 9)), 3)
+      if (r === 'intro' || r === 'outro') y += 0.4 * templeBellTone(bellF, t * sec, 0.9)
+      return verb(2 * y, 2 * y)
+    }
+  },
+}`
+}
+
+// ---- modes ----------------------------------------------------------------------------------------------------
+// A pitch of the major/minor song → the mode on the same tonic. Seven-note modes map degree to degree; a chromatic
+// note (the leading tone of minor, a ♭II) goes to whichever neighbouring degree of the mode lies nearer (ties: the
+// lower). Scales of other sizes: the nearest note of the scale (ties: down).
+export function modeMapper(key, iv, tr = 0) {
+  const PS = key.mode === 'minor' ? MIN : MAJ
+  return n => {
+    const rel = n - tr - key.tonic, oct = Math.floor(rel / 12), p = rel - 12 * oct
+    let to
+    if (iv.length === 7) {
+      const d = PS.indexOf(p)
+      if (d >= 0) to = iv[d]
+      else {
+        const below = PS.findLastIndex(v => v < p), lo = iv[below], hi = below + 1 < 7 ? iv[below + 1] : 12 + iv[0]
+        to = Math.abs(hi - p) < Math.abs(lo - p) ? hi : lo
+      }
+    } else {
+      let bd = 99
+      for (const o of [-12, 0, 12]) for (const v of iv) if (Math.abs(v + o - p) < bd) (bd = Math.abs(v + o - p)), (to = v + o)
+    }
+    return key.tonic + tr + 12 * oct + to
+  }
+}
+// the whole song into the mode: themes, voicings, bass; each chord's third/fifth/seventh and name found again
+function toMode({ key, iv, themes, harmony }) {
+  const M = modeMapper(key, iv)
+  for (const th of themes) if (th) th.notes = th.notes.map(([b, n, d]) => [b, M(n), d])
+  for (const h of harmony) {
+    const Mt = modeMapper(key, iv, h.tr)
+    h.voicing = h.voicing.map(Mt)
+    h.bass = Mt(h.bass)
+    const pcs = h.voicing.map(n => pc(n - h.bass)), has = i => pcs.includes(i)
+    const third = [4, 3].find(has), fifth = [7, 6, 8].find(has) ?? pc(Mt(h.bass + 7) - h.bass), sev = [10, 11, 9].find(has)
+    h.ivs = [third ?? (has(5) ? 5 : 2), fifth, sev ?? 10]
+    const q = third === 4 ? (fifth === 8 ? 'aug' : sev === 10 ? '7' : sev === 11 ? 'maj7' : '') : third === 3 ? (fifth === 6 ? (sev === 10 ? 'm7b5' : 'dim') : sev === 10 ? 'm7' : 'm') : has(5) ? 'sus4' : 'sus2'
+    h.symbol = chordName({ root: pc(h.bass), quality: q }, key)
+  }
+}
+
 // describe a generated song for the UI
-export const describe = meta => `${STYLES[meta.style]?.emoji ?? ''} ${meta.title} · ${meta.key} · ${meta.bpm} BPM · темы: ${meta.themes.A.title} + ${meta.themes.B.title}`
+export const describe = meta => `${STYLES[meta.style]?.emoji ?? ''} ${meta.title} · ${meta.key}${meta.modeName ? ' ' + meta.modeName.toLowerCase() : ''} · ${meta.bpm} BPM · темы: ${meta.themes.A.title} + ${meta.themes.B.title}`

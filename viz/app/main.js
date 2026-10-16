@@ -234,6 +234,7 @@ $('zoom').oninput = () => { V.zoom = +$('zoom').value; saveView() }
 
 const typing = e => e.target.closest?.('.CodeMirror, input, textarea, select, [contenteditable]')
 addEventListener('keydown', e => {
+  if ((e.altKey && e.code === 'Enter') || e.code === 'F11') { e.preventDefault(); return toggleFullscreen() }
   if (e.ctrlKey && e.code === 'KeyS') { e.preventDefault(); return saveCurrent() }
   if (e.ctrlKey && e.code === 'KeyE' && !typing(e)) { e.preventDefault(); return exportAudio('mp3') }
   if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return
@@ -277,6 +278,7 @@ function savedNote(e, what) {
 }
 // my_songs/: the project's folder or my_songs itself (fresh: choose another one)
 async function connectFolder(fresh = false) {
+  if (app.lib.server) return toast('📁 песни и так сохраняются в my_songs — приложение запущено через Visualizer.bat', { kind: 'ok' })
   if (!app.lib.canConnect) return toast('этот браузер не умеет писать в папки — открой приложение в Chrome или Edge', { kind: 'err', ms: 7000 })
   const waiting = app.lib.pending.length
   if (!(await app.lib.connect({ pick: true, fresh: fresh === true }))) return
@@ -421,6 +423,12 @@ async function deleteSong(id = app.current?.id) {
   })
 }
 app.songs = { duplicate: duplicateSong, rename: renameSong, remove: deleteSong }
+// before the browser's folder dialog opens the first time: what to choose there
+app.lib.beforePick = () => ask('Где хранить твои песни?',
+  `<p>Сейчас браузер спросит, <b>где этот сайт может сохранять изменения</b>. Выбери папку <b>my_songs</b> рядом с «MathMusic Live.html» —
+  или любую другую, например «Документы»: внутри неё появится папка my_songs. Спрашивать будет только один раз.</p>
+  <p>Проще всего запускать приложение через <b>Visualizer.bat</b>: тогда песни сохраняются в my_songs сами, без этого окна.</p>`,
+  [{ label: 'Отмена', value: false }, { label: '📁 Выбрать папку', value: true, primary: true }])
 
 // the library changed: here, in another tab of the app ('tab') or in the folder itself ('disk')
 app.lib.on((id, e, remote) => {
@@ -483,6 +491,70 @@ app.toggleEditor = toggleEditor
 app.togglePianoRoll = togglePianoRoll
 const openGallery = () => lazy('gallery.js').then(m => m.openGallery())
 const toggleCinema = () => document.body.classList.toggle('cinema')
+
+// ---- the window: окно / полноэкранное окно (the whole work area, the taskbar stays) / полный экран -------------
+// The page sizes its own window — that works in the app window of MathMusic.exe (Chrome / Edge --app),
+// not in a browser tab. The mode and the window's own size are remembered; full screen comes back with the
+// first click or key (browsers allow it only then).
+const win = { mode: 'window', rect: null, before: 'window' }
+try { Object.assign(win, JSON.parse(localStorage.getItem('mm.window') || '{}')) } catch {}
+const saveWin = () => { try { localStorage.setItem('mm.window', JSON.stringify({ mode: win.mode, rect: win.rect, before: win.before })) } catch {} }
+const WIN_MODES = [['window', 'Окно'], ['maxi', 'Полноэкранное окно'], ['full', 'Полный экран']]
+function sizeWindow(mode) {
+  if (mode === 'maxi') {
+    moveTo(screen.availLeft ?? 0, screen.availTop ?? 0)
+    resizeTo(screen.availWidth, screen.availHeight)
+  } else if (win.rect) {
+    const [x, y, w, h] = win.rect
+    resizeTo(w, h)
+    moveTo(x, y)
+  }
+}
+async function setWindowMode(mode, quiet = false) {
+  if (mode === 'full') {
+    if (win.mode !== 'full') win.before = win.mode
+    win.mode = 'full'
+    saveWin()
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.().catch(() => !quiet && toast('браузер не дал включить полный экран'))
+    return
+  }
+  if (win.mode === 'window' && !document.fullscreenElement) keepRect()
+  win.mode = mode
+  saveWin()
+  if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
+  const was = [outerWidth, outerHeight]
+  sizeWindow(mode)
+  // a browser tab ignores resizeTo
+  setTimeout(() => {
+    if (!quiet && mode === 'maxi' && outerWidth === was[0] && outerHeight === was[1] && outerWidth < screen.availWidth - 8)
+      toast('во вкладке браузера размер окна меняет сам браузер — в MathMusic.exe это работает', { ms: 6000 })
+  }, 300)
+}
+const toggleFullscreen = () => setWindowMode(document.fullscreenElement ? (win.before ?? 'window') : 'full')
+// Esc (or the browser) left full screen: back to the mode before it
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && win.mode === 'full') { win.mode = win.before ?? 'window'; saveWin(); sizeWindow(win.mode) }
+})
+// the window's own place and size, as you leave it (at a fractional screen scale the frame rounds a
+// resize by a few pixels — that is still the same window, or it would creep on every switch)
+function keepRect() {
+  const now = [screenX, screenY, outerWidth, outerHeight]
+  if (win.rect && win.rect.every((v, i) => Math.abs(v - now[i]) <= 6)) return
+  win.rect = now
+  saveWin()
+}
+let winTimer = 0
+addEventListener('resize', () => {
+  clearTimeout(winTimer)
+  winTimer = setTimeout(() => win.mode === 'window' && !document.fullscreenElement && keepRect(), 500)
+})
+if (win.mode === 'maxi') sizeWindow('maxi')
+else if (win.mode === 'full') {
+  sizeWindow(win.before === 'maxi' ? 'maxi' : 'window')
+  const again = () => { removeEventListener('pointerdown', again, true); removeEventListener('keydown', again, true); if (win.mode === 'full') setWindowMode('full', true) }
+  addEventListener('pointerdown', again, true)
+  addEventListener('keydown', again, true)
+}
 function setStyle(s) {
   V.style = s
   saveView()
@@ -511,7 +583,7 @@ menubar($('menus'), [
       { icon: '✎', label: 'Переименовать…', action: () => renameSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },
       { icon: '🗑', label: 'Удалить', action: () => deleteSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },
       '-',
-      { icon: '📂', label: () => (app.lib.dir ? 'Папка my_songs подключена — выбрать другую…' : 'Подключить папку my_songs…'), action: () => connectFolder(!!app.lib.dir), note: app.lib.pending.length ? `⏳ ${app.lib.pending.length} ${songsWord(app.lib.pending.length)} ждут папку` : 'мои песни лежат там файлами .js' },
+      app.lib.server ? { icon: '📂', label: 'Песни сохраняются в my_songs', disabled: true, note: 'приложение запущено через Visualizer.bat — папка подключена сама' } : { icon: '📂', label: () => (app.lib.dir ? 'Папка my_songs подключена — выбрать другую…' : 'Подключить папку my_songs…'), action: () => connectFolder(!!app.lib.dir), note: app.lib.pending.length ? `⏳ ${app.lib.pending.length} ${songsWord(app.lib.pending.length)} ждут папку` : 'мои песни лежат там файлами .js' },
       { icon: '📁', label: 'Записать во встроенные (songs/)…', action: () => saveToFolder(false), note: 'песня станет встроенной: её увидят render.js и Ableton' },
       { icon: '📁', label: 'Записать в другую папку…', action: () => saveToFolder(true) },
       '-',
@@ -533,6 +605,10 @@ menubar($('menus'), [
   {
     label: '🎲 Генерация',
     items: () => lazy('genui.js').then(m => m.menuItems()),
+  },
+  {
+    label: 'Лады',
+    items: () => lazy('modesui.js').then(m => m.modeItems()),
   },
   {
     label: 'Экспорт',
@@ -563,9 +639,16 @@ menubar($('menus'), [
       '-',
       { icon: '🖼', label: 'Сетка всех песен', kbd: 'G', action: openGallery },
       { icon: '🎞', label: 'Кино — спрятать панели', kbd: 'C', action: toggleCinema },
+      '-',
+      { header: 'Окно' },
+      ...WIN_MODES.map(([id, label]) => ({ label, kbd: id === 'full' ? 'Alt+Enter' : '', checked: () => (document.fullscreenElement ? id === 'full' : win.mode === id), action: () => setWindowMode(id) })),
     ],
   },
 ])
+
+// the key menu on the right: every key around the circle of fifths; its button shows the tonality chosen
+menubar($('keynav'), [{ label: '🎼 Тональность: авто', items: () => lazy('modesui.js').then(m => m.keyItems()) }])
+lazy('modesui.js').then(m => m.onTonality(t => ($('keynav').querySelector('.mbtn').textContent = m.keyButtonLabel(t))))
 
 // ---- legend: click = mute, shift/right click = solo, hover = highlight ------------------------------------------
 let legendHover = null

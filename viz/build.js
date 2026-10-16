@@ -16,18 +16,20 @@ const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8')
 const text = f => read(f).replace(/\r\n?/g, '\n')
 const jsIn = dir => fs.readdirSync(path.join(ROOT, dir)).filter(f => f.endsWith('.js')).sort()
 
-export async function build({ quiet = false } = {}) {
+// mine: false leaves my_songs/ out (MathMusic.exe reads the folder itself, and the page you hand out
+// shouldn't carry your songs)
+export async function build({ quiet = false, mine: withMine = true } = {}) {
   const songs = Object.fromEntries(jsIn('songs').map(f => [f.slice(0, -3), text(`songs/${f}`)]))
   const formulas = (await import(pathToFileURL(path.join(ROOT, 'viz/formulas.js')).href + `?${Date.now()}`)).default
   // my_songs/: shown at once; the page reads the folder itself again once it may (viz/app/library.js)
   const mineDir = path.join(ROOT, 'my_songs')
-  const mine = fs.existsSync(mineDir) ? Object.fromEntries(jsIn('my_songs').map(f => [f, { source: text(`my_songs/${f}`), mtime: fs.statSync(path.join(mineDir, f)).mtimeMs }])) : {}
+  const mine = withMine && fs.existsSync(mineDir) ? Object.fromEntries(jsIn('my_songs').map(f => [f, { source: text(`my_songs/${f}`), mtime: fs.statSync(path.join(mineDir, f)).mtimeMs }])) : {}
   let mineIndex = null
-  try { mineIndex = JSON.parse(read('my_songs/library.json')) } catch {}
+  try { if (withMine) mineIndex = JSON.parse(read('my_songs/library.json')) } catch {}
   const SRC = { engine: text('src/engine.js'), instruments: text('src/instruments.js'), songs, mine, mineIndex, formulas }
-  // app modules; the shared pure modules of src/ (theory, generator, melodies, midi) are importable as './x.js'
+  // app modules; the shared pure modules of src/ (theory, generator, melodies, midi, modes) are importable as './x.js'
   const APP = Object.fromEntries(jsIn('viz/app').map(f => [f, text(`viz/app/${f}`)]))
-  for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
+  for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js', 'modes.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
   APP['acorn.js'] = read('viz/vendor/acorn.min.mjs')
   APP['lame.js'] = read('viz/vendor/lame.min.js') // raw text: the MP3 encoder runs in a worker
   const safe = s => s.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--')
