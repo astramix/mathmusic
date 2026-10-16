@@ -35,7 +35,7 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
   const SRC = { engine: text('src/engine.js'), instruments: text('src/instruments.js'), songs, mine, mineIndex, gen, genIndex, formulas }
   // app modules; the shared pure modules of src/ (theory, generator, melodies, midi, modes) are importable as './x.js'
   const APP = Object.fromEntries(jsIn('viz/app').map(f => [f, text(`viz/app/${f}`)]))
-  for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js', 'modes.js', 'retune.js', 'tuning.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
+  for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js', 'modes.js', 'retune.js', 'tuning.js', 'score.js', 'musicxml.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
   APP['acorn.js'] = read('viz/vendor/acorn.min.mjs')
   APP['lame.js'] = read('viz/vendor/lame.min.js') // raw text: the MP3 encoder runs in a worker
   const safe = s => s.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--')
@@ -52,6 +52,8 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
     .replace('/*__KATEX_CSS__*/', () => katexCss)
     .replace('/*__CM_CSS__*/', () => read('viz/vendor/codemirror.min.css'))
     .replace('/*__APP_CSS__*/', () => read('viz/app.css'))
+    // Bravura, the SMuFL music font (SIL OFL, viz/vendor/bravura/OFL.txt): the staff view's notes and signs
+    .replace('/*__FONTS__*/', () => `@font-face{font-family:Bravura;src:url(data:font/woff2;base64,${fs.readFileSync(path.join(ROOT, 'viz/vendor/bravura/Bravura.woff2')).toString('base64')}) format("woff2");font-display:block}`)
     .replace('/*__VENDOR_JS__*/', () => vendorJs)
     .replace('/*__SRC__*/null', () => safe(JSON.stringify(SRC)))
     .replace('/*__APP__*/null', () => safe(JSON.stringify(APP)))

@@ -199,3 +199,30 @@ li.CodeMirror-hint-active { background: color-mix(in srgb, var(--accent) 40%, tr
 .card .meta .d { color: var(--dim); font-size: 12px; }
 .card .meta .tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 6px; background: #ffffff14; color: var(--dim); margin-left: 6px; }
 .gallery .close { position: fixed; top: calc(var(--top-h) + 14px); right: 22px; }
+
+/* ---- the staff view (scoreview.js): paper, ink, Bravura ----------------------------------------------------------- */
+#scorepane { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; background: #f7f3ea; color: #1b1a22; }
+#scorepane .sv-head { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: var(--panel2); color: var(--fg); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#scorepane .sv-head .sp { flex: 1; }
+#scorepane .sv-parts { display: flex; gap: 2px 10px; flex-wrap: wrap; max-width: 60%; }
+#scorepane .sv-chk { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; white-space: nowrap; }
+#scorepane .sv-info { font-size: 12px; }
+#scorepane .sv-body { flex: 1; overflow: auto; padding: 8px 12px 30px; cursor: pointer; }
+.sv-svg { display: block; }
+.sv-g { font-family: Bravura; fill: #15141c; }
+.sv-g.sv-micro { fill: #5b2a9e; }
+.sv-g.sv-grace { fill: #34323f; }
+.sv-ink, .sv-grace-l { stroke: #15141c; }
+.sv-staff { stroke: #3a3846; }
+.sv-beam { fill: #15141c; }
+.sv-tie { fill: #15141c; }
+.sv-bracket { fill: none; stroke: #15141c; stroke-width: 1; }
+.sv-title { font: 600 1em Georgia, 'Times New Roman', serif; fill: #15141c; }
+.sv-tempo { font: 600 1em Georgia, serif; fill: #15141c; }
+.sv-chord { font-family: system-ui, 'Segoe UI', Bravura, sans-serif; font-weight: 600; fill: #6a2bb8; }
+.sv-reh { font: 700 1em system-ui, sans-serif; fill: #8a4b00; }
+.sv-num { font: italic 1em Georgia, serif; fill: #55536a; }
+.sv-tuplet { font: italic 600 1em Georgia, serif; fill: #15141c; }
+.sv-cents { font: 600 0.8em system-ui, sans-serif; fill: #b0306a; }
+.sv-bar { fill: #ffd47940; }
+.sv-cursor { fill: #e0306acc; }

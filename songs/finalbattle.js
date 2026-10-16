@@ -476,6 +476,7 @@ export default {
   bpm: 160,
   key: 'Em',
   length: END,
+  meters: [[0, '4/4'], [120, '7/8'], [148, '4/4']], // chaos: bars of 3½ beats (2 + 2 + 3 eighths)
   sections: SECTIONS,
   theme: 'chip',
   // for Glitch Forest: how each section runs the fight (turn / build / live), which tracks strike the

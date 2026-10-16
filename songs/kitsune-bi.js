@@ -362,6 +362,7 @@ export default {
   style: 'jbattle',
   theme: 'ink',
   length: END,
+  meter: '12/8', // a beat (x) is a dotted quarter
   sections: SECTIONS,
   tracks: {
     shinobue: fluteT, koto: kotoT, shamisen: shamiT, celesta: celT, shakuhachi: shakuT, tsuzumi: tsuzumiT, taiko: taikoT,

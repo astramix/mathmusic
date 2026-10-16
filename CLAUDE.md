@@ -45,6 +45,7 @@ export default {
   //   tools/score-export.mjs turns it into js/score-data/<name>.js (MP3 + a score per beat)
   // optional: theme: 'lofi' (visualiser colours, viz/app/themes.js); generated songs also carry
   // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length, key?, mode?, micro?, temperament? }
+  // optional: meter: '12/8' (x is then a dotted quarter) | meters: [[0, '4/4'], [120, '7/8'], …] per section — for the score
   // optional: mode: 'rast' (a modes.js id — a microtonal one makes the app spell E𝄳, B♭¹, D♯−37¢);
   //   tuning: { id: 'werckmeister3', name, offsets: [12 cents of C … B from 12-TET] } — what the song sounds in (export, inspector)
 }
@@ -132,6 +133,18 @@ spelling), `parentMode(iv)` (major/minor by the third; a neutral third leans by 
 (seven letters for seven notes: E♭ dorian → E♭ F G♭ A♭ B♭ C D♭; C rast → … E𝄳 … B𝄳), `modeTriads(iv, system)` ('n' = neutral),
 `stepFormula(iv, system)` (Т–П… / ¾т / commas / cents), `degreeFormula`, `KEYS` (30 keys round the circle of fifths with signatures).
 
+## score.js, musicxml.js (the staff view, MusicXML export, tests — not imported by songs)
+`buildScore(song, { parts, key, mode, source })` → bars (meter per section, sections, chord symbols) × parts (events with
+ticks: quarter = 48; types, dots, ties, triplets 3:2 where a beat divides in three, beams by beat group — 7/8 = 2+2+3,
+12/8 by dotted quarters, grace notes for microtonal slides/turns, accidentals by signature and bar, a wide keyboard part
+split at middle C onto two staves). Reading midi(): sampled 48×/beat, onsets quantized per beat (16ths vs triplets vs 32nds
+— the best fit), a swung eighth (song's SW) written straight + «Swing», the written end recovered from the gate (78–97 %).
+`guessParts`: melody / chords / bass by listening. `songChords`: a generated song's HARMONY, else template matching with
+the bass weighted and hysteresis (lofi → Gm9 C13 Fmaj9 Dm9). `keySignature`: keys, diatonic modes (D dorian: none), a
+microtonal mode written out (Rast: B𝄳 E𝄳; Turkish Rast: B♭¹ F♯⁴ — flats first). `musicXml(score)` → MusicXML 4.0 (valid
+against the XSD): <alter> exact, <accidental> SZG names / koron / sori / smufl="accidentalKomaFlat", <key-step>/<key-alter>,
+<harmony>, rehearsal marks, metronome, <swing>, tuplets, grace, cents of a measured scale as lyrics.
+
 ## tuning.js (temperaments and tuning files — the generator, retune, the app, the tests; not imported by songs)
 `TEMPERAMENTS`: equal; just (5-limit on the tonic, Ptolemy's ratios); adaptive (each chord pure on its root: 5/4, 6/5,
 3/2, the dominant's 7/4, 9/5, 15/8 — generator only); by spelling, on the chain of fifths so G♯ ≠ A♭: pythagorean,
@@ -212,7 +225,9 @@ LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code; row
 the notes / the song's mode) · genui.js (dialog: Строй, Микротоны ¼/⅛) · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
 ch. 10 / MIDI MPE: microtones and tunings as per-note pitch bends — lower zone, members ch. 2–9, ±48 st, MCM + RPN 0 /
-the tuning as .scl .kbm .ascl in a ZIP / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs; saved into the project's **videos/** — `lib.videoFolder({ pick })` asked before encoding, `lib.writeVideo` in 16 MB pieces through the server, or a folder handle: videos/ in the chosen project folder or a folder picked once; downloaded only without one) · gallery.js (right click: duplicate,
+the tuning as .scl .kbm .ascl in a ZIP / stems ZIP) · scoreview.js («Ноты», S: the score as SVG in Bravura — viz/vendor/bravura, SIL OFL, embedded by build.js as a font-face;
+parts chosen by checkboxes, justified systems, cursor + bar highlight following the player, a click seeks, ⬇ MusicXML) ·
+video.js (MP4 H.264 + AAC|Opus via WebCodecs; saved into the project's **videos/** — `lib.videoFolder({ pick })` asked before encoding, `lib.writeVideo` in 16 MB pieces through the server, or a folder handle: videos/ in the chosen project folder or a folder picked once; downloaded only without one) · gallery.js (right click: duplicate,
 rename, delete; built-in songs first, then my_songs/, then generated/, each on its own row; style chips filter by `style`) ·
 library.js (my songs are files in **my_songs/**, the 🎲 songs nobody saved yet in **generated/** — each folder a `Shelf` with
 its library.json (id, kind, pristine, dates); `shelfOf(e)`: pristine (a 🎲 song or a retuned copy nobody saved) → generated/, else my_songs/; Ctrl+S,

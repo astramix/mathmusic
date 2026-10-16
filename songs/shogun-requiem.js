@@ -426,6 +426,7 @@ export default {
   style: 'jbattle',
   theme: 'ink',
   length: END,
+  meters: [[0, '4/4'], [176, '7/4'], [204, '4/4']], // kyōfu: bars of 7 (2 + 2 + 3)
   sections: SECTIONS,
   tracks: {
     choir: choirT, biwa: biwaT, shakuhachi: shakuT, horns: hornT, shamisen: shamiT, koto: kotoT, strings: stringsT,

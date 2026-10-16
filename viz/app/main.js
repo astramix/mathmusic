@@ -141,6 +141,7 @@ async function open(idOrEntry, from = 0) {
   updatePlayButton()
   app.editor?.load(app.current)
   app.pianoroll?.load?.(app.current)
+  if (app.scoreview?.visible) app.scoreview.load(app.current)
   try { localStorage.setItem('mm.last', entry.id) } catch {}
 }
 app.open = open
@@ -178,6 +179,7 @@ async function apply(source, { of, id } = {}) {
   buildLegend()
   await player.update({ source, song })
   player.setMuted(tracks.filter(t => t.muted).map(t => t.key))
+  if (app.scoreview?.visible) app.scoreview.load(cur)
   return { ok: true, problems }
 }
 app.apply = apply
@@ -258,6 +260,7 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyN') nextSong(e.shiftKey ? -1 : 1)
   else if (e.code === 'KeyE') toggleEditor()
   else if (e.code === 'KeyP') togglePianoRoll()
+  else if (e.code === 'KeyS') toggleScore()
   else if (e.code === 'KeyF') { V.live = !V.live; saveView(); updateLive(true) }
   else if (e.code === 'KeyG') openGallery()
   else if (e.code === 'KeyC') toggleCinema()
@@ -504,6 +507,18 @@ async function togglePianoRoll(force) {
 }
 app.toggleEditor = toggleEditor
 app.togglePianoRoll = togglePianoRoll
+// «Ноты»: the score over the stage (scoreview.js)
+async function toggleScore(force) {
+  const el = $('scorepane'), show = force ?? el.style.display === 'none'
+  el.style.display = show ? '' : 'none'
+  if (show) {
+    const m = await lazy('scoreview.js')
+    app.scoreview ??= m.createScoreView(el)
+    app.scoreview.visible = true
+    app.scoreview.load(app.current)
+  } else if (app.scoreview) app.scoreview.visible = false
+}
+app.toggleScore = toggleScore
 const openGallery = () => lazy('gallery.js').then(m => m.openGallery())
 const toggleCinema = () => document.body.classList.toggle('cinema')
 
@@ -610,6 +625,7 @@ menubar($('menus'), [
     items: () => [
       { icon: '⌨', label: 'Код песни', kbd: 'E', checked: () => $('side').style.display !== 'none', action: () => toggleEditor() },
       { icon: '🎹', label: 'Пианоролл — рисовать мелодию', kbd: 'P', checked: () => $('bottom').style.display !== 'none', action: () => togglePianoRoll() },
+      { icon: '📜', label: 'Ноты — партитура на нотном стане', kbd: 'S', checked: () => $('scorepane').style.display !== 'none', action: () => toggleScore(), note: 'по тональности и ладу, микротоны, аккорды; клик по такту — оттуда играть' },
       '-',
       { icon: '✔', label: 'Проверить песню целиком', action: () => lazy('editor.js').then(m => m.fullCheck()) },
       { icon: '📖', label: 'Справочник функций', action: () => lazy('editor.js').then(m => m.apiReference()) },
@@ -629,6 +645,7 @@ menubar($('menus'), [
       { icon: '🌀', label: 'OGG · Opus 256 кбит/с', action: () => exportAudio('ogg') },
       { icon: '🎼', label: 'MIDI · все дорожки', action: () => exportAudio('mid') },
       { icon: '🎼', label: 'MIDI · микротоны и строй (MPE)', action: () => exportAudio('mpe'), note: 'каждая нота со своим питч-бендом — четверти, восьмые тона, темперации до цента' },
+      { icon: '📜', label: 'MusicXML · ноты для MuseScore, Dorico, Sibelius', action: async () => { await toggleScore(true); app.scoreview.exportXml() }, note: 'партии, выбранные в «Нотах» (S); микротоны — точным alter' },
       { icon: '🎚', label: 'Строй для синтезатора · .scl .kbm .ascl', action: () => lazy('export.js').then(m => m.exportTuning()), note: 'Scala и Ableton Live 12 — строй или микротоновый лад песни' },
       { icon: '🗂', label: 'Стемы — WAV каждой дорожки', action: () => exportAudio('stems') },
       '-',
@@ -825,6 +842,7 @@ function frame(now) {
     scope: V.scope && player.playing ? player.scope() : null, cached: player.cachedRanges?.(), mouseX: mouse && mouse.y > H - 44 ? mouse.x : null,
     title: cur.song.name, subtitle: `${tonalityOf(cur.song, cur.key)} · ${cur.song.bpm} BPM`, left: $('legend').style.display === 'none' ? 0 : 190,
   })
+  if (app.scoreview?.visible) app.scoreview.update(x)
   if (ins && V.style === 'classic') showInspector(ins)
   else $('insp').style.display = 'none'
   updateLive(false)
