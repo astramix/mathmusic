@@ -13,7 +13,7 @@ Open a source file only to change it or when something here is unclear.
   Long songs take 10–60 s: use `timeout: 600000`.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (11 styles × 3 seeds: loads, renders, lead on its chords), theory, MIDI export, the song
+  the generator (11 styles × 3 seeds: loads, renders, lead on its chords), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]`
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
@@ -116,6 +116,20 @@ approximations, Gaelic), India (thaats), symmetric. Each { id, name, alt, iv, sh
 `parentMode(iv)` (major/minor by the third), `spellScale(tonic, iv)` (seven letters for seven notes: E♭ dorian →
 E♭ F G♭ A♭ B♭ C D♭), `modeTriads`, `stepFormula`, `degreeFormula`, `KEYS` (30 keys round the circle of fifths with signatures).
 
+## retune.js (the app's «эта же музыка в …», tests — not imported by songs)
+`retuneSource(source, song, { tonic, mode }, { parse: acorn.parse, theme })` → { source, name, plan }: any song (built-in
+too) as a copy in another tonic and mode. Code-level: hz is imported as __hz and wrapped, the song's `BASE * 2 ** (expr / 12)`
+(or Math.pow) products are wrapped in __R, numbers/constants that are 12-TET note frequencies (73.42) are wrapped where they
+scale or are passed to a call (not hz bases, not inside mf-like converters, not in drum/fx/graph objects, not sweeps), meower
+and bowed get mapped note numbers. __R: Hz → MIDI → __N → Hz; __N maps each note to the same degree of the new mode
+(`degreeTable`: altered notes keep their alteration unless it lands on a scale note), then to the new tonic (≤ a tritone),
+continuous between notes (bends, vibrato). `modulations`: a section is in another key when its KK correlation with home is
+≤ 0.2 and with the same mode t away ≥ 0.5 (0.5 more) and its notes fit that scale better — kept in the copy. midi() is
+mapped the same way; the copy keeps `export default __retuneSong({ … })` with name/key/mode/theme in the literal (library.js
+reads that form) and its parameters in `const __RT = {…}`, so retuning a copy starts from the original. Generated songs are
+made again from their seeds instead (genui `regenerate`). test/retune.test.js retunes every song into two modes.
+A song that writes a pitch some other way (a hand-made phase increment from a variable not built from these) is not moved.
+
 ## The generator (src/generate.js, src/melodies.js)
 `generate({ style, seed, key?, mode?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme? })` → { source, meta }.
 `mode` (a modes.js id): made in the major/minor with the same third, then every pitch (themes, voicings, bass) moves
@@ -169,9 +183,17 @@ as a directory handle), opened as a file through File System Access (dialog star
 explaining modal; the handle is kept in IndexedDB, the browser may ask to allow it again per session); a song saved before the folder is connected waits in
 IndexedDB (`where: 'pending'`) and moves in on connect; unique names, file names transliterated, a renamed
 song moves to its new file; "write to songs/" asks before replacing; tabs synced via a localStorage ping) ·
-themes.js · modesui.js (the «Лады» menu: a card per mode with notes spelt on the tonic, steps, triads, ▶ scale/chords; the
-key menu on the right, #keynav: 30 keys; the choice `app.tonality` {tonic, mode} | null is kept in localStorage `mm.tonality`,
-🎲 makes new songs in it, «↻ пересочинить текущую» = the same seeds in it). `node render.js my_songs/<file>.js` renders a saved song like any other.
+themes.js · scenery.js (Вид → «Тематический фон», `app.view.scenery`, on by default, also in videos: a landscape per theme —
+space, rainy city, 8-bit hills, sunset sea, sakura, baroque hall, rose window + pointed arcade, outrun sun + grid, neon tunnel,
+drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club; classic: `scenery2d` behind the curves (silhouettes
+on world-fixed grids, the nearest layer on bar lines via X(b)); space: `sceneryBack` at the horizon + `sceneryRoad` props
+every N beats beside the lanes, crossing the playhead plane on their beat, torii/lancet arches over all lanes. Driven by
+`musicOf(scene)`: beat phase, downbeat, kick (drum tracks' onsets), energy, progress, section flash — never Math.random) ·
+modesui.js («Лады» and «Тональность» side by side on the right, #keynav: a card per mode with notes spelt on the
+tonic, steps, triads, ▶ scale/chords; 30 keys. Picking one never stops the music and offers «↻ Эта же музыка → …» (genui
+`sameIn`: a generated song again from its seeds, any other — built-in too — a retuned copy via retune.js, saved in my_songs/,
+going on from the same beat, paused stays paused) or «🎲 Следующая музыка → …» (`app.tonality` {tonic, mode} | null, kept in
+localStorage `mm.tonality`; 🎲 makes new songs in it)). `node render.js my_songs/<file>.js` renders a saved song like any other.
 Editing state: app.drafts (one localStorage key per song) holds a draft exactly while the code differs from
 the saved one — `app.setDraft(cur, src)` keeps that true, `app.dirty(cur)` is the ●; `app.apply(src, { of: cur })`
 drops edits of a song no longer open. Generated songs carry `pristine` (the 🎲 menu tidies only untouched ones).

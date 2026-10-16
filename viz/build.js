@@ -8,6 +8,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { iconDataUrl } from './icon.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8')
@@ -29,7 +30,7 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
   const SRC = { engine: text('src/engine.js'), instruments: text('src/instruments.js'), songs, mine, mineIndex, formulas }
   // app modules; the shared pure modules of src/ (theory, generator, melodies, midi, modes) are importable as './x.js'
   const APP = Object.fromEntries(jsIn('viz/app').map(f => [f, text(`viz/app/${f}`)]))
-  for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js', 'modes.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
+  for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js', 'modes.js', 'retune.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
   APP['acorn.js'] = read('viz/vendor/acorn.min.mjs')
   APP['lame.js'] = read('viz/vendor/lame.min.js') // raw text: the MP3 encoder runs in a worker
   const safe = s => s.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--')
@@ -40,6 +41,9 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
   const vendorJs = ['katex.min.js', 'codemirror.min.js', 'mp4-muxer.min.js'].map(f => safe(read(`viz/vendor/${f}`))).join('\n;\n')
 
   const html = read('viz/template.html')
+    // the favicon: the app window of MathMusic.exe and the taskbar show it (the same picture as the .exe)
+    .replace('<!--__ICON__-->', () => `<link rel="icon" type="image/png" sizes="32x32" href="${iconDataUrl(32)}">
+<link rel="icon" type="image/png" sizes="192x192" href="${iconDataUrl(192)}">`)
     .replace('/*__KATEX_CSS__*/', () => katexCss)
     .replace('/*__CM_CSS__*/', () => read('viz/vendor/codemirror.min.css'))
     .replace('/*__APP_CSS__*/', () => read('viz/app.css'))

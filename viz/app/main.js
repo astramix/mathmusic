@@ -20,7 +20,7 @@ const player = app.player
 const lazy = name => import(MM.url(name))
 
 // ---- view options (remembered) -----------------------------------------------------------------
-const VIEW_DEFAULTS = { style: 'classic', live: false, fx: true, labels: true, scope: true, theme: 'auto', loop: true, zoom: 22, volume: 0.9 }
+const VIEW_DEFAULTS = { style: 'classic', live: false, fx: true, scenery: true, labels: true, scope: true, theme: 'auto', loop: true, zoom: 22, volume: 0.9 }
 app.view = { ...VIEW_DEFAULTS }
 try { Object.assign(app.view, JSON.parse(localStorage.getItem('mm.view') || '{}')) } catch {}
 const saveView = () => { try { localStorage.setItem('mm.view', JSON.stringify(app.view)) } catch {} }
@@ -607,10 +607,6 @@ menubar($('menus'), [
     items: () => lazy('genui.js').then(m => m.menuItems()),
   },
   {
-    label: 'Лады',
-    items: () => lazy('modesui.js').then(m => m.modeItems()),
-  },
-  {
     label: 'Экспорт',
     items: () => [
       { icon: '🎵', label: 'MP3 · 320 кбит/с', kbd: 'Ctrl+E', action: () => exportAudio('mp3') },
@@ -633,6 +629,7 @@ menubar($('menus'), [
       '-',
       { label: 'Формулы вживую — с текущими числами', kbd: 'F', checked: () => V.live, action: () => { V.live = !V.live; saveView(); updateLive(true) } },
       { label: 'Частицы на нотах', checked: () => V.fx, action: () => { V.fx = !V.fx; saveView() } },
+      { label: 'Тематический фон — пейзаж по стилю, в такт', checked: () => V.scenery, action: () => { V.scenery = !V.scenery; saveView() } },
       { label: 'Названия нот у плейхеда', checked: () => V.labels, action: () => { V.labels = !V.labels; saveView() } },
       { label: 'Осциллограф (фигура Лиссажу)', checked: () => V.scope, action: () => { V.scope = !V.scope; saveView() } },
       { icon: '🎨', label: 'Тема', items: () => [{ label: 'Авто — по стилю песни', checked: () => V.theme === 'auto', action: () => setTheme('auto') }, '-', ...Object.entries(THEMES).map(([id, t]) => ({ label: t.label, checked: () => V.theme === id, action: () => setTheme(id) }))] },
@@ -646,9 +643,13 @@ menubar($('menus'), [
   },
 ])
 
-// the key menu on the right: every key around the circle of fifths; its button shows the tonality chosen
-menubar($('keynav'), [{ label: '🎼 Тональность: авто', items: () => lazy('modesui.js').then(m => m.keyItems()) }])
-lazy('modesui.js').then(m => m.onTonality(t => ($('keynav').querySelector('.mbtn').textContent = m.keyButtonLabel(t))))
+// on the right, side by side: «Лады» (every mode, a card each) and the key menu (every key round the circle of fifths;
+// its button shows the tonality chosen). Picking one keeps the music playing and asks: this music in it, or the next
+menubar($('keynav'), [
+  { label: 'Лады', items: () => lazy('modesui.js').then(m => m.modeItems()) },
+  { label: '🎼 Тональность: авто', items: () => lazy('modesui.js').then(m => m.keyItems()) },
+])
+lazy('modesui.js').then(m => m.onTonality(t => ($('keynav').querySelectorAll('.mbtn')[1].textContent = m.keyButtonLabel(t))))
 
 // ---- legend: click = mute, shift/right click = solo, hover = highlight ------------------------------------------
 let legendHover = null
@@ -799,7 +800,7 @@ function frame(now) {
   const ins = pin ?? hover
   const focus = ins?.t ?? legendHover
   geo = sc.draw(g, {
-    style: V.style, W, H, zoom: V.zoom, fx: V.fx, labels: V.labels, focus, inspect: V.style === 'classic' ? ins : null,
+    style: V.style, W, H, zoom: V.zoom, fx: V.fx, scenery: V.scenery, labels: V.labels, focus, inspect: V.style === 'classic' ? ins : null,
     scope: V.scope && player.playing ? player.scope() : null, cached: player.cachedRanges?.(), mouseX: mouse && mouse.y > H - 44 ? mouse.x : null,
     title: cur.song.name, subtitle: `${keyLabel(cur.key)} · ${cur.song.bpm} BPM`, left: $('legend').style.display === 'none' ? 0 : 190,
   })

@@ -8,6 +8,7 @@
 // The scene is a pure function of (time, levels, its own seeded particle state), so the same code
 // draws the live view and, frame by frame, the video export.
 import { spell } from './theory.js'
+import { isDrum, scenery2d, sceneryBack, sceneryRoad } from './scenery.js'
 
 export const GRID = 32 // graph samples per beat
 const Y_MIN = -3, Y_MAX = 5
@@ -40,7 +41,6 @@ export const ink = c => {
   const [h, s, l] = hsl(c)
   return `hsl(${h.toFixed(0)} ${Math.max(55, s).toFixed(0)}% ${Math.min(42, l * 0.55).toFixed(0)}%)`
 }
-const isDrum = key => /drum|kick|snare|hat|clap|paw|hiss|claw|perc|tom|crash|beat/i.test(key)
 
 export class Scene {
   // tracks: [{ key, i, color, graph, midi, muted, formula }], key: musical key for note names
@@ -149,14 +149,15 @@ export class Scene {
   }
 
   // ---- drawing ----------------------------------------------------------------------------------
-  // opts: { style, W, H, zoom, fx, labels, focus, inspect, scope, cached, timeline, title, scale }
+  // opts: { style, W, H, zoom, fx, labels, scenery, focus, inspect, scope, cached, timeline, title, scale }
   draw(g, opts) {
     if (opts.style === 'paper') return this.drawPaper(g, opts)
     if (opts.style === 'space') return this.drawSpace(g, opts)
     return this.drawClassic(g, opts)
   }
 
-  background(g, W, H, k) {
+  // scenery: the theme's own landscape (scenery.js), moving with the music; without it, the plain sky
+  background(g, W, H, k, scenery) {
     const th = this.theme, e = this.energy
     const grd = g.createLinearGradient(0, 0, 0, H)
     grd.addColorStop(0, `hsl(${this.bgHue} ${th.sat}% ${th.light + 5 * e}%)`)
@@ -166,6 +167,11 @@ export class Scene {
     g.fillStyle = grd
     g.fillRect(0, 0, W, H)
     g.globalCompositeOperation = 'lighter'
+    if (scenery) {
+      this.drawStars(g, W, H, k)
+      scenery2d(this, g, W, H, k, scenery)
+      return
+    }
     if (th.deco === 'sun') {
       // outrun: a striped sun on the horizon and a perspective grid
       const cx = W / 2, cy = H * 0.62, r = Math.min(W, H) * 0.2
@@ -199,12 +205,7 @@ export class Scene {
       }
       g.globalAlpha = 1
     }
-    for (const s of this.stars) {
-      const tw = 0.4 + 0.6 * Math.abs(Math.sin(s.p + this.time * 1.1 * s.z))
-      g.fillStyle = `rgba(${th.star},${0.15 + 0.5 * tw * s.z})`
-      const sz = 1.6 * s.z * k
-      g.fillRect(s.x * W, s.y * H, sz, sz)
-    }
+    this.drawStars(g, W, H, k)
     if (th.deco === 'rain') {
       g.strokeStyle = `rgba(${th.star},0.08)`
       g.lineWidth = 1
@@ -216,6 +217,14 @@ export class Scene {
         g.lineTo(x0 - 3 * k, y0 + 22 * k)
         g.stroke()
       }
+    }
+  }
+  drawStars(g, W, H, k) {
+    for (const s of this.stars) {
+      const tw = 0.4 + 0.6 * Math.abs(Math.sin(s.p + this.time * 1.1 * s.z))
+      g.fillStyle = `rgba(${this.theme.star},${0.15 + 0.5 * tw * s.z})`
+      const sz = 1.6 * s.z * k
+      g.fillRect(s.x * W, s.y * H, sz, sz)
     }
   }
   overlay(g, W, H, k) {
@@ -279,11 +288,11 @@ export class Scene {
 
   drawClassic(g, o) {
     const { W, H } = o, k = o.scale ?? 1, x = this.x, tl = o.timeline !== false ? 44 * k : 0
-    this.background(g, W, H, k)
     const span = o.zoom * (1 - 0.06 * this.energy), ph = W * (o.playhead ?? 0.62), px = W / span
     const X = b => ph + (b - x) * px, Bx = sx => x + (sx - ph) / px
     const top = o.top ?? 0.12, Yf = y => top * H + (1 - top - 0.12) * H * (Y_MAX - y) / (Y_MAX - Y_MIN)
     const xa = Bx(0), xb = Bx(W)
+    this.background(g, W, H, k, o.scenery && { X, px, from: xa, to: xb, ground: H - tl })
     // grid: beats, bars (numbered), sections
     g.font = `${11 * k}px system-ui`
     g.textBaseline = 'top'
@@ -689,6 +698,7 @@ export class Scene {
     g.fillStyle = grd
     g.fillRect(0, 0, W, H)
     const n = this.tracks.length, f = Math.min(W, H) * 0.9, horizon = H * 0.38
+    if (o.scenery) sceneryBack(this, g, W, H, k, horizon)
     const depth = 1.4 // world units per beat
     const camY = 3.4, camZ = -9
     const proj = (wx, wy, wz) => {
@@ -721,6 +731,7 @@ export class Scene {
       g.lineTo(p2[0], p2[1])
       g.stroke()
     }
+    if (o.scenery) sceneryRoad(this, g, k, { proj, left: lane(0), right: lane(n - 1), depth, floor: -3.4 })
     // sections as gates
     for (const [b, nm] of this.song.sections ?? []) {
       const z = (b - x) * depth

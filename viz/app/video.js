@@ -135,7 +135,7 @@ export async function makeVideo(o) {
       scene.draw(g, {
         style: o.style, W, H, scale: k, zoom: o.aspect === '9:16' ? 12 : 20, fx: true, labels: true, scope: o.style === 'classic' ? scope : null,
         timeline: o.style !== 'paper', playhead: o.aspect === '9:16' ? 0.5 : 0.62, top: o.aspect === '9:16' ? 0.2 : 0.12,
-        sectionY: o.aspect === '9:16' ? 300 : 70, titleY: o.aspect === '9:16' ? 0.14 : 0.42, title, subtitle, formulas: o.formulas,
+        sectionY: o.aspect === '9:16' ? 300 : 70, titleY: o.aspect === '9:16' ? 0.14 : 0.42, title, subtitle, formulas: o.formulas, scenery: app.view?.scenery !== false,
       })
       if (o.style !== 'paper') caption(g, W, H, k, title, subtitle, o.aspect)
       const frame = new VideoFrame(canvas, { timestamp: Math.round(tsec * 1e6), duration: Math.round(1e6 / fps) })

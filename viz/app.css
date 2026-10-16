@@ -43,6 +43,8 @@ kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
 .modecard .note.tonic { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .modecard .formula { margin: 6px 0; font-family: ui-monospace, monospace; font-size: 13px; }
 .modecard .chord { padding: 3px 8px; border-radius: 7px; background: #ffffff0d; }
+.modecard .row.actions { justify-content: flex-end; margin-top: 14px; padding-top: 12px; border-top: 1px solid #ffffff14; }
+.modecard .row.actions .primary, .modal .btns .primary { background: color-mix(in srgb, var(--accent) 45%, var(--btn)); border-color: var(--accent); }
 label.rng { display: flex; align-items: center; gap: 4px; color: var(--dim); }
 label.rng input { width: 74px; }
 @media (max-width: 1100px) { #top .right, #status { display: none; } }

@@ -1,11 +1,13 @@
-// «Лады» and the key menu on the right: the tonality of the app — a tonic and a mode (src/modes.js), or auto (each
-// song keeps its own). New songs from 🎲 are made in it; a generated song can be made again in it. Every mode has a
-// card: what it is, its steps and degrees, its notes spelt on the tonic, the triads on its degrees, and it plays.
+// «Лады» and «Тональность», side by side on the right: a tonic and a mode (src/modes.js), or auto (each song keeps
+// its own). Choosing one never stops the music; it asks what to do with it: the same music in it now (a generated
+// song made again from its seeds, any other — built-in too — a retuned copy, src/retune.js; it goes on from the same
+// beat) or the next music in it (🎲 makes new songs in it). Every mode has a card: what it is, its steps and degrees,
+// its notes spelt on the tonic, the triads on its degrees, and it plays.
 import { app } from './app.js'
 import { h, esc, toast, modal } from './ui.js'
 import { MODE_GROUPS, MODES, modeOf, KEYS, signature, spellScale, stepFormula, degreeFormula, modeTriads, tonalityLabel, tonicPc } from './modes.js'
 import { keyLabel } from './theory.js'
-import { regenerate, createIn } from './genui.js'
+import { sameIn } from './genui.js'
 
 const TONICS = ['C', 'C♯', 'D♭', 'D', 'D♯', 'E♭', 'E', 'F', 'F♯', 'G♭', 'G', 'G♯', 'A♭', 'A', 'A♯', 'B♭', 'B', 'C♭']
 app.tonality = null // { tonic: 'D', mode: 'dorian' } | null = auto
@@ -17,11 +19,20 @@ export function setTonality(t, { quiet = false } = {}) {
   try { localStorage.setItem('mm.tonality', JSON.stringify(t)) } catch {}
   listeners.forEach(f => f(t))
   if (quiet) return
-  const g = app.current?.song?.generator
-  toast(t ? `🎼 ${tonalityLabel(t)} — новые песни 🎲 будут в этом ладу` : '🎼 тональность: авто — как задумано в каждой песне', {
-    ms: 5000,
-    action: t && g ? { label: '↻ пересочинить текущую', run: () => regenerate(t) } : null,
-  })
+  toast(t ? `🎲 следующая музыка — ${tonalityLabel(t)}` : '🎼 тональность: авто — как задумано в каждой песне', { ms: 4000 })
+}
+// a tonality was picked: the same music in it now, or the next music in it — the music keeps playing meanwhile
+export function offer(t) {
+  const label = tonalityLabel(t), cur = app.current
+  const now = cur?.song ? `«${esc(cur.entry?.name ?? cur.song.name)}»${cur.key ? ` · ${esc(keyLabel(cur.key))}${cur.song.mode && MODES[cur.song.mode] ? ` (${esc(MODES[cur.song.mode].name.toLowerCase())})` : ''}` : ''}` : ''
+  const how = !cur?.song ? '' : cur.song.generator
+    ? 'Сгенерированная песня сочинится заново с теми же зёрнами — мелодии, аранжировка и инструменты те же.'
+    : `Получится копия в «Мои песни»: каждая нота встанет на ту же ступень нового лада${cur.entry?.kind === 'builtin' ? ', встроенная песня не изменится' : ''}; модуляции внутри песни сохранятся.`
+  modal(`🎼 ${label}`, `${now ? `<p>Сейчас: ${now}</p>` : ''}<p class="dim">${how}</p>`, [
+    { label: 'Отмена' },
+    { label: `🎲 Следующая музыка → ${label}`, action: () => setTonality(t) },
+    ...(cur?.song ? [{ label: `↻ Эта же музыка → ${label}`, primary: true, action: () => sameIn(t) }] : []),
+  ])
 }
 const tonicNow = () => app.tonality?.tonic ?? (app.current?.key ? keyLabel(app.current.key).split(' ')[0] : 'C')
 
@@ -90,13 +101,15 @@ export function modeCard(id, tonicIn = tonicNow()) {
     h('div', { class: 'formula' }, h('span', { class: 'dim' }, 'Шаги: '), stepFormula(m.iv), h('span', { class: 'dim' }, '   ступени: '), degreeFormula(m.iv)),
     chords,
   )
-  const g = app.current?.song?.generator
-  modal(`${m.name}`, body, [
-    { label: 'Закрыть' },
-    ...(g ? [{ label: '↻ Пересочинить текущую', action: () => { setTonality({ tonic, mode: id }, { quiet: true }); regenerate({ tonic, mode: id }) } }] : []),
-    { label: '🎲 Новая песня в этом ладу', action: () => { setTonality({ tonic, mode: id }, { quiet: true }); createIn({ tonic, mode: id }) } },
-    { label: '✓ Выбрать', primary: true, action: () => setTonality({ tonic, mode: id }) },
-  ])
+  const name = () => tonalityLabel({ tonic, mode: id })
+  let dlg = null
+  const go = h('button', { class: 'primary', onclick: () => (dlg?.close(), sameIn({ tonic, mode: id })) }), next = h('button', { onclick: () => (dlg?.close(), setTonality({ tonic, mode: id })) })
+  const relabel = () => { go.textContent = `↻ Эта же музыка → ${name()}`; next.textContent = `🎲 Следующая музыка → ${name()}` }
+  sel.addEventListener('change', relabel)
+  relabel()
+  if (!app.current?.song) go.style.display = 'none'
+  body.append(h('div', { class: 'row actions' }, next, go))
+  dlg = modal(`${m.name}`, body, [{ label: 'Закрыть' }])
 }
 
 // ---- the menus ---------------------------------------------------------------------------------------------------
@@ -117,19 +130,19 @@ export function modeItems() {
       items: () => [{ header: g.label }, ...g.modes.map(m => ({ label: m.name, note: m.short, checked: cur?.mode === m.id ? true : undefined, action: () => modeCard(m.id) }))],
     })),
     '-',
-    { html: 'Клик по ладу — карточка: ноты, шаги, аккорды, ▶ послушать. «Выбрать» — 🎲 будет сочинять в нём; сгенерированную песню можно пересочинить.' },
+    { html: 'Клик по ладу — карточка: ноты, шаги, аккорды, ▶ послушать; оттуда — эта же музыка в нём (любая песня, встроенная тоже — копией) или следующая.' },
   ]
 }
 export function keyItems() {
   const cur = app.tonality, custom = cur && !['major', 'minor', 'ionian', 'aeolian'].includes(cur.mode)
   const item = ([name, tonic, mode, sig]) => ({
     label: `${tonic} ${mode === 'major' ? 'мажор' : 'минор'}`, kbd: signature(sig),
-    checked: cur?.tonic === tonic && cur?.mode === mode ? true : undefined, action: () => setTonality({ tonic, mode }),
+    checked: cur?.tonic === tonic && cur?.mode === mode ? true : undefined, action: () => offer({ tonic, mode }),
   })
   return [
     ...[songLine()].filter(Boolean),
     { label: 'Авто — тональность песни', checked: () => !app.tonality, action: () => setTonality(null) },
-    ...(custom ? ['-', { header: `Тоника для лада «${modeOf(cur.mode).name}»` }, { label: 'выбрать…', items: () => TONICS.map(t => ({ label: `${t} ${modeOf(cur.mode).name.toLowerCase()}`, checked: cur.tonic === t ? true : undefined, action: () => setTonality({ tonic: t, mode: cur.mode }) })) }] : []),
+    ...(custom ? ['-', { header: `Тоника для лада «${modeOf(cur.mode).name}»` }, { label: 'выбрать…', items: () => TONICS.map(t => ({ label: `${t} ${modeOf(cur.mode).name.toLowerCase()}`, checked: cur.tonic === t ? true : undefined, action: () => offer({ tonic: t, mode: cur.mode }) })) }] : []),
     '-', { header: 'Мажор — по квинтовому кругу' },
     ...KEYS.filter(k => k[2] === 'major').map(item),
     '-', { header: 'Минор — по квинтовому кругу' },

@@ -6,7 +6,10 @@ import { h, esc, toast, modal, seg } from './ui.js'
 import { generate, STYLES, STYLE_LIST, describe } from './generate.js'
 import { MELODIES } from './melodies.js'
 import { keyLabel, parseKey } from './theory.js'
-import { MODE_GROUPS, keyFor } from './modes.js'
+import { MODE_GROUPS, keyFor, tonalityLabel } from './modes.js'
+import { retuneSource } from './retune.js'
+import { themeFor } from './themes.js'
+import * as acorn from './acorn.js'
 
 const newSeed = () => 1 + Math.floor(Math.random() * 999998)
 const KEEP = 40 // untouched generated songs kept in the library; older untouched ones are dropped
@@ -19,7 +22,8 @@ app.radio = radio
 
 const genOf = () => app.current?.song?.generator ?? null
 
-async function create(opts, { save = true, quiet = false } = {}) {
+// from: the beat to start at (the same music in another mode goes on where it was)
+async function create(opts, { save = true, quiet = false, from = 0 } = {}) {
   // the tonality chosen in «Лады» / the key menu, unless the call brings its own key (a mutation keeps the song's)
   if (app.tonality && !('key' in opts)) opts = { ...opts, key: keyFor(app.tonality.tonic, app.tonality.mode), mode: app.tonality.mode }
   if (opts.key == null) delete opts.key
@@ -45,7 +49,7 @@ async function create(opts, { save = true, quiet = false } = {}) {
     for (const e of old.slice(KEEP - 1)) await app.lib.remove(e.id, { pick: false }).catch(() => {}) // the folder isn't connected: next time
     app.refreshSongList()
   }
-  await app.open(entry)
+  await app.open(entry, from)
   t?.done(describe(meta) + (!save ? '' : entry.where === 'disk' ? ` · my_songs/${entry.file}` : ' · ⏳ ждёт папку my_songs (Песня → Подключить)'), 'ok')
   return meta
 }
@@ -59,11 +63,35 @@ export async function mutate(which) {
   return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, ...seeds })
 }
 // the current generated song again — the same seeds, in another tonic and mode
-export function regenerate(t) {
+export function regenerate(t, { from = 0 } = {}) {
   const g = genOf()
   if (!g) return toast('пересочинить можно только сгенерированную песню — 🎲 «Новая песня в этом ладу»')
   toast(`↻ ${g.style} · seed ${g.seed} → ${t.tonic} …`, { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode })
+  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode }, { from })
+}
+// the music playing now, in another tonic and mode, going on from the same beat (paused stays paused): a generated
+// song is made again from its seeds; any other — a built-in one too — becomes a retuned copy in «Мои песни»
+// (src/retune.js: every note to the same degree of the new mode, then to the new tonic; modulations kept)
+export async function sameIn(t) {
+  const cur = app.current, p = app.player
+  if (!cur?.song) return toast('сначала выбери песню')
+  const was = p.playing, from = p.x
+  if (cur.song.generator) await regenerate(t, { from })
+  else {
+    let r
+    try {
+      r = retuneSource(app.drafts.get(cur.id) ?? cur.source, cur.song, t, { parse: acorn.parse, theme: themeFor(cur.song).id })
+    } catch (e) {
+      console.error(e)
+      return toast('не получилось перенести: ' + e.message, { kind: 'err', ms: 8000 })
+    }
+    const entry = await app.lib.save({ name: r.name, source: r.source, kind: 'user' }, { pick: true })
+    app.refreshSongList()
+    await app.open(entry, from)
+    const mods = r.plan.sect.length > 1 ? ` · модуляции сохранены (${r.plan.sect.length - 1})` : ''
+    toast(`🎼 ${r.name}${mods}${entry.where === 'disk' ? ` · my_songs/${entry.file}` : ' · ⏳ ждёт папку my_songs'}`, { kind: 'ok', ms: 6000 })
+  }
+  if (!was && p.playing) await p.pause()
 }
 // a new song in a tonality: the style of the current generated song, else the last one used
 export const createIn = t => create({ style: genOf()?.style ?? last.style, key: keyFor(t.tonic, t.mode), mode: t.mode })
