@@ -175,13 +175,13 @@ inspector, live formulas) · player.js (worker pool renders tracks in parallel �
 video frames) · editor.js (CodeMirror, lint, API hints from api.js, number sliders, full check with
 LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code) · genui.js · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
-ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs) · gallery.js (right click: duplicate,
+ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs; saved into the project's **videos/** — `lib.videoFolder({ pick })` asked before encoding, `lib.writeVideo` in 16 MB pieces through the server, or a folder handle: videos/ in the chosen project folder or a folder picked once; downloaded only without one) · gallery.js (right click: duplicate,
 rename, delete; built-in songs first, then my_songs/, then generated/, each on its own row; style chips filter by `style`) ·
 library.js (my songs are files in **my_songs/**, the 🎲 songs nobody saved yet in **generated/** — each folder a `Shelf` with
 its library.json (id, kind, pristine, dates); `shelfOf(e)`: pristine (a 🎲 song or a retuned copy nobody saved) → generated/, else my_songs/; Ctrl+S,
 rename or duplicate (pristine: false) moves a song from generated/ to my_songs/; untouched generated songs found in
 my_songs/ (older versions) move over on attach; the song list and the gallery show built-in, my_songs/, generated/; build.js
-embeds both folders (not in the exe's page); the server API is /api/mine, /api/gen, /api/songs (serve.js and launcher.cs);
+embeds both folders (not in the exe's page); the server API is /api/mine, /api/gen, /api/songs, /api/video (serve.js and launcher.cs; PUT ?append=1 adds a piece);
 opened as a file the page reaches generated/ only when the project folder was chosen (else 🎲 songs wait in IndexedDB); from viz/serve.js the page writes it through the server (`serverFolder` — the same calls
 as a directory handle), opened as a file through File System Access (dialog starts in Documents after an
 explaining modal; the handle is kept in IndexedDB, the browser may ask to allow it again per session); a song saved before the folder is connected waits in

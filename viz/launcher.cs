@@ -33,7 +33,7 @@ static class App {
     const string TITLE = "MathMusic";
     static string root, page;
     static readonly Regex Host = new Regex(@"^(localhost|127\.0\.0\.1)(:\d+)?$");
-    static readonly Regex Api = new Regex(@"^/api/(mine|gen|songs)(?:/([^/]+))?$");
+    static readonly Regex Api = new Regex(@"^/api/(mine|gen|songs|video)(?:/([^/]+))?$");
     static readonly Regex SongFile = new Regex(@"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.js$");
 
     [STAThread]
@@ -195,7 +195,8 @@ static class App {
     static string Mtime(string f) {
         return ((long)(File.GetLastWriteTimeUtc(f) - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds).ToString(CultureInfo.InvariantCulture);
     }
-    static bool OkName(string f) { return SongFile.IsMatch(f) || f == "library.json"; }
+    static readonly Regex VideoFile = new Regex(@"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(mp4|webm)$");
+    static bool OkName(string f, string g) { return g == "video" ? VideoFile.IsMatch(f) : SongFile.IsMatch(f) || f == "library.json"; }
 
     static Res Route(string method, string target, Dictionary<string, string> h, byte[] body) {
         string host;
@@ -213,14 +214,14 @@ static class App {
         if (!m.Success) return new Res(404, "not found");
         string mark;
         if (!h.TryGetValue("x-mathmusic", out mark) || mark != "1") return new Res(403, "header");
-        string g = m.Groups[1].Value, dir = Path.Combine(root, g == "mine" ? "my_songs" : g == "gen" ? "generated" : "songs");
+        string g = m.Groups[1].Value, dir = Path.Combine(root, g == "mine" ? "my_songs" : g == "gen" ? "generated" : g == "video" ? "videos" : "songs");
         if (!m.Groups[2].Success) {
             if (method != "GET") return new Res(405, null);
             Directory.CreateDirectory(dir);
             StringBuilder j = new StringBuilder("[");
             foreach (string f in Directory.GetFiles(dir)) {
                 string n = Path.GetFileName(f);
-                if (!OkName(n)) continue;
+                if (!OkName(n, g)) continue;
                 if (j.Length > 1) j.Append(',');
                 j.Append("{\"name\":\"").Append(n).Append("\",\"mtime\":").Append(Mtime(f)).Append('}');
             }
@@ -229,7 +230,7 @@ static class App {
             return r;
         }
         string name = Uri.UnescapeDataString(m.Groups[2].Value);
-        if (!OkName(name)) return new Res(400, "name");
+        if (!OkName(name, g)) return new Res(400, "name");
         string file = Path.Combine(dir, name);
         if (method == "GET") {
             if (!File.Exists(file)) return new Res(404, "no file");
@@ -240,7 +241,9 @@ static class App {
         }
         if (method == "PUT") {
             Directory.CreateDirectory(dir);
-            File.WriteAllBytes(file, body);
+            // ?append=1: the next piece of a large file (a video comes in 16 MB pieces)
+            if (target.Contains("append=1")) using (FileStream a = new FileStream(file, FileMode.Append)) a.Write(body, 0, body.Length);
+            else File.WriteAllBytes(file, body);
             return new Res(204, null);
         }
         if (method == "DELETE") {

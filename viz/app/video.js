@@ -62,6 +62,8 @@ export function videoDialog() {
 }
 
 export async function makeVideo(o) {
+  // the folder first, while the click still allows its dialog: the project's videos/ (else the file is downloaded)
+  const folder = await app.lib.videoFolder({ pick: true })
   const cur = app.current, song = cur.song
   const [W, H] = SIZES[o.aspect], fps = o.fps
   const [b0, b1] = o.range === 'part' ? [(o.from - 1) * 4, Math.min(song.length, (o.to - 1) * 4)] : [0, song.length]
@@ -154,9 +156,11 @@ export async function makeVideo(o) {
     muxer.finalize()
     const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' })
     const name = fileName(song.name || 'song') + `-${o.style}-${o.aspect.replace(':', 'x')}.mp4`
-    download(name, blob)
+    let where = null
+    if (folder) try { where = await app.lib.writeVideo(folder, name, blob) } catch (e) { console.warn('videos/ not written, downloading', e) }
+    if (!where) download(name, blob)
     cancel.remove()
-    t.done(`🎬 ${name} · ${(blob.size / 1e6).toFixed(1)} МБ${acodec === 'opus' ? ' · звук Opus (AAC в этом браузере нет)' : ''}`)
+    t.done(`🎬 ${where ?? name} · ${(blob.size / 1e6).toFixed(1)} МБ${acodec === 'opus' ? ' · звук Opus (AAC в этом браузере нет)' : ''}`)
   } catch (e) {
     console.error(e)
     cancel.remove()

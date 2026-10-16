@@ -50,6 +50,13 @@ async function check(root, port) {
     assert.deepEqual(fs.readdirSync(path.join(root, 'generated')), ['library.json'])
     assert.ok(fs.existsSync(path.join(root, 'my_songs', 'Groza.js')))
     assert.equal((await fetch(base + '/api/gen/..%2Fsongs%2Fx.js', { method: 'PUT', headers: H, body: 'x' })).status, 400)
+
+    // videos/: a video in 16 MB pieces (the exe takes 64 MB a request at most), a free name the second time; no scripts there
+    const bytes = new Uint8Array(20 << 20).map((_, i) => (i * 7) & 255), target = { server: true, api: base + '/api/video', name: 'videos' }
+    assert.equal(await gl.writeVideo(target, 'rain-paper-9x16.mp4', new Blob([bytes])), 'videos/rain-paper-9x16.mp4')
+    assert.ok(Buffer.from(bytes).equals(fs.readFileSync(path.join(root, 'videos', 'rain-paper-9x16.mp4'))))
+    assert.equal(await gl.writeVideo(target, 'rain-paper-9x16.mp4', new Blob([bytes.slice(0, 10)])), 'videos/rain-paper-9x16-2.mp4')
+    assert.equal((await fetch(base + '/api/video/x.js', { method: 'PUT', headers: H, body: 'x' })).status, 400)
   }
 }
 

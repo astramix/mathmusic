@@ -1,5 +1,5 @@
 // The app on http://localhost:5178 — Visualizer.bat / npm run app. The page is built fresh on every load,
-// and my_songs/, generated/ (untouched 🎲 songs) and songs/ ("write to the built-in songs") are read and written by this server: no
+// and my_songs/, generated/ (untouched 🎲 songs), songs/ ("write to the built-in songs") and videos/ (video export) are read and written by this server: no
 // folder dialog, no permission prompts. Only this computer can reach it (127.0.0.1); a write needs the
 // app's own header, which no other site can send (the browser would ask with a preflight we refuse),
 // and only a plain file name inside the folder.
@@ -14,11 +14,11 @@ import { build } from './build.js'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const PORT = 5178
 export const HEADER = 'x-mathmusic'
-// a file the app may touch: a song or my_songs/library.json, nothing with a path in it
-const okName = f => /^[\w-][\w.-]*\.js$/.test(f) || f === 'library.json'
+// a file the app may touch: a song or a folder's library.json (a video in videos/), nothing with a path in it
+const okName = (f, kind) => (kind === 'video' ? /^[\w-][\w.-]*\.(mp4|webm)$/.test(f) : /^[\w-][\w.-]*\.js$/.test(f) || f === 'library.json')
 
 export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: true }) } = {}) {
-  const dirs = { mine: path.join(root, 'my_songs'), gen: path.join(root, 'generated'), songs: path.join(root, 'songs') }
+  const dirs = { mine: path.join(root, 'my_songs'), gen: path.join(root, 'generated'), songs: path.join(root, 'songs'), video: path.join(root, 'videos') }
   const server = http.createServer(async (req, res) => {
     const send = (code, body = '', type = 'text/plain; charset=utf-8', extra = {}) => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store', ...extra })
@@ -30,17 +30,17 @@ export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: tr
       const url = new URL(req.url, 'http://localhost')
       if (url.pathname === '/' && req.method === 'GET') return send(200, fs.readFileSync(await html()), 'text/html; charset=utf-8')
       if (url.pathname === '/api/hello') return send(200, JSON.stringify({ app: 'mathmusic' }), 'application/json')
-      const m = url.pathname.match(/^\/api\/(mine|gen|songs)(?:\/([^/]+))?$/)
+      const m = url.pathname.match(/^\/api\/(mine|gen|songs|video)(?:\/([^/]+))?$/)
       if (!m) return send(404, 'not found')
       const dir = dirs[m[1]], name = m[2] && decodeURIComponent(m[2])
       if (req.headers[HEADER] !== '1') return send(403, 'header')
       if (!name) {
         if (req.method !== 'GET') return send(405)
         fs.mkdirSync(dir, { recursive: true })
-        const list = fs.readdirSync(dir).filter(okName).map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
+        const list = fs.readdirSync(dir).filter(f => okName(f, m[1])).map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
         return send(200, JSON.stringify(list), 'application/json')
       }
-      if (!okName(name)) return send(400, 'name')
+      if (!okName(name, m[1])) return send(400, 'name')
       const file = path.join(dir, name)
       if (req.method === 'GET') {
         if (!fs.existsSync(file)) return send(404, 'no file')
@@ -50,7 +50,9 @@ export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: tr
         const chunks = []
         for await (const c of req) chunks.push(c)
         fs.mkdirSync(dir, { recursive: true })
-        fs.writeFileSync(file, Buffer.concat(chunks))
+        // ?append=1: the next piece of a large file (a video comes in 16 MB pieces)
+        if (url.searchParams.get('append') === '1') fs.appendFileSync(file, Buffer.concat(chunks))
+        else fs.writeFileSync(file, Buffer.concat(chunks))
         return send(204)
       }
       if (req.method === 'DELETE') {
