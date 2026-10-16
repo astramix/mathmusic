@@ -221,12 +221,14 @@ async function togglePlay() {
   updatePlayButton()
 }
 const seek = b => app.current?.song && player.seek(Math.max(0, Math.min(app.current.song.length - 0.01, b)))
-function nextSong() {
-  const ids = app.lib.list().map(e => e.id), i = (ids.indexOf(app.current?.id) + 1) % ids.length
+// the next / previous song in the list (built-in, my_songs/, generated/), round the ends
+function nextSong(step = 1) {
+  const ids = app.lib.list().map(e => e.id), i = (ids.indexOf(app.current?.id) + step + ids.length) % ids.length
   open(ids[i])
 }
 $('play').onclick = togglePlay
-$('next').onclick = nextSong
+$('next').onclick = () => nextSong(1)
+$('prev').onclick = () => nextSong(-1)
 $('back').onclick = () => seek(Math.floor(player.x / 4) * 4 - 16)
 $('fwd').onclick = () => seek(Math.floor(player.x / 4) * 4 + 16)
 $('song').onchange = () => open($('song').value)
@@ -243,7 +245,7 @@ addEventListener('keydown', e => {
   else if (e.code === 'ArrowLeft') $('back').onclick()
   else if (e.code === 'ArrowRight') $('fwd').onclick()
   else if (e.code === 'Home') seek(0)
-  else if (e.code === 'KeyN') nextSong()
+  else if (e.code === 'KeyN') nextSong(e.shiftKey ? -1 : 1)
   else if (e.code === 'KeyE') toggleEditor()
   else if (e.code === 'KeyP') togglePianoRoll()
   else if (e.code === 'KeyF') { V.live = !V.live; saveView(); updateLive(true) }
