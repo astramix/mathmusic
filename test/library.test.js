@@ -160,6 +160,11 @@ test('generated/: untouched 🎲 songs live there, Ctrl+S moves one to my_songs/
   await l.remove('user:old')
   assert.ok(!gen.files.has('old.js'))
 
+  // a copy in another mode («эта же музыка в …») is unsaved too: generated/ until Ctrl+S
+  const c = await l.save({ name: 'rain · D дорийский', source: setName(SONG, 'rain · D дорийский'), kind: 'user', base: 'builtin:rain', pristine: true })
+  assert.equal(c.shelf, 'gen')
+  assert.equal((await l.save({ ...l.get(c.id), pristine: false })).shelf, 'mine')
+
   // without generated/ (only my_songs/ was chosen) a generated song waits in the browser
   const only = new Library({ songs: {} })
   await only.attach(fakeDir('my_songs'), 'disk', null)

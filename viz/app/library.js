@@ -76,8 +76,9 @@ export function fromFile(file, source, mtime, index = {}, shelf = 'mine') {
     created: m.created ?? mtime, updated: m.updated ?? mtime, where: 'disk', shelf,
   }
 }
-// where a song lives: a generated song nobody saved, renamed or copied (pristine) in generated/, the rest in my_songs/
-export const shelfOf = e => (e.kind === 'generated' && e.pristine === true ? 'gen' : 'mine')
+// where a song lives: one the app made and nobody saved yet (pristine: a 🎲 song, a copy in another mode) in
+// generated/, the rest in my_songs/ — Ctrl+S, rename or duplicate (pristine: false) moves it over
+export const shelfOf = e => (e.pristine === true && e.kind !== 'builtin' ? 'gen' : 'mine')
 // the file for a song: its old one while the name still fits it, else <name>.js or the first free <name>-N.js
 export function fileFor(name, old, taken) {
   const stem = fileName(name)

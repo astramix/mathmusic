@@ -413,7 +413,7 @@ async function deleteSong(id = app.current?.id) {
   }
   app.drafts.delete(id)
   if (next) open(next)
-  toast(`🗑 «${e.name}» удалена${saved?.file ? ` (и файл my_songs/${saved.file})` : ''}`, {
+  toast(`🗑 «${e.name}» удалена${saved?.file ? ` (и файл ${saved.shelf === 'gen' ? 'generated' : 'my_songs'}/${saved.file})` : ''}`, {
     ms: 10000,
     action: {
       label: '↶ вернуть',

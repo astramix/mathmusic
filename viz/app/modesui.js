@@ -27,7 +27,7 @@ export function offer(t) {
   const now = cur?.song ? `«${esc(cur.entry?.name ?? cur.song.name)}»${cur.key ? ` · ${esc(keyLabel(cur.key))}${cur.song.mode && MODES[cur.song.mode] ? ` (${esc(MODES[cur.song.mode].name.toLowerCase())})` : ''}` : ''}` : ''
   const how = !cur?.song ? '' : cur.song.generator
     ? 'Сгенерированная песня сочинится заново с теми же зёрнами — мелодии, аранжировка и инструменты те же.'
-    : `Получится копия в «Мои песни»: каждая нота встанет на ту же ступень нового лада${cur.entry?.kind === 'builtin' ? ', встроенная песня не изменится' : ''}; модуляции внутри песни сохранятся.`
+    : `Получится копия в «Сгенерированные» (Ctrl+S сохранит её в «Мои»): каждая нота встанет на ту же ступень нового лада${cur.entry?.kind === 'builtin' ? ', встроенная песня не изменится' : ''}; модуляции внутри песни сохранятся.`
   modal(`🎼 ${label}`, `${now ? `<p>Сейчас: ${now}</p>` : ''}<p class="dim">${how}</p>`, [
     { label: 'Отмена' },
     { label: `🎲 Следующая музыка → ${label}`, action: () => setTonality(t) },

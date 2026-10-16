@@ -24,7 +24,16 @@ app.radio = radio
 const genOf = () => app.current?.song?.generator ?? null
 
 // from: the beat to start at (the same music in another mode goes on where it was)
-async function create(opts, { save = true, quiet = false, from = 0 } = {}) {
+// keep generated/ to the last KEEP after a new song (🎲 or a copy in another mode) went in: the oldest goes — never
+// one saved with Ctrl+S, renamed or copied (those are in my_songs/) or one with unsaved edits; the one playing is
+// about to give way to the new one anyway
+async function tidy(entry) {
+  const old = app.lib.list().filter(e => shelfOf(e) === 'gen' && !app.drafts.has(e.id) && e.id !== entry.id)
+  for (const e of old.slice(KEEP - 1)) await app.lib.remove(e.id, { pick: false }).catch(() => {}) // the folder isn't connected: next time
+  app.refreshSongList()
+}
+
+async function create(opts,{ save = true, quiet = false, from = 0 } = {}) {
   // the tonality chosen in «Лады» / the key menu, unless the call brings its own key (a mutation keeps the song's)
   if (app.tonality && !('key' in opts)) opts = { ...opts, key: keyFor(app.tonality.tonic, app.tonality.mode), mode: app.tonality.mode }
   if (opts.key == null) delete opts.key
@@ -43,11 +52,7 @@ async function create(opts, { save = true, quiet = false, from = 0 } = {}) {
   let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta, pristine: true }
   if (save) {
     entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta, pristine: true }, { pick: !quiet })
-    // keep generated/ to the last KEEP: the oldest goes — never one saved with Ctrl+S, renamed or copied (those
-    // are in my_songs/) or one with unsaved edits; the one playing is about to give way to the new one anyway
-    const old = app.lib.list().filter(e => shelfOf(e) === 'gen' && !app.drafts.has(e.id) && e.id !== entry.id)
-    for (const e of old.slice(KEEP - 1)) await app.lib.remove(e.id, { pick: false }).catch(() => {}) // the folder isn't connected: next time
-    app.refreshSongList()
+    await tidy(entry)
   }
   await app.open(entry, from)
   t?.done(describe(meta) + (!save ? '' : entry.where === 'disk' ? ` · ${entry.shelf === 'gen' ? 'generated' : 'my_songs'}/${entry.file}` : ' · ⏳ ждёт папку проекта (Песня → Подключить)'), 'ok')
@@ -70,8 +75,8 @@ export function regenerate(t, { from = 0 } = {}) {
   return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode }, { from })
 }
 // the music playing now, in another tonic and mode, going on from the same beat (paused stays paused): a generated
-// song is made again from its seeds; any other — a built-in one too — becomes a retuned copy in «Мои песни»
-// (src/retune.js: every note to the same degree of the new mode, then to the new tonic; modulations kept)
+// song is made again from its seeds; any other — a built-in one too — becomes a retuned copy (src/retune.js: every
+// note to the same degree of the new mode, then to the new tonic; modulations kept). Both wait in generated/ until Ctrl+S
 export async function sameIn(t) {
   const cur = app.current, p = app.player
   if (!cur?.song) return toast('сначала выбери песню')
@@ -85,11 +90,12 @@ export async function sameIn(t) {
       console.error(e)
       return toast('не получилось перенести: ' + e.message, { kind: 'err', ms: 8000 })
     }
-    const entry = await app.lib.save({ name: r.name, source: r.source, kind: 'user' }, { pick: true })
-    app.refreshSongList()
+    const base = cur.entry?.kind === 'builtin' ? cur.id : cur.entry?.base
+    const entry = await app.lib.save({ name: r.name, source: r.source, kind: 'user', base, pristine: true }, { pick: true })
+    await tidy(entry)
     await app.open(entry, from)
     const mods = r.plan.sect.length > 1 ? ` · модуляции сохранены (${r.plan.sect.length - 1})` : ''
-    toast(`🎼 ${r.name}${mods}${entry.where === 'disk' ? ` · my_songs/${entry.file}` : ' · ⏳ ждёт папку my_songs'}`, { kind: 'ok', ms: 6000 })
+    toast(`🎼 ${r.name}${mods}${entry.where === 'disk' ? ` · generated/${entry.file} — Ctrl+S сохранит в «Мои»` : ' · ⏳ ждёт папку проекта'}`, { kind: 'ok', ms: 6000 })
   }
   if (!was && p.playing) await p.pause()
 }

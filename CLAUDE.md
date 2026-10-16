@@ -178,7 +178,7 @@ LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code) · 
 ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs) · gallery.js (right click: duplicate,
 rename, delete; built-in songs first, then my_songs/, then generated/, each on its own row; style chips filter by `style`) ·
 library.js (my songs are files in **my_songs/**, the 🎲 songs nobody saved yet in **generated/** — each folder a `Shelf` with
-its library.json (id, kind, pristine, dates); `shelfOf(e)`: kind generated + pristine → generated/, else my_songs/; Ctrl+S,
+its library.json (id, kind, pristine, dates); `shelfOf(e)`: pristine (a 🎲 song or a retuned copy nobody saved) → generated/, else my_songs/; Ctrl+S,
 rename or duplicate (pristine: false) moves a song from generated/ to my_songs/; untouched generated songs found in
 my_songs/ (older versions) move over on attach; the song list and the gallery show built-in, my_songs/, generated/; build.js
 embeds both folders (not in the exe's page); the server API is /api/mine, /api/gen, /api/songs (serve.js and launcher.cs);
@@ -195,8 +195,8 @@ every N beats beside the lanes, crossing the playhead plane on their beat, torii
 `musicOf(scene)`: beat phase, downbeat, kick (drum tracks' onsets), energy, progress, section flash — never Math.random) ·
 modesui.js («Лады» and «Тональность» side by side on the right, #keynav: a card per mode with notes spelt on the
 tonic, steps, triads, ▶ scale/chords; 30 keys. Picking one never stops the music and offers «↻ Эта же музыка → …» (genui
-`sameIn`: a generated song again from its seeds, any other — built-in too — a retuned copy via retune.js, saved in my_songs/,
-going on from the same beat, paused stays paused) or «🎲 Следующая музыка → …» (`app.tonality` {tonic, mode} | null, kept in
+`sameIn`: a generated song again from its seeds, any other — built-in too — a retuned copy via retune.js,
+in generated/ until Ctrl+S, going on from the same beat, paused stays paused) or «🎲 Следующая музыка → …» (`app.tonality` {tonic, mode} | null, kept in
 localStorage `mm.tonality`; 🎲 makes new songs in it)). `node render.js my_songs/<file>.js` renders a saved song like any other.
 Editing state: app.drafts (one localStorage key per song) holds a draft exactly while the code differs from
 the saved one — `app.setDraft(cur, src)` keeps that true, `app.dirty(cur)` is the ●; `app.apply(src, { of: cur })`
