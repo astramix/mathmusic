@@ -379,7 +379,7 @@ export function exportSong(song, dir, opts) {
     if (track.midi) writeMidi(path.join(dir, `${name}.mid`), song, name, track)
   }
   plotSvg(path.join(dir, 'graph.svg'), song)
-  return { levels, seconds: mix[0].length / SR }
+  return { levels, seconds: mix[0].length / SR, mix }
 }
 
 // ---- graphs ------------------------------------------------------------------------

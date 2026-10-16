@@ -65,8 +65,10 @@ export class Player extends EventTarget {
   async ensureAudio() {
     if (this.actx) return
     this.actx = new AudioContext({ sampleRate: SR, latencyHint: 'playback' })
-    // a data: URL — worklets refuse blob: URLs on pages opened from disk (origin null)
-    await this.actx.audioWorklet.addModule('data:text/javascript;charset=utf-8,' + encodeURIComponent(MM.APP['worklet.js']))
+    // a data: URL — worklets refuse blob: URLs on pages opened from disk (origin null); the master bus and the meter
+    // (src/master.js, its exports made plain declarations) go in front of the output stage
+    const master = (MM.APP['master.js'] ?? '').replace(/^export /gm, '')
+    await this.actx.audioWorklet.addModule('data:text/javascript;charset=utf-8,' + encodeURIComponent(master + '\n' + MM.APP['worklet.js']))
     this.node = new AudioWorkletNode(this.actx, 'mathmusic-out', { numberOfInputs: 0, outputChannelCount: [2] })
     this.master = this.actx.createGain()
     this.master.gain.value = this.volume
@@ -74,7 +76,9 @@ export class Player extends EventTarget {
     this.node.port.onmessage = e => {
       const d = e.data
       if (d.type === 'pos') this.rep = { pos: d.pos, t: d.t, stalled: d.stalled }
+      if (d.meter) this.meter = d.meter
     }
+    if (this.masterParams) this.node.port.postMessage({ type: 'master', params: this.masterParams })
     this.feedTimer = setInterval(() => this.tick(), 30)
   }
   setVolume(v) {
@@ -135,6 +139,11 @@ export class Player extends EventTarget {
     this.seek(fromBeat)
   }
   sendGain() { this.node?.port.postMessage({ type: 'gain', value: (0.89 / this.peak) * this.trim }) }
+  // the master bus in the output stage (src/master.js params, with drive = the gain to the loudness target), or null
+  setMaster(params, { reset = false } = {}) {
+    this.masterParams = params
+    this.node?.port.postMessage({ type: 'master', params, reset })
+  }
   setTrim(t) { this.trim = t; this.sendGain() }
   // keep this version's audio for later (A/B), the oldest goes past KEEP
   keepCurrent() {

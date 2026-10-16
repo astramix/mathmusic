@@ -8,6 +8,8 @@ import { renderSong, renderSongCached } from './player.js'
 import { trackList, SR } from './runtime.js'
 import { nameIn, fileName } from './library.js'
 import { midiFile, isMicrotonal } from './midi.js'
+import { TARGETS } from './master.js'
+import { chainParams } from './masterui.js'
 import { tuningFiles } from './tuning.js'
 import { MODES } from './modes.js'
 
@@ -19,8 +21,32 @@ const mutedSet = () => new Set((app.scene?.tracks ?? []).filter(t => t.muted).ma
 export async function getMix(t) {
   const cur = app.current
   t?.set('рендер всей песни…', 0)
-  return renderSongCached(app.SRC, cur.source, { muted: mutedSet(), onProgress: f => t?.set(null, f * 0.7) })
+  const r = await renderSongCached(app.SRC, cur.source, { muted: mutedSet(), onProgress: f => t?.set(null, f * 0.6) })
+  return masterIfOn(r, t)
 }
+// the mix mastered when the bus is on («🎛 Мастеринг»): the whole song through the chain and onto its loudness target,
+// in a worker (src/master.js + src/loudness.js) so the page stays alive → the render with L, R and mastered: { lufs, tp }
+export async function masterIfOn(r, t) {
+  const m = app.master
+  if (!m?.on) return r
+  t?.set('мастеринг: компрессор, лимитер, громкость…', 0.6)
+  const target = (TARGETS.find(x => x[0] === m.target) ?? TARGETS[1])[2]
+  const code = [MM.APP['loudness.js'], MM.APP['master.js']].map(s => s.replace(/^export /gm, '')).join('\n') + `
+self.onmessage = e => {
+  const { L, R, params, target } = e.data
+  const o = masterOffline(L, R, params, { lufs, target })
+  self.postMessage({ L: o.L, R: o.R, lufs: o.lufs, tp: o.tp, gainDb: o.gainDb }, [o.L.buffer, o.R.buffer])
+}`
+  const w = new Worker(MM.blob(code))
+  const L = r.L.slice(), R = r.R.slice()
+  const o = await new Promise((resolve, reject) => {
+    w.onmessage = e => resolve(e.data)
+    w.onerror = e => reject(new Error(e.message || 'мастеринг'))
+    w.postMessage({ L, R, params: chainParams(m), target }, [L.buffer, R.buffer])
+  }).finally(() => w.terminate())
+  return { ...r, L: o.L, R: o.R, mastered: { lufs: o.lufs, tp: o.tp, gainDb: o.gainDb } }
+}
+const masteredNote = m => (m.mastered ? ` · ${m.mastered.lufs.toFixed(1)} LUFS, ${m.mastered.tp.toFixed(1)} dBTP` : '')
 
 // ---- WAV -------------------------------------------------------------------------------------------
 export function wav24(L, R, sr = SR) {
@@ -250,7 +276,7 @@ export async function exportAudio(fmt) {
       blob = await ogg(m.L, m.R, p => t.set(null, 0.7 + 0.3 * p))
     }
     download(`${name}.${fmt}`, blob)
-    t.done(`⬇ ${name}.${fmt} · ${(blob.size / 1e6).toFixed(1)} МБ`)
+    t.done(`⬇ ${name}.${fmt} · ${(blob.size / 1e6).toFixed(1)} МБ${masteredNote(m)}`)
   } catch (e) {
     console.error(e)
     t.done('не получилось: ' + e.message, 'err')

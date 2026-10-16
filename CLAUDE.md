@@ -11,6 +11,7 @@ Open a source file only to change it or when something here is unclear.
 - `node render.js songs/<name>.js` → `out/<name>/` (mix.wav, stems, .mid per track, graph.svg, graph.png)
   and a level table; `quiet?` = RMS > 22 dB below the loudest track, `hot?` = peak > −1.5 dB.
   Long songs take 10–60 s: use `timeout: 600000`.
+  `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
   the generator (11 styles × 3 seeds: loads, renders, lead on its chords), retune (every song in two modes), theory, MIDI export, the song
@@ -144,6 +145,17 @@ the bass weighted and hysteresis (lofi → Gm9 C13 Fmaj9 Dm9). `keySignature`: k
 microtonal mode written out (Rast: B𝄳 E𝄳; Turkish Rast: B♭¹ F♯⁴ — flats first). `musicXml(score)` → MusicXML 4.0 (valid
 against the XSD): <alter> exact, <accidental> SZG names / koron / sori / smufl="accidentalKomaFlat", <key-step>/<key-alter>,
 <harmony>, rehearsal marks, metronome, <swing>, tuplets, grace, cents of a measured scale as lyrics.
+
+## master.js (the master bus — the worklet, export, render.js --master, tests)
+`masterChain(params, sr)` → process(l, r) (delayed by `latency`): side signal high-passed below `monoBelow` (LR4), × `width`;
+glue compressor (sidechain HP 90 Hz, RMS 10 ms, soft knee, `threshold ratio attack release`); `drive` (the gain to the
+loudness target, after the compressor); true-peak limiter (5 ms look-ahead, 4× oversampled peak, sliding minimum + box
+filter, release 80 ms, `ceiling` dBTP). `loudnessMeter` (M / S / I LUFS, true peak), `truePeak(L, R)`, `masterOffline(L,
+R, params, { lufs, target })` (secant iterations to the target within 0.05 LU). `MASTER_PRESETS` (transparent glue warm
+wide), `TARGETS` (peak −1 dBFS, stream −14, apple −16, ebu −23, club −9). In the app: player.js puts master.js in front
+of worklet.js (exports stripped); masterui.js («🎛 Мастеринг», K; `app.master` in localStorage `mm.master`): live bus +
+meter, the drive estimated from the rendered audio and corrected once by the meter after 25 s; export.js `masterIfOn`
+(MP3/WAV/OGG, video; stems stay raw) masters the whole song in a worker.
 
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,

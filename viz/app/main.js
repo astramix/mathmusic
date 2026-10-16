@@ -147,6 +147,7 @@ async function open(idOrEntry, from = 0, opts = {}) {
   if (my !== opening) return
   updatePlayButton()
   updateLoopButton()
+  if (!opts.ab) app.masterSong?.()
   app.editor?.load(app.current)
   app.pianoroll?.load?.(app.current)
   if (app.scoreview?.visible) app.scoreview.load(app.current)
@@ -298,6 +299,7 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyP') togglePianoRoll()
   else if (e.code === 'KeyS') toggleScore()
   else if (e.code === 'KeyL') toggleLoop()
+  else if (e.code === 'KeyK') lazy('masterui.js').then(m => m.openMaster())
   else if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
     const r = app.loopRegion ?? sectionAround(player.x), x = player.x
     const n = e.code === 'BracketLeft' ? [barOf(x), Math.max(r[1], barOf(x) + 4)] : [Math.min(r[0], barOf(x)), barOf(x) + 4]
@@ -688,6 +690,7 @@ menubar($('menus'), [
   {
     label: 'Экспорт',
     items: () => [
+      { html: `Мастеринг: <b>${app.master?.on ? esc(app.masterLabel?.() ?? 'вкл') : 'выключен'}</b> — <kbd>K</kbd>` },
       { icon: '🎵', label: 'MP3 · 320 кбит/с', kbd: 'Ctrl+E', action: () => exportAudio('mp3') },
       { icon: '🎚', label: 'WAV · 24 бит, 44.1 кГц', action: () => exportAudio('wav') },
       { icon: '🌀', label: 'OGG · Opus 256 кбит/с', action: () => exportAudio('ogg') },
@@ -718,6 +721,7 @@ menubar($('menus'), [
       '-',
       { icon: '🖼', label: 'Сетка всех песен', kbd: 'G', action: openGallery },
       { icon: '🎞', label: 'Кино — спрятать панели', kbd: 'C', action: toggleCinema },
+      { icon: '🎛', label: 'Мастеринг и громкость (LUFS)', kbd: 'K', action: () => lazy('masterui.js').then(m => m.openMaster()), note: 'мастер-шина в плеере, цель стриминга −14 LUFS, истинный пик, измеритель' },
       '-',
       { header: 'Окно' },
       ...WIN_MODES.map(([id, label]) => ({ label, kbd: id === 'full' ? 'Alt+Enter' : '', checked: () => (document.fullscreenElement ? id === 'full' : win.mode === id), action: () => setWindowMode(id) })),
@@ -911,6 +915,7 @@ function frame(now) {
     title: cur.song.name, subtitle: `${tonalityOf(cur.song, cur.key)} · ${cur.song.bpm} BPM`, left: $('legend').style.display === 'none' ? 0 : 190,
   })
   if (app.scoreview?.visible) app.scoreview.update(x)
+  app.masterTick?.()
   if (ins && V.style === 'classic') showInspector(ins)
   else $('insp').style.display = 'none'
   updateLive(false)
@@ -923,6 +928,7 @@ function frame(now) {
 requestAnimationFrame(frame)
 
 // ---- start ------------------------------------------------------------------------------------------------------------
+lazy('masterui.js').then(m => (app.masterLabel = () => m.masterLabel(app.master)))
 await app.lib.init()
 // drafts of songs that are gone (deleted, or an old radio song) and drafts equal to the saved code go
 for (const [id, src] of [...app.drafts]) {

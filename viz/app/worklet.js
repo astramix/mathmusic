@@ -3,8 +3,9 @@
 // waits on the page: if data is late it holds its position (fading to silence) instead of skipping.
 //
 // page → here  {type:'seek', pos} · {type:'data', start, L, R} · {type:'cut', at} (data from `at` on
-//              will be replaced: the old samples cross-fade into the new ones) · {type:'gain', value}
-// here → page  {type:'pos', pos, t, stalled}
+//              will be replaced: the old samples cross-fade into the new ones) · {type:'gain', value} ·
+//              {type:'master', params | null} (the master bus of src/master.js, put in front of this file)
+// here → page  {type:'pos', pos, t, stalled, meter?: {M, S, I, tp, gr, comp}}
 const XF = 1024 // cross-fade length, samples (23 ms)
 const FADE = 256
 
@@ -21,6 +22,9 @@ class MathMusicOut extends AudioWorkletProcessor {
     this.tr = 0
     this.stalled = true
     this.tick = 0
+    this.master = null
+    this.meter = typeof loudnessMeter === 'function' ? loudnessMeter(sampleRate) : null
+    this.meterTick = 0
     this.port.onmessage = e => this.message(e.data)
   }
   message(d) {
@@ -28,6 +32,7 @@ class MathMusicOut extends AudioWorkletProcessor {
       this.q = []
       this.pos = d.pos
       this.xf = null
+      this.meter?.reset()
     } else if (d.type === 'data') {
       if (d.start + d.L.length <= this.pos) return
       const q = this.q
@@ -51,6 +56,12 @@ class MathMusicOut extends AudioWorkletProcessor {
       this.q = kept
       this.xf = have >= XF ? { at, L: oldL, R: oldR } : null
     } else if (d.type === 'gain') this.gain = d.value
+    else if (d.type === 'master') {
+      if (!d.params) this.master = null
+      else if (this.master) this.master.set(d.params)
+      else this.master = masterChain(d.params, sampleRate)
+      if (d.reset) this.meter?.reset()
+    }
   }
   process(inputs, outputs) {
     const out = outputs[0], L = out[0], R = out[1] ?? out[0], q = this.q
@@ -90,17 +101,23 @@ class MathMusicOut extends AudioWorkletProcessor {
         l = l * a + this.tl * (1 - a)
         r = r * a + this.tr * (1 - a)
       }
+      if (this.master) [l, r] = this.master.process(l, r)
       l = l > 1 ? 1 : l < -1 ? -1 : l
       r = r > 1 ? 1 : r < -1 ? -1 : r
       L[i] = l
       R[i] = r
+      if (this.meter && !stalled) this.meter.push(l, r)
       if (this.fadeIn >= FADE) (this.tl = l), (this.tr = r)
       this.pos++
     }
     if (++this.tick >= 6 || stalled !== this.stalled) {
       this.tick = 0
       this.stalled = stalled
-      this.port.postMessage({ type: 'pos', pos: this.pos, t: currentTime, stalled })
+      // the playhead is what is heard: the master's look-ahead delays the sound by a few ms
+      const pos = this.pos - (this.master ? this.master.latency : 0)
+      const msg = { type: 'pos', pos, t: currentTime, stalled }
+      if (this.meter && ++this.meterTick >= 5) { this.meterTick = 0; msg.meter = { ...this.meter.read(), gr: this.master?.gr ?? 0, comp: this.master?.comp ?? 0 } }
+      this.port.postMessage(msg)
     }
     return true
   }

@@ -9,6 +9,7 @@
 import { app } from './app.js'
 import { h, toast, modal, seg, download } from './ui.js'
 import { renderSongCached, BLOCK } from './player.js'
+import { masterIfOn } from './export.js'
 import { Scene } from './view.js'
 import { themeFor } from './themes.js'
 import { formulaImage } from './formula.js'
@@ -73,7 +74,7 @@ export async function makeVideo(o) {
   document.querySelector('#toasts .toast:last-child')?.append(cancel)
   try {
     const muted = new Set(app.scene.tracks.filter(t => t.muted).map(t => t.key))
-    const audio = await renderSongCached(app.SRC, cur.source, { muted, onProgress: p => t.set(null, 0.25 * p) })
+    const audio = await masterIfOn(await renderSongCached(app.SRC, cur.source, { muted, onProgress: p => t.set(null, 0.25 * p) }))
     const sec = 60 / song.bpm, s0 = Math.round(b0 * sec * SR), s1 = Math.min(audio.L.length, Math.round(b1 * sec * SR + (b1 >= song.length ? 2 * SR : 0)))
     const frames = Math.ceil(((s1 - s0) / SR) * fps)
     // the scene, fresh and seeded, with formula images for the paper style

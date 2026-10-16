@@ -237,3 +237,15 @@ li.CodeMirror-hint-active { background: color-mix(in srgb, var(--accent) 40%, tr
 .abpanel .ab-btn { width: 34px; font-weight: 700; }
 .abpanel .ab-btn.on { background: var(--accent); color: #140f2a; }
 .abpanel .ab-read { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ---- mastering (masterui.js) -------------------------------------------------------------------------------------- */
+.masterpanel { top: 12px; right: 324px; padding: 10px 12px; width: 340px; display: flex; flex-direction: column; gap: 6px; z-index: 5; font-size: 12px; }
+.masterpanel .mrow { display: flex; gap: 8px; align-items: center; }
+.masterpanel .mrow .sp { flex: 1; }
+.masterpanel .ml { width: 118px; flex: none; color: var(--dim); }
+.masterpanel select { flex: 1; min-width: 0; }
+.masterpanel input[type=range] { flex: 1; min-width: 0; }
+.masterpanel .mv { width: 74px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+.masterpanel .mmeters { border-top: 1px solid var(--line); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.masterpanel .mbar { flex: 1; height: 7px; background: #ffffff14; border-radius: 4px; overflow: hidden; }
+.masterpanel .mbar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .08s linear; }
