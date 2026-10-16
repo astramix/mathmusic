@@ -6,7 +6,11 @@
 //     when the page is busy);
 //   · seeking into anything already heard (or rendered ahead) is instant — it comes from the cache;
 //   · mute/solo is instant: the stems of the next seconds are kept and simply re-mixed;
-//   · a new version of the song (live coding) cross-fades in without stopping the music.
+//   · a new version of the song (live coding) cross-fades in without stopping the music;
+//   · a loop plays a stretch again and again with no gap: the worklet plays one continuous stream (virtual positions),
+//     the page maps them onto the song (vmap) and blends the loop's start over what would follow its end (23 ms);
+//   · A/B: the rendered audio of the last few versions is kept, so switching to the other one is instant — it
+//     cross-fades in at the same beat, matched in loudness if asked (trim).
 import { makeRuntime, compile, trackList, SR, TAIL } from './runtime.js'
 
 export const CH = 8192 // samples per chunk
@@ -17,6 +21,8 @@ const FEED_AHEAD = 0.75 // seconds of audio queued in the worklet
 const RENDER_AHEAD = 90 // seconds rendered ahead of the playhead
 const STEM_WINDOW = 8 // seconds of per-track stems kept ahead of the playhead (instant re-mix)
 const PREROLL_BEATS = 4
+const LOOP_XF = 1024 // samples: the loop's start fades in over what would follow its end
+const KEEP = 2 // versions whose rendered audio stays (A/B: the other one)
 
 export class Player extends EventTarget {
   constructor(SRC) {
@@ -38,6 +44,21 @@ export class Player extends EventTarget {
     this.cache = new Map()
     this.stems = new Map()
     this.chunks = 0
+    // virtual (what the worklet counts) → song positions: song = s0 + (v − v0), round [a, b) once past b
+    this.vmap = { v0: 0, s0: 0 }
+    this.loop = null // { a, b } in samples of the song
+    this.kept = new Map() // source → { cache, peak } of earlier versions
+    this.trim = 1 // a loudness match for A/B
+  }
+  // the song position (samples) of virtual position v
+  songAt(v) {
+    const m = this.vmap, lp = this.loop, s = m.s0 + (v - m.v0)
+    if (!lp || m.s0 >= lp.b || s < lp.b) return s
+    return lp.a + ((s - lp.b) % (lp.b - lp.a))
+  }
+  // from virtual position v on, play the song from where it is then, with the current loop
+  remap(v) {
+    this.vmap = { v0: v, s0: this.songAt(v) }
   }
 
   // ---- audio graph ------------------------------------------------------------------------------
@@ -101,14 +122,50 @@ export class Player extends EventTarget {
   async open({ source, song }, fromBeat = 0) {
     await this.ensureAudio()
     if (this.song?.name !== song.name) this.muted = new Set()
+    this.loop = null
     this.install(source, song)
     this.cache = new Map()
     this.stems = new Map()
     this.peak = 0.05
-    this.node.port.postMessage({ type: 'gain', value: 0.89 / this.peak })
+    const kept = this.kept.get(source)
+    if (kept) (this.cache = kept.cache), (this.peak = kept.peak)
+    this.sendGain()
     this.ended = false
     this.next = null
     this.seek(fromBeat)
+  }
+  sendGain() { this.node?.port.postMessage({ type: 'gain', value: (0.89 / this.peak) * this.trim }) }
+  setTrim(t) { this.trim = t; this.sendGain() }
+  // keep this version's audio for later (A/B), the oldest goes past KEEP
+  keepCurrent() {
+    if (!this.source) return
+    this.kept.delete(this.source)
+    this.kept.set(this.source, { cache: this.cache, peak: this.peak })
+    while (this.kept.size > KEEP) this.kept.delete(this.kept.keys().next().value)
+  }
+  // A/B: another version in at the same beat, cross-faded, from its kept audio when there is some
+  async switchTo({ source, song }) {
+    if (!this.song) return this.open({ source, song })
+    const beat = this.x
+    this.keepCurrent()
+    const oldSec = this.sec
+    this.install(source, song)
+    const kept = this.kept.get(source)
+    this.cache = kept?.cache ?? new Map()
+    this.stems = new Map()
+    if (kept) this.peak = kept.peak
+    this.sendGain()
+    const at = Math.round(this.vpos + 0.03 * SR)
+    // the same beat in the other version (its tempo may differ); the loop keeps its beats
+    if (this.loop) this.loop = { a: Math.round((this.loop.a / SR / oldSec) * this.sec * SR), b: Math.round((this.loop.b / SR / oldSec) * this.sec * SR) }
+    const s = Math.round((beat + (at - this.vpos) / SR / oldSec) * this.sec * SR)
+    this.vmap = { v0: at, s0: Math.max(0, Math.min(this.end - 1, s)) }
+    this.node.port.postMessage({ type: 'cut', at })
+    this.fed = at
+    this.next = null
+    this.ensureRendering()
+    this.pump()
+    this.feed()
   }
   // Live update: a new version of the same song cross-fades in ~0.3 s ahead of the playhead
   async update({ source, song }) {
@@ -118,10 +175,10 @@ export class Player extends EventTarget {
     this.cache = new Map()
     this.stems = new Map()
     this.peak = keepPeak
-    const at = Math.min(this.fed ?? 0, this.end - 1, Math.max(0, Math.round(this.pos + 0.3 * SR)))
+    const at = Math.min(this.fed ?? 0, Math.max(0, Math.round(this.vpos + 0.3 * SR)))
     this.node.port.postMessage({ type: 'cut', at })
     this.fed = at
-    this.restart(Math.floor(at / CH))
+    this.restart(Math.floor(Math.min(this.end - 1, this.songAt(at)) / CH))
   }
   install(source, song) {
     this.source = source
@@ -231,10 +288,14 @@ export class Player extends EventTarget {
   }
   // the first chunk at or after the playhead that is missing (for the current mutes)
   firstGap() {
-    for (let i = Math.floor(this.pos / CH); i < this.chunks; i++) {
-      const c = this.cache.get(i)
-      if (!c || c.mask !== this.mask) return i
+    const has = i => { const c = this.cache.get(i); return c && c.mask === this.mask }
+    const lp = this.loop, p = Math.floor(this.pos / CH)
+    if (lp && this.pos < lp.b) { // the rest of the loop, then its start, then a little past its end (the blend)
+      const a = Math.floor(lp.a / CH), b = Math.floor((lp.b + LOOP_XF) / CH)
+      for (let i = Math.max(p, a); i <= Math.min(b, this.chunks - 1); i++) if (!has(i)) return i
+      for (let i = a; i < p; i++) if (!has(i)) return i
     }
+    for (let i = p; i < this.chunks; i++) if (!has(i)) return i
     return this.chunks
   }
   ensureRendering() {
@@ -248,13 +309,27 @@ export class Player extends EventTarget {
   // queue mixed audio in the worklet up to FEED_AHEAD past the playhead
   feed() {
     if (!this.node || this.fed == null) return
-    const until = Math.min(this.end, this.pos + FEED_AHEAD * SR)
+    const until = this.vpos + FEED_AHEAD * SR, lp = this.loop
     while (this.fed < until) {
-      const idx = Math.floor(this.fed / CH), c = this.cache.get(idx)
+      const s = this.songAt(this.fed)
+      if (s >= this.end) break
+      const idx = Math.floor(s / CH), c = this.cache.get(idx)
       if (!c || c.mask !== this.mask) break
-      const off = this.fed - idx * CH
-      this.node.port.postMessage({ type: 'data', start: this.fed, L: c.L.slice(off), R: c.R.slice(off) })
-      this.fed = idx * CH + c.L.length
+      const off = s - idx * CH
+      let n = c.L.length - off
+      if (lp && this.vmap.s0 < lp.b && s < lp.b) n = Math.min(n, lp.b - s) // never across the loop's end
+      const L = c.L.slice(off, off + n), R = c.R.slice(off, off + n)
+      // round again: the start blends in over what would follow the end
+      if (lp && s === lp.a && this.fed > this.vmap.v0 && this.songAt(this.fed - 1) === lp.b - 1) {
+        for (let i = 0; i < Math.min(LOOP_XF, n); i++) {
+          const t = lp.b + i, k = this.cache.get(Math.floor(t / CH)), j = t % CH, w = (i + 0.5) / LOOP_XF
+          const tl = k && j < k.L.length ? k.L[j] : 0, tr = k && j < k.R.length ? k.R[j] : 0
+          L[i] = L[i] * w + tl * (1 - w)
+          R[i] = R[i] * w + tr * (1 - w)
+        }
+      }
+      this.node.port.postMessage({ type: 'data', start: this.fed, L, R })
+      this.fed += n
     }
   }
   tick() {
@@ -264,18 +339,23 @@ export class Player extends EventTarget {
     // forget stems that fell behind the playhead
     const cur = Math.floor(this.pos / CH)
     for (const i of this.stems.keys()) if (i < cur - 1) this.stems.delete(i)
-    if (this.playing && !this.ended && this.pos >= this.end - 0.05 * SR) {
+    if (this.playing && !this.ended && !this.loop && this.pos >= this.end - 0.05 * SR) {
       this.ended = true
       this.emit('end', {})
     }
   }
 
   // ---- transport -----------------------------------------------------------------------------------
-  get pos() {
+  // where the output is, on the worklet's virtual timeline
+  get vpos() {
     if (!this.actx) return this.rep.pos
     const r = this.rep, lat = (this.actx.outputLatency || 0) + (this.actx.baseLatency || 0)
     const live = r.stalled || this.actx.state !== 'running' ? r.pos : r.pos + (this.actx.currentTime - r.t) * SR
     return Math.max(0, Math.min(this.fed ?? live, live) - lat * SR * (this.actx.state === 'running' ? 1 : 0))
+  }
+  // …and in the song
+  get pos() {
+    return Math.max(0, this.songAt(this.vpos))
   }
   get x() {
     return this.song ? this.pos / SR / this.sec : 0
@@ -288,6 +368,7 @@ export class Player extends EventTarget {
     const pos = Math.max(0, Math.min(this.end - 1, Math.round(beat * this.sec * SR)))
     this.node.port.postMessage({ type: 'seek', pos })
     this.rep = { pos, t: this.actx.currentTime, stalled: true }
+    this.vmap = { v0: pos, s0: pos }
     this.fed = pos
     this.ended = false
     this.feed()
@@ -315,13 +396,31 @@ export class Player extends EventTarget {
       c.levels = old?.levels
       this.cache.set(idx, c)
     }
-    const at = Math.min(this.fed ?? 0, this.end - 1, Math.round(this.pos + 0.05 * SR))
+    const at = Math.min(this.fed ?? 0, Math.round(this.vpos + 0.05 * SR))
     this.node.port.postMessage({ type: 'cut', at })
     this.fed = at
     this.feed()
     this.ensureRendering()
     this.pump()
   }
+  // the loop: [a, b) in beats, or null. Inside it the music goes round from here on; set behind or ahead of the
+  // playhead it starts at a now
+  setLoop(range) {
+    if (!this.song || !this.node) { this.loop = range && { a: Math.round(range[0] * this.sec * SR), b: Math.round(range[1] * this.sec * SR) }; return }
+    const at = Math.min(this.fed ?? 0, Math.round(this.vpos + 0.04 * SR))
+    const here = this.songAt(at)
+    this.remap(at)
+    this.loop = range && { a: Math.max(0, Math.round(range[0] * this.sec * SR)), b: Math.min(this.end - 1, Math.round(range[1] * this.sec * SR)) }
+    if (this.loop && this.loop.b - this.loop.a < 0.25 * SR) this.loop = null
+    if (this.loop && (here < this.loop.a - 0.02 * SR || here >= this.loop.b)) this.vmap = { v0: at, s0: this.loop.a }
+    this.node.port.postMessage({ type: 'cut', at })
+    this.fed = at
+    this.ended = false
+    this.ensureRendering()
+    this.pump()
+    this.feed()
+  }
+  get loopBeats() { return this.loop && [this.loop.a / SR / this.sec, this.loop.b / SR / this.sec] }
 
   // ---- for the view ----------------------------------------------------------------------------------
   // per-track RMS at the playhead (array in song track order) or null

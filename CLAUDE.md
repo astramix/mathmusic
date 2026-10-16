@@ -145,6 +145,10 @@ microtonal mode written out (Rast: B𝄳 E𝄳; Turkish Rast: B♭¹ F♯⁴ —
 against the XSD): <alter> exact, <accidental> SZG names / koron / sori / smufl="accidentalKomaFlat", <key-step>/<key-alter>,
 <harmony>, rehearsal marks, metronome, <swing>, tuplets, grace, cents of a measured scale as lyrics.
 
+## loudness.js
+`lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
+`kWeighting(sr)` — the editor's full check, A/B, mastering.
+
 ## tuning.js (temperaments and tuning files — the generator, retune, the app, the tests; not imported by songs)
 `TEMPERAMENTS`: equal; just (5-limit on the tonic, Ptolemy's ratios); adaptive (each chord pure on its root: 5/4, 6/5,
 3/2, the dominant's 7/4, 9/5, 15/8 — generator only); by spelling, on the chain of fifths so G♯ ≠ A♭: pythagorean,
@@ -217,7 +221,11 @@ five Japanese songs (`only: 'jbattle'`); the solo is an improvised koto/shamisen
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
 melodies, midi are importable the same way (embedded sources get `\n` line ends: CodeMirror's). main.js (menus Песня/Редактор/🎲/Экспорт/Вид, transport, legend,
 inspector, live formulas) · player.js (worker pool renders tracks in parallel → page mixes stems → cache
-→ AudioWorklet output; instant seek-back and mute, live code updates cross-fade in) · worker.js
+→ AudioWorklet output; instant seek-back and mute, live code updates cross-fade in; the loop: the worklet plays a
+continuous virtual stream, `vmap`/`songAt` map it onto the song, round [a, b) with the start blended over what follows
+the end (LOOP_XF 1024); `switchTo` = A/B at the same beat from the other version's kept audio (KEEP 2), `trim` = loudness
+match) · abui.js (A/B panel, B: the original of a copy / the saved code under a draft / any song, equal LUFS) ·
+loop UI in main.js (🔁, L, [ ], Shift+drag on the timeline, Shift+click bars in the score; `app.setLoop([a, b])` beats) · worker.js
 (classic worker) · worklet.js · runtime.js (ES module → function body, keeps line numbers) · view.js
 (scene: classic / paper — axes, formulas pop up when a part enters / space 3D; the same code draws the
 video frames) · editor.js (CodeMirror, lint, API hints from api.js, number sliders, full check with

@@ -226,3 +226,14 @@ li.CodeMirror-hint-active { background: color-mix(in srgb, var(--accent) 40%, tr
 .sv-cents { font: 600 0.8em system-ui, sans-serif; fill: #b0306a; }
 .sv-bar { fill: #ffd47940; }
 .sv-cursor { fill: #e0306acc; }
+
+/* ---- loop and A/B ----------------------------------------------------------------------------------------------- */
+.tb.on { background: #ffd47933; border-color: #ffd479aa; color: #ffd479; }
+.abpanel { top: 12px; right: 12px; padding: 10px 12px; width: 300px; display: flex; flex-direction: column; gap: 7px; z-index: 5; }
+.abpanel .ab-row { display: flex; gap: 8px; align-items: center; }
+.abpanel .ab-row .sp { flex: 1; }
+.abpanel select { flex: 1; min-width: 0; }
+.abpanel .ab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.abpanel .ab-btn { width: 34px; font-weight: 700; }
+.abpanel .ab-btn.on { background: var(--accent); color: #140f2a; }
+.abpanel .ab-read { font-size: 12px; font-variant-numeric: tabular-nums; }

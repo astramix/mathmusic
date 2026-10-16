@@ -5,6 +5,7 @@
 // imports it), hover a function for its signature. Runtime problems (an exception or NaN inside a
 // track) come back from the audio workers with their line.
 import { app } from './app.js'
+import { lufs } from './loudness.js'
 import { h, esc, toast, modal } from './ui.js'
 import { compile, trackList } from './runtime.js'
 import * as acorn from './acorn.js'
@@ -523,44 +524,8 @@ export function apiReference() {
 
 // ---- full check: render the whole song off-line, measure every track ------------------------------------------
 const dB = v => (v > 0 ? 20 * Math.log10(v) : -Infinity)
-// ITU-R BS.1770 integrated loudness (K-weighting, 400 ms blocks, −70 LUFS absolute and −10 LU relative gates)
-export function lufs(L, R, sr = 44100) {
-  const biquad = (b0, b1, b2, a1, a2) => {
-    let x1 = 0, x2 = 0, y1 = 0, y2 = 0
-    return x => {
-      const y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
-      x2 = x1; x1 = x; y2 = y1; y1 = y
-      return y
-    }
-  }
-  // the BS.1770 pre-filter (high shelf) and RLB high-pass, coefficients for 48 kHz recomputed for sr
-  const shelf = () => {
-    const f0 = 1681.974450955533, G = 3.999843853973347, Q = 0.7071752369554196, K = Math.tan(Math.PI * f0 / sr)
-    const Vh = 10 ** (G / 20), Vb = Vh ** 0.4996667741545416, a0 = 1 + K / Q + K * K
-    return biquad((Vh + Vb * K / Q + K * K) / a0, 2 * (K * K - Vh) / a0, (Vh - Vb * K / Q + K * K) / a0, 2 * (K * K - 1) / a0, (1 - K / Q + K * K) / a0)
-  }
-  const hp = () => {
-    const f0 = 38.13547087602444, Q = 0.5003270373238773, K = Math.tan(Math.PI * f0 / sr), a0 = 1 + K / Q + K * K
-    return biquad(1, -2, 1, 2 * (K * K - 1) / a0, (1 - K / Q + K * K) / a0)
-  }
-  const chans = [L, R].map(x => {
-    const s = shelf(), p = hp(), y = new Float32Array(x.length)
-    for (let i = 0; i < x.length; i++) y[i] = p(s(x[i]))
-    return y
-  })
-  const block = Math.round(0.4 * sr), hop = Math.round(0.1 * sr), z = []
-  for (let i = 0; i + block <= L.length; i += hop) {
-    let e = 0
-    for (const y of chans) for (let j = i; j < i + block; j++) e += y[j] * y[j]
-    z.push(e / block)
-  }
-  const ld = e => -0.691 + 10 * Math.log10(e)
-  let gated = z.filter(e => ld(e) > -70)
-  if (!gated.length) return -Infinity
-  const rel = ld(gated.reduce((a, b) => a + b, 0) / gated.length) - 10
-  gated = gated.filter(e => ld(e) > rel)
-  return ld(gated.reduce((a, b) => a + b, 0) / gated.length)
-}
+// ITU-R BS.1770 integrated loudness: src/loudness.js
+export { lufs }
 export async function fullCheck() {
   const cur = app.current
   if (!cur?.song) return toast('нет песни')

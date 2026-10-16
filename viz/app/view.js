@@ -469,6 +469,16 @@ export class Scene {
       g.fillStyle = '#fff'
       g.fillRect(o.mouseX - 0.5, ty - 14, 1, 22)
     }
+    // the loop: a band over the stretch that goes round
+    if (o.loop) {
+      const xa = 16 * k + (W - 32 * k) * Math.max(0, o.loop[0]) / L, xb = 16 * k + (W - 32 * k) * Math.min(L, o.loop[1]) / L
+      g.globalAlpha = 0.28
+      g.fillStyle = '#ffd479'
+      g.fillRect(xa, ty - 12 * k, xb - xa, 22 * k)
+      g.globalAlpha = 0.9
+      g.fillRect(xa, ty - 12 * k, 1.5 * k, 22 * k)
+      g.fillRect(xb - 1.5 * k, ty - 12 * k, 1.5 * k, 22 * k)
+    }
     g.globalAlpha = 1
     g.fillStyle = '#fff'
     g.beginPath()

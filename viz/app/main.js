@@ -109,11 +109,12 @@ async function loadModule(source) {
 }
 
 let opening = 0 // the latest open() wins when songs are switched quickly
-async function open(idOrEntry, from = 0) {
+// opts: { ab: switch the audio over at the same beat (A/B — playing or paused stays), source: this code, not the draft }
+async function open(idOrEntry, from = 0, opts = {}) {
   const entry = typeof idOrEntry === 'string' ? app.lib.get(idOrEntry) : idOrEntry
   if (!entry) return toast('нет такой песни', { kind: 'err' })
   const my = ++opening
-  const source = app.drafts.get(entry.id) ?? entry.source
+  const source = opts.source ?? app.drafts.get(entry.id) ?? entry.source
   const mod = await loadModule(source)
   if (my !== opening) return
   if (mod.error) {
@@ -133,12 +134,19 @@ async function open(idOrEntry, from = 0) {
   $('hint').style.display = 'none'
   $('err').textContent = ''
   pin = null
-  await player.open({ source, song }, from)
-  if (my !== opening) return
-  player.setMuted(tracks.filter(t => t.muted).map(t => t.key))
-  await player.play()
+  if (opts.ab) {
+    await player.switchTo({ source, song })
+    player.setMuted(tracks.filter(t => t.muted).map(t => t.key))
+  } else {
+    if (!app.ab) app.loopRegion = null
+    await player.open({ source, song }, from)
+    if (my !== opening) return
+    player.setMuted(tracks.filter(t => t.muted).map(t => t.key))
+    await player.play()
+  }
   if (my !== opening) return
   updatePlayButton()
+  updateLoopButton()
   app.editor?.load(app.current)
   app.pianoroll?.load?.(app.current)
   if (app.scoreview?.visible) app.scoreview.load(app.current)
@@ -239,6 +247,34 @@ function nextSong(step = 1) {
   open(ids[i])
 }
 $('play').onclick = togglePlay
+// ---- the loop: a section (L), bars from [ to ], a stretch dragged with Shift on the timeline, bars Shift-clicked in the score
+const barOf = b => Math.floor(b / 4 + 1e-9) * 4
+function sectionAround(x) {
+  const secs = app.current?.song?.sections ?? [[0, '']], L = app.current?.song?.length ?? 0
+  const i = secs.findLastIndex(s => s[0] <= x + 1e-6)
+  return [secs[Math.max(0, i)][0], secs[i + 1]?.[0] ?? L]
+}
+function setLoop(range) {
+  app.loopRegion = range
+  player.setLoop(range)
+  updateLoopButton()
+}
+app.setLoop = setLoop
+function toggleLoop() {
+  if (!app.current?.song) return
+  if (player.loop) return setLoop(null), toast('🔁 петля выключена', { ms: 1500 })
+  const r = app.loopRegion ?? sectionAround(player.x)
+  setLoop(r)
+  toast(`🔁 по кругу: такты ${Math.floor(r[0] / 4) + 1}–${Math.ceil(r[1] / 4)}`, { ms: 2000 })
+}
+function updateLoopButton() {
+  const r = player.loopBeats
+  $('loop').classList.toggle('on', !!r)
+  $('loop').title = r ? `петля: такты ${Math.floor(r[0] / 4 + 1e-9) + 1}–${Math.ceil(r[1] / 4 - 1e-9)} — клик выключит (L) · [ ] — сдвинуть края · ПКМ — забыть` : 'петля: раздел по кругу (L) · [ и ] — начало и конец по тактам · Shift+тяни по шкале внизу · ПКМ — убрать'
+}
+$('loop').onclick = toggleLoop
+$('loop').oncontextmenu = e => { e.preventDefault(); app.loopRegion = null; setLoop(null) }
+$('abbtn').onclick = () => (app.ab ? lazy('abui.js').then(m => m.closeAB()) : lazy('abui.js').then(m => m.openAB())).then(() => $('abbtn').classList.toggle('on', !!app.ab))
 $('next').onclick = () => nextSong(1)
 $('prev').onclick = () => nextSong(-1)
 $('back').onclick = () => seek(Math.floor(player.x / 4) * 4 - 16)
@@ -261,6 +297,15 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyE') toggleEditor()
   else if (e.code === 'KeyP') togglePianoRoll()
   else if (e.code === 'KeyS') toggleScore()
+  else if (e.code === 'KeyL') toggleLoop()
+  else if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
+    const r = app.loopRegion ?? sectionAround(player.x), x = player.x
+    const n = e.code === 'BracketLeft' ? [barOf(x), Math.max(r[1], barOf(x) + 4)] : [Math.min(r[0], barOf(x)), barOf(x) + 4]
+    setLoop(n)
+  } else if (e.code === 'KeyB') {
+    if (app.ab) lazy('abui.js').then(m => m.toggle())
+    else lazy('abui.js').then(m => m.openAB()).then(() => $('abbtn').classList.add('on'))
+  }
   else if (e.code === 'KeyF') { V.live = !V.live; saveView(); updateLive(true) }
   else if (e.code === 'KeyG') openGallery()
   else if (e.code === 'KeyC') toggleCinema()
@@ -618,6 +663,9 @@ menubar($('menus'), [
       { icon: '📁', label: 'Записать в другую папку…', action: () => saveToFolder(true) },
       '-',
       { label: 'После песни — следующая', checked: () => V.loop, action: () => { V.loop = !V.loop; saveView() } },
+      '-',
+      { icon: '🔁', label: 'Петля — раздел по кругу', kbd: 'L', checked: () => !!player.loop, action: toggleLoop, note: '[ и ] — начало и конец по тактам · Shift+тяни по шкале · Shift+клик по тактам в нотах' },
+      { icon: '⇄', label: 'Сравнить A/B — две версии в одной точке', kbd: 'B', checked: () => !!app.ab, action: () => (app.ab ? lazy('abui.js').then(m => m.closeAB()) : lazy('abui.js').then(m => m.openAB())).then(() => $('abbtn').classList.toggle('on', !!app.ab)), note: 'оригинал и копия в другом ладу, правки и сохранённая версия, любые две песни — с равной громкостью' },
     ],
   },
   {
@@ -731,7 +779,26 @@ cv.addEventListener('wheel', e => {
   V.zoom = Math.max(4, Math.min(96, V.zoom * (e.deltaY > 0 ? 1.12 : 1 / 1.12)))
   $('zoom').value = V.zoom
 }, { passive: false })
+// Shift + drag on the timeline: a loop over the bars it covers
+let loopDrag = null
+cv.addEventListener('mousedown', e => {
+  if (!e.shiftKey || !app.current?.song || !mouse || !geo?.tl || mouse.y <= H - 44) return
+  const b = ((mouse.x - 16) / (W - 32)) * app.current.song.length
+  loopDrag = { from: b }
+  e.preventDefault()
+})
+addEventListener('mouseup', () => {
+  if (!loopDrag || !mouse || !app.current?.song) return (loopDrag = null)
+  const L = app.current.song.length, b = ((mouse.x - 16) / (W - 32)) * L
+  const a = Math.max(0, barOf(Math.min(loopDrag.from, b))), z = Math.min(L, barOf(Math.max(loopDrag.from, b)) + 4)
+  loopDrag = null
+  skipClick = true
+  setLoop([a, z])
+  toast(`🔁 по кругу: такты ${a / 4 + 1}–${z / 4}`, { ms: 2000 })
+})
+let skipClick = false
 cv.addEventListener('click', () => {
+  if (skipClick) return (skipClick = false)
   if (!app.current?.song || !mouse) return
   const song = app.current.song
   if (geo?.tl && mouse.y > H - 44) { // timeline: snap to a section start if close, else to the bar
@@ -840,6 +907,7 @@ function frame(now) {
   geo = sc.draw(g, {
     style: V.style, W, H, zoom: V.zoom, fx: V.fx, scenery: V.scenery, labels: V.labels, focus, inspect: V.style === 'classic' ? ins : null,
     scope: V.scope && player.playing ? player.scope() : null, cached: player.cachedRanges?.(), mouseX: mouse && mouse.y > H - 44 ? mouse.x : null,
+    loop: loopDrag && mouse ? [Math.min(loopDrag.from, ((mouse.x - 16) / (W - 32)) * cur.song.length), Math.max(loopDrag.from, ((mouse.x - 16) / (W - 32)) * cur.song.length)] : player.loopBeats,
     title: cur.song.name, subtitle: `${tonalityOf(cur.song, cur.key)} · ${cur.song.bpm} BPM`, left: $('legend').style.display === 'none' ? 0 : 190,
   })
   if (app.scoreview?.visible) app.scoreview.update(x)
@@ -849,7 +917,7 @@ function frame(now) {
   const tm = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
   const sec = 60 / cur.song.bpm
   const xs = Math.min(x, cur.song.length)
-  $('status').textContent = player.stalled ? 'считаю…' : `${tm(xs * sec)} / ${tm(cur.song.length * sec)} · такт ${Math.min(Math.floor(xs / 4) + 1, Math.ceil(cur.song.length / 4))}`
+  $('status').textContent = player.stalled ? 'считаю…' : `${tm(xs * sec)} / ${tm(cur.song.length * sec)} · такт ${Math.min(Math.floor(xs / 4) + 1, Math.ceil(cur.song.length / 4))}${player.loop ? ' · 🔁' : ''}${app.ab ? ` · ${app.ab.side.toUpperCase()}` : ''}`
   if (Math.random() < 0.02) for (const t of sc.tracks) for (const k of t.cache.keys()) if (Math.abs(k / GRID - x) > 200) t.cache.delete(k)
 }
 requestAnimationFrame(frame)

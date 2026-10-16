@@ -146,12 +146,23 @@ export function createScoreView(root) {
     }
   }
   // a click: the bar (and the note's moment in it) — play from there
+  // Shift + click: a loop over the bars from the first one clicked to this one
+  let loopFrom = null
   body.addEventListener('click', e => {
     if (!layout || !svg) return
     const r = svg.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top
     const i = layout.measures.findIndex(m => px >= m.x0 && px <= m.x1 && py >= m.y0 - 20 && py <= m.y1 + 10)
     if (i < 0) return
     const m = layout.measures[i], b = score.bars[i]
+    if (e.shiftKey) {
+      const f = loopFrom != null && app.player?.loop ? loopFrom : i
+      loopFrom = f
+      const lo = Math.min(f, i), hi = Math.max(f, i)
+      app.setLoop?.([score.bars[lo].at, score.bars[hi].at + score.bars[hi].len])
+      toast(`🔁 по кругу: такты ${score.bars[lo].n}–${score.bars[hi].n}`, { ms: 1800 })
+      return
+    }
+    loopFrom = null
     let tick = 0
     for (const [t, x] of m.ticks) if (x <= px + 2) tick = Math.max(tick, t)
     app.player?.seek?.(b.at + tick / b.meter.xTicks)
