@@ -7,7 +7,7 @@ import { h, esc, contextMenu } from './ui.js'
 import { themeFor } from './themes.js'
 import { songKey, keyLabel } from './theory.js'
 import { trackList } from './runtime.js'
-import { styleIn } from './library.js'
+import { styleIn, shelfOf } from './library.js'
 import { STYLE_LIST } from './generate.js'
 
 let el = null, alive = false, raf = 0, unwatch = null
@@ -29,17 +29,18 @@ export function openGallery() {
   el = h('div', { class: 'gallery' })
   const animate = h('button', { onclick: () => { alive = !alive; animate.classList.toggle('on', alive); animate.textContent = alive ? '⏸ остановить' : '▶ оживить все' } }, '▶ оживить все')
   const chips = h('div', { class: 'chips' })
-  const builtGrid = h('div', { class: 'grid' }), mineGrid = h('div', { class: 'grid' })
-  const builtHead = h('h3', {}, 'Встроенные — songs/'), mineHead = h('h3', {}, 'Мои — my_songs/')
+  const builtGrid = h('div', { class: 'grid' }), mineGrid = h('div', { class: 'grid' }), genGrid = h('div', { class: 'grid' })
+  const builtHead = h('h3', {}, 'Встроенные — songs/'), mineHead = h('h3', {}, 'Мои — my_songs/'), genHead = h('h3', {}, 'Сгенерированные — generated/')
   const empty = h('div', { class: 'sub empty' }, 'в этом стиле песен нет')
   el.append(
     h('button', { class: 'close', onclick: closeGallery, title: 'закрыть (Esc, G)' }, '✕'),
     h('h2', {}, 'Все песни'),
     h('div', { class: 'sub' }, 'клик — открыть и играть · правый клик — дублировать, переименовать, удалить · ', animate),
-    chips, builtHead, builtGrid, mineHead, mineGrid, empty,
+    chips, builtHead, builtGrid, mineHead, mineGrid, genHead, genGrid, empty,
   )
-  const gridOf = e => (e.kind === 'builtin' ? builtGrid : mineGrid)
-  const cards = () => [...builtGrid.children, ...mineGrid.children]
+  // built-in, then yours (my_songs/), then the 🎲 songs nobody saved yet (generated/, the last 20)
+  const gridOf = e => (e.kind === 'builtin' ? builtGrid : shelfOf(e) === 'gen' ? genGrid : mineGrid)
+  const cards = () => [...builtGrid.children, ...mineGrid.children, ...genGrid.children]
   // the style chips (with how many songs each has) and which cards show
   const refilter = () => {
     const list = app.lib.list(), count = { all: list.length }
@@ -56,16 +57,18 @@ export function openGallery() {
     const shown = g => [...g.children].some(c => !c.hidden)
     builtHead.hidden = !shown(builtGrid)
     mineHead.hidden = !shown(mineGrid) && !(filter === 'all' && !mineGrid.children.length)
-    mineHead.textContent = mineGrid.children.length ? 'Мои — my_songs/' : 'Мои — my_songs/ (пока пусто: Ctrl+S или 🎲 положат песню сюда)'
-    empty.hidden = shown(builtGrid) || shown(mineGrid) || cards().length < list.length
+    mineHead.textContent = mineGrid.children.length ? 'Мои — my_songs/' : 'Мои — my_songs/ (пока пусто: Ctrl+S положит песню сюда)'
+    genHead.hidden = !shown(genGrid)
+    genHead.textContent = 'Сгенерированные — generated/ (последние 20; Ctrl+S переносит в «Мои»)'
+    empty.hidden = shown(builtGrid) || shown(mineGrid) || shown(genGrid) || cards().length < list.length
   }
   // the library changes (here or in another tab): the card goes, gets its new look, or a new one comes
   // (the newest of yours first)
   unwatch = app.lib.on((id, e) => {
     const old = cards().find(c => c.dataset.id === id)
     if (!e) old?.remove()
-    else if (old) old.replaceWith(card(e))
-    else mineGrid.prepend(card(e))
+    else if (old && old.parentNode === gridOf(e)) old.replaceWith(card(e))
+    else (old?.remove(), gridOf(e).prepend(card(e))) // new, or moved to another folder (Ctrl+S on a 🎲 song)
     refilter()
   })
   document.body.append(el)
@@ -121,7 +124,7 @@ function card(entry) {
       { icon: '▶', label: 'Открыть', action: () => c.onclick() },
       { icon: '⧉', label: 'Дублировать', action: () => { closeGallery(); app.songs.duplicate(entry.id) } },
       { icon: '✎', label: 'Переименовать…', disabled: !mine, action: () => app.songs.rename(entry.id) },
-      { icon: '🗑', label: 'Удалить', disabled: !mine, action: () => app.songs.remove(entry.id), note: mine ? (entry.file ? `и файл my_songs/${entry.file}` : null) : 'встроенные песни живут в папке songs/' },
+      { icon: '🗑', label: 'Удалить', disabled: !mine, action: () => app.songs.remove(entry.id), note: mine ? (entry.file ? `и файл ${shelfOf(entry) === 'gen' ? 'generated' : 'my_songs'}/${entry.file}` : null) : 'встроенные песни живут в папке songs/' },
     ], ev.clientX, ev.clientY)
   }
   let song = null

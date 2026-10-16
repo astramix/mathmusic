@@ -1,5 +1,5 @@
 // The app on http://localhost:5178 — Visualizer.bat / npm run app. The page is built fresh on every load,
-// and my_songs/ (and songs/, for "write to the built-in songs") are read and written by this server: no
+// and my_songs/, generated/ (untouched 🎲 songs) and songs/ ("write to the built-in songs") are read and written by this server: no
 // folder dialog, no permission prompts. Only this computer can reach it (127.0.0.1); a write needs the
 // app's own header, which no other site can send (the browser would ask with a preflight we refuse),
 // and only a plain file name inside the folder.
@@ -18,7 +18,7 @@ export const HEADER = 'x-mathmusic'
 const okName = f => /^[\w-][\w.-]*\.js$/.test(f) || f === 'library.json'
 
 export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: true }) } = {}) {
-  const dirs = { mine: path.join(root, 'my_songs'), songs: path.join(root, 'songs') }
+  const dirs = { mine: path.join(root, 'my_songs'), gen: path.join(root, 'generated'), songs: path.join(root, 'songs') }
   const server = http.createServer(async (req, res) => {
     const send = (code, body = '', type = 'text/plain; charset=utf-8', extra = {}) => {
       res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store', ...extra })
@@ -30,7 +30,7 @@ export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: tr
       const url = new URL(req.url, 'http://localhost')
       if (url.pathname === '/' && req.method === 'GET') return send(200, fs.readFileSync(await html()), 'text/html; charset=utf-8')
       if (url.pathname === '/api/hello') return send(200, JSON.stringify({ app: 'mathmusic' }), 'application/json')
-      const m = url.pathname.match(/^\/api\/(mine|songs)(?:\/([^/]+))?$/)
+      const m = url.pathname.match(/^\/api\/(mine|gen|songs)(?:\/([^/]+))?$/)
       if (!m) return send(404, 'not found')
       const dir = dirs[m[1]], name = m[2] && decodeURIComponent(m[2])
       if (req.headers[HEADER] !== '1') return send(403, 'header')

@@ -17,3 +17,5 @@ node_modules/
 *.flac
 *.aif
 *.aiff
+# the last 20 🎲 songs nobody saved (Ctrl+S moves one to my_songs/)
+generated/

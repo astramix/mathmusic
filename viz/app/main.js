@@ -5,7 +5,7 @@ import { app } from './app.js'
 import { $, h, esc, menubar, toast, modal, ask, closeMenus } from './ui.js'
 import { Player } from './player.js'
 import { makeRuntime, trackList, SR, errorLine } from './runtime.js'
-import { Library, nameIn, setName, cleanName, lf } from './library.js'
+import { Library, nameIn, setName, cleanName, lf, shelfOf } from './library.js'
 import { Scene, GRID } from './view.js'
 import { THEMES, themeFor, applyUiTheme } from './themes.js'
 import { formulaOf, formulaHTML, substitute, tex, formulaImage } from './formula.js'
@@ -47,8 +47,9 @@ resize()
 function refreshSongList() {
   const sel = $('song'), cur = app.current?.id
   sel.innerHTML = ''
-  const groups = { builtin: h('optgroup', { label: 'Песни' }), user: h('optgroup', { label: 'Мои' }), generated: h('optgroup', { label: 'Сгенерированные' }) }
-  for (const e of app.lib.list()) (groups[e.kind] ?? groups.user).append(new Option(e.name + ((e.kind === 'user' && e.base) || (e.kind === 'generated' && e.pristine === false) ? ' ✎' : '') + (e.where === 'pending' ? ' ⏳' : ''), e.id))
+  // built-in songs, then yours (my_songs/), then the 🎲 songs nobody saved yet (generated/)
+  const groups = { builtin: h('optgroup', { label: 'Песни' }), mine: h('optgroup', { label: 'Мои' }), gen: h('optgroup', { label: 'Сгенерированные' }) }
+  for (const e of app.lib.list()) groups[e.kind === 'builtin' ? 'builtin' : shelfOf(e)].append(new Option((e.kind === 'generated' && shelfOf(e) === 'mine' ? '🎲 ' : '') + e.name + (e.kind === 'user' && e.base ? ' ✎' : '') + (e.where === 'pending' ? ' ⏳' : ''), e.id))
   for (const gr of Object.values(groups)) if (gr.children.length) sel.append(gr)
   if (cur) sel.value = cur
 }
@@ -172,15 +173,15 @@ async function apply(source, { of, id } = {}) {
 app.apply = apply
 
 // The text of a song as edited (editor, piano roll): a draft while it differs from the saved code.
-// An edited generated song is no longer pristine — the generator tidies away only untouched ones —
-// and a radio song that isn't in the library yet goes into it, so the edit has a song to belong to.
+// A radio song that isn't in the library yet goes into it (generated/), so the edit has a song to belong to;
+// a generated song stays in generated/ until Ctrl+S (the generator never tidies away one with a draft).
 function setDraft(cur, src) {
   const e = cur?.entry
   if (!e) return
   app.drafts.put(cur.id, src, e.source)
-  if (src !== e.source && e.kind === 'generated' && (e.pristine !== false || !app.lib.get(cur.id))) {
-    e.pristine = false // right away: the next keystroke doesn't save it again
-    app.lib.save({ ...e }).then(saved => { if (cur.entry === e) cur.entry = saved })
+  if (src !== e.source && e.kind === 'generated' && !app.lib.get(cur.id) && !e.saving) {
+    e.saving = true // right away: the next keystroke doesn't save it again
+    app.lib.save({ ...e, saving: undefined }).then(saved => { if (cur.entry === e) cur.entry = saved })
   }
 }
 app.setDraft = setDraft
@@ -271,9 +272,9 @@ async function saveCurrent() {
   }
   savedNote(e, `💾 «${e.name}» сохранена`)
 }
-// where a saved song went: my_songs/<file>, or waiting for the folder (with a button to connect it)
+// where a saved song went: my_songs/<file> (or generated/), or waiting for the folder (with a button to connect it)
 function savedNote(e, what) {
-  if (e.where === 'disk') return toast(`${what} → my_songs/${e.file}`, { kind: 'ok' })
+  if (e.where === 'disk') return toast(`${what} → ${e.shelf === 'gen' ? 'generated' : 'my_songs'}/${e.file}`, { kind: 'ok' })
   toast(`${what} — пока в браузере: папка my_songs не подключена`, { ms: 9000, action: app.lib.canConnect ? { label: '📁 подключить', run: connectFolder } : null })
 }
 // my_songs/: the project's folder or my_songs itself (fresh: choose another one)
@@ -282,7 +283,8 @@ async function connectFolder(fresh = false) {
   if (!app.lib.canConnect) return toast('этот браузер не умеет писать в папки — открой приложение в Chrome или Edge', { kind: 'err', ms: 7000 })
   const waiting = app.lib.pending.length
   if (!(await app.lib.connect({ pick: true, fresh: fresh === true }))) return
-  toast(`📁 папка my_songs подключена${waiting ? ` — ${waiting} ${songsWord(waiting)} из браузера перенесены туда` : ''}`, { kind: 'ok', ms: 6000 })
+  const moved = waiting - app.lib.pending.length
+  toast(`📁 папка my_songs подключена${app.lib.genDir ? ' (и generated)' : ' — для generated выбери папку проекта (Песня → «выбрать другую»)'}${moved ? ` — ${moved} ${songsWord(moved)} из браузера перенесены туда` : ''}`, { kind: 'ok', ms: 7000 })
 }
 // back to the saved code — with the editor open or not (edits may come from the piano roll alone)
 async function revertCurrent() {
@@ -425,8 +427,9 @@ async function deleteSong(id = app.current?.id) {
 app.songs = { duplicate: duplicateSong, rename: renameSong, remove: deleteSong }
 // before the browser's folder dialog opens the first time: what to choose there
 app.lib.beforePick = () => ask('Где хранить твои песни?',
-  `<p>Сейчас браузер спросит, <b>где этот сайт может сохранять изменения</b>. Выбери папку <b>my_songs</b> рядом с «MathMusic Live.html» —
-  или любую другую, например «Документы»: внутри неё появится папка my_songs. Спрашивать будет только один раз.</p>
+  `<p>Сейчас браузер спросит, <b>где этот сайт может сохранять изменения</b>. Выбери <b>папку проекта</b> — ту, где лежит «MathMusic Live.html»
+  (или любую другую, например «Документы»): в ней будут папки <b>my_songs</b> (твои песни) и <b>generated</b> (последние 20 из 🎲).
+  Можно выбрать и саму my_songs — тогда сгенерированные будут ждать в браузере. Спрашивать будет только один раз.</p>
   <p>Проще всего запускать приложение через <b>Visualizer.bat</b>: тогда песни сохраняются в my_songs сами, без этого окна.</p>`,
   [{ label: 'Отмена', value: false }, { label: '📁 Выбрать папку', value: true, primary: true }])
 
@@ -583,7 +586,7 @@ menubar($('menus'), [
       { icon: '✎', label: 'Переименовать…', action: () => renameSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },
       { icon: '🗑', label: 'Удалить', action: () => deleteSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },
       '-',
-      app.lib.server ? { icon: '📂', label: 'Песни сохраняются в my_songs', disabled: true, note: 'приложение запущено через Visualizer.bat — папка подключена сама' } : { icon: '📂', label: () => (app.lib.dir ? 'Папка my_songs подключена — выбрать другую…' : 'Подключить папку my_songs…'), action: () => connectFolder(!!app.lib.dir), note: app.lib.pending.length ? `⏳ ${app.lib.pending.length} ${songsWord(app.lib.pending.length)} ждут папку` : 'мои песни лежат там файлами .js' },
+      app.lib.server ? { icon: '📂', label: 'Песни сохраняются в my_songs и generated', disabled: true, note: 'приложение запущено через Visualizer.bat — папка подключена сама' } : { icon: '📂', label: () => (app.lib.dir ? 'Папка my_songs подключена — выбрать другую…' : 'Подключить папку my_songs…'), action: () => connectFolder(!!app.lib.dir), note: app.lib.pending.length ? `⏳ ${app.lib.pending.length} ${songsWord(app.lib.pending.length)} ждут папку` : 'мои песни лежат там файлами .js' },
       { icon: '📁', label: 'Записать во встроенные (songs/)…', action: () => saveToFolder(false), note: 'песня станет встроенной: её увидят render.js и Ableton' },
       { icon: '📁', label: 'Записать в другую папку…', action: () => saveToFolder(true) },
       '-',

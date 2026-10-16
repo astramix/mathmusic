@@ -7,7 +7,7 @@
 // A song saved while the folder isn't connected (or in a browser without File System Access) waits in
 // IndexedDB and moves into the folder as soon as it is. Tabs of the app see each other's changes
 // (a ping through localStorage). Writing a copy into songs/ (render.js / Ableton) stays as it was.
-const DB = 'mathmusic', STORE = 'songs', META = 'meta', PING = 'mm.lib', DIR = 'my_songs', INDEX = 'library.json'
+const DB = 'mathmusic', STORE = 'songs', META = 'meta', PING = 'mm.lib', DIR = 'my_songs', GEN = 'generated', INDEX = 'library.json'
 const RW = { mode: 'readwrite' }
 
 function idb() {
@@ -63,18 +63,21 @@ export function fileName(name) {
   return lat.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\w\-]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'song'
 }
 
-// an entry of my_songs/ from its file and what library.json says about it (a file put there by hand
-// gets an id from its name; a generator's song is known by its `generator:` field)
-export function fromFile(file, source, mtime, index = {}) {
-  const m = index[file] ?? {}, stem = file.replace(/\.js$/, '')
+// an entry of my_songs/ (or generated/) from its file and what that folder's library.json says about it (a file
+// put there by hand gets an id from its name; a generator's song is known by its `generator:` field; a file in
+// generated/ is an untouched generated song)
+export function fromFile(file, source, mtime, index = {}, shelf = 'mine') {
+  const m = index[file] ?? {}, stem = file.replace(/\.js$/, ''), gen = shelf === 'gen'
   source = lf(source)
   return {
-    id: m.id ?? 'mine:' + stem, file, name: nameIn(source, stem), source,
-    kind: m.kind ?? (/\bgenerator\s*:/.test(source.slice(songPart(source))) ? 'generated' : 'user'),
-    pristine: m.pristine ?? false, base: m.base, meta: m.meta,
-    created: m.created ?? mtime, updated: m.updated ?? mtime, where: 'disk',
+    id: m.id ?? (gen ? 'gen:' : 'mine:') + stem, file, name: nameIn(source, stem), source,
+    kind: m.kind ?? (gen || /\bgenerator\s*:/.test(source.slice(songPart(source))) ? 'generated' : 'user'),
+    pristine: m.pristine ?? gen, base: m.base, meta: m.meta,
+    created: m.created ?? mtime, updated: m.updated ?? mtime, where: 'disk', shelf,
   }
 }
+// where a song lives: a generated song nobody saved, renamed or copied (pristine) in generated/, the rest in my_songs/
+export const shelfOf = e => (e.kind === 'generated' && e.pristine === true ? 'gen' : 'mine')
 // the file for a song: its old one while the name still fits it, else <name>.js or the first free <name>-N.js
 export function fileFor(name, old, taken) {
   const stem = fileName(name)
@@ -124,23 +127,95 @@ async function onServer() {
   try { return (await (await fetch('/api/hello')).json()).app === 'mathmusic' } catch { return false }
 }
 
+// one folder of songs with its library.json (id, kind, untouched flag, dates — what the code can't say)
+class Shelf {
+  constructor(key, name) {
+    this.key = key // 'mine' | 'gen'
+    this.name = name // 'my_songs' | 'generated'
+    this.dir = null
+  }
+  async files() {
+    const out = new Map()
+    for await (const [name, h] of this.dir.entries()) out.set(name, h)
+    return out
+  }
+  async readIndex() {
+    try {
+      const j = JSON.parse(await (await (await this.dir.getFileHandle(INDEX)).getFile()).text())
+      return j?.songs && typeof j.songs === 'object' ? j.songs : {}
+    } catch { return {} }
+  }
+  async writeIndex(index, files) {
+    const songs = {}
+    for (const f of Object.keys(index).sort()) if (files.has(f)) songs[f] = index[f]
+    const w = await (await this.dir.getFileHandle(INDEX, { create: true })).createWritable()
+    await w.write(JSON.stringify({ format: this.key === 'gen' ? 'mathmusic-generated' : 'mathmusic-my-songs', version: 1, songs }, null, 1) + '\n')
+    await w.close()
+  }
+  // every song in the folder now
+  async read() {
+    const index = await this.readIndex(), out = []
+    for (const [file, h] of await this.files()) {
+      if (h.kind !== 'file' || !file.endsWith('.js')) continue
+      const f = await h.getFile()
+      out.push(fromFile(file, await f.text(), f.lastModified, index, this.key))
+    }
+    return out
+  }
+  // writes the song's file (a renamed song moves to its new file) and its line in library.json
+  async write(e) {
+    const index = await this.readIndex(), files = await this.files()
+    const old = Object.keys(index).find(f => index[f].id === e.id && files.has(f)) ?? ((e.shelf ?? 'mine') === this.key && e.file && files.has(e.file) ? e.file : null)
+    const taken = new Set([...files.keys()].filter(f => f !== old))
+    const file = fileFor(e.name, old, taken)
+    const w = await (await this.dir.getFileHandle(file, { create: true })).createWritable()
+    await w.write(e.source)
+    await w.close()
+    files.set(file, true)
+    if (old && old !== file) {
+      await this.dir.removeEntry(old).catch(() => {})
+      files.delete(old)
+      delete index[old]
+    }
+    index[file] = { id: e.id, kind: e.kind, pristine: e.pristine, base: e.base, meta: e.meta, created: e.created, updated: e.updated }
+    await this.writeIndex(index, files)
+    const { where, ...rest } = e
+    return { ...rest, file, where: 'disk', shelf: this.key }
+  }
+  // the song's file and its line go
+  async remove(id, file) {
+    const index = await this.readIndex(), files = await this.files()
+    for (const f of Object.keys(index)) if (index[f].id === id) { await this.dir.removeEntry(f).catch(() => {}); files.delete(f) }
+    if (file && files.has(file)) { await this.dir.removeEntry(file).catch(() => {}); files.delete(file) }
+    await this.writeIndex(index, files)
+  }
+}
+
 export class Library {
   constructor(SRC) {
     this.SRC = SRC
     this.user = new Map()
     this.db = null
-    this.dir = null // my_songs/, connected and writable
-    this.stored = null // its remembered handle, before the browser allows it again
+    this.shelves = { mine: new Shelf('mine', DIR), gen: new Shelf('gen', GEN) }
+    this.stored = null // the remembered my_songs/ handle, before the browser allows it again
+    this.storedGen = null // …and generated/ (only when the project folder was chosen: a page can't reach a sibling)
     this.denied = false // the browser said no this session: don't keep asking on every keystroke
-    this.server = false // the page came from viz/serve.js: my_songs/ and songs/ are written through it
+    this.server = false // the page came from viz/serve.js or the exe: my_songs/, generated/ and songs/ go through it
     this.beforePick = async () => true // the app explains the folder dialog before it opens the first time
     this.listeners = new Set()
-    // my_songs/ as it was at build time — shown before (or without) the folder itself
-    const index = SRC.mineIndex?.songs ?? {}
-    for (const [file, { source, mtime }] of Object.entries(SRC.mine ?? {})) {
-      const e = fromFile(file, source, mtime, index)
-      this.user.set(e.id, e)
+    // the folders as they were at build time — shown before (or without) the folders themselves
+    for (const [files, index, shelf] of [[SRC.mine, SRC.mineIndex, 'mine'], [SRC.gen, SRC.genIndex, 'gen']]) {
+      for (const [file, { source, mtime }] of Object.entries(files ?? {})) {
+        const e = fromFile(file, source, mtime, index?.songs ?? {}, shelf)
+        this.user.set(e.id, e)
+      }
     }
+  }
+  get dir() { // my_songs/, connected and writable
+    return this.shelves.mine.dir
+  }
+  get genDir() { // generated/, connected and writable (null: generated songs wait in the browser)
+    return this.shelves.gen.dir
   }
   get canConnect() {
     return this.server || (typeof window !== 'undefined' && !!window.showDirectoryPicker)
@@ -158,11 +233,11 @@ export class Library {
       // songs waiting for the folder (and the songs of older versions, which all lived here)
       if (this.db) for (const e of (await tx(this.db, STORE, 'readonly', s => s.getAll())) ?? []) this.user.set(e.id, { ...e, source: lf(e.source), where: 'pending' })
       if ((this.server = await onServer())) {
-        await this.attach(serverFolder('/api/mine', DIR), 'disk')
+        await this.attach(serverFolder('/api/mine', DIR), 'disk', serverFolder('/api/gen', GEN))
       } else {
-        const dir = await this.getMeta('mineDir')
-        if (dir && (await dir.queryPermission(RW)) === 'granted') await this.attach(dir, 'disk')
-        else this.stored = dir ?? null
+        const dir = await this.getMeta('mineDir'), gen = await this.getMeta('genDir')
+        if (dir && (await dir.queryPermission(RW)) === 'granted') await this.attach(dir, 'disk', gen && (await gen.queryPermission(RW)) === 'granted' ? gen : null)
+        else (this.stored = dir ?? null), (this.storedGen = gen ?? null)
       }
     } catch (e) {
       console.warn('my_songs/ not read: songs saved now wait in this browser', e)
@@ -172,7 +247,7 @@ export class Library {
       if (ev.key !== PING || !ev.newValue) return
       let id
       try { id = JSON.parse(ev.newValue).id } catch { return }
-      if (!this.dir && this.stored && (await this.stored.queryPermission(RW).catch(() => '')) === 'granted') return this.attach(this.stored, 'tab')
+      if (!this.dir && this.stored && (await this.stored.queryPermission(RW).catch(() => '')) === 'granted') return this.attach(this.stored, 'tab', this.storedGen)
       if (this.dir) return this.reload('tab')
       if (!this.db) return
       const e = await tx(this.db, STORE, 'readonly', s => s.get(id)).catch(() => undefined)
@@ -183,7 +258,7 @@ export class Library {
     })
   }
   // fn(id, entry | null, remote) after every save / removal; remote: 'tab' (another tab of the app),
-  // 'disk' (my_songs/ had something newer than the page) or false (here)
+  // 'disk' (a folder had something newer than the page) or false (here)
   on(fn) {
     this.listeners.add(fn)
     return () => this.listeners.delete(fn)
@@ -197,10 +272,11 @@ export class Library {
     try { localStorage.setItem(PING, JSON.stringify({ id, t: Date.now(), r: Math.random() })) } catch {}
   }
 
+  // the built-in songs, then my_songs/, then generated/ (each newest first)
   list() {
     const built = Object.keys(this.SRC.songs).sort().map(n => ({ id: 'builtin:' + n, name: n, kind: 'builtin', source: this.SRC.songs[n] }))
-    const mine = [...this.user.values()].sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0))
-    return [...built, ...mine]
+    const newest = (a, b) => (b.updated ?? 0) - (a.updated ?? 0), all = [...this.user.values()]
+    return [...built, ...all.filter(e => shelfOf(e) === 'mine').sort(newest), ...all.filter(e => shelfOf(e) === 'gen').sort(newest)]
   }
   get(id) {
     if (id?.startsWith('builtin:')) {
@@ -218,10 +294,11 @@ export class Library {
     return n
   }
 
-  // ---- the folder ------------------------------------------------------------------------------------
+  // ---- the folders -----------------------------------------------------------------------------------
   // → true when my_songs/ is writable. With a remembered folder the browser just asks to allow it again;
-  // pick: true (an explicit action) opens the folder dialog when there is none — the project folder or
-  // my_songs/ itself (inside the project folder, my_songs/ is made when it isn't there yet).
+  // pick: true (an explicit action) opens the folder dialog when there is none — the project folder (then
+  // my_songs/ and generated/ are made in it when they aren't there yet) or my_songs/ itself (then generated
+  // songs wait in the browser: a page can't reach the folder next to it).
   // Both need a click or a key: without one the browser refuses and the song waits in IndexedDB.
   // fresh: choose another folder (the one connected now stays if the dialog is cancelled).
   // The first time the dialog starts in Documents (a page can't point it at a path).
@@ -230,19 +307,23 @@ export class Library {
     if (!this.canConnect || (this.denied && !pick)) return false
     try {
       let dir = fresh ? null : this.stored ?? (await this.getMeta('mineDir'))
+      let gen = fresh ? null : this.storedGen ?? (await this.getMeta('genDir'))
       if (dir && (await dir.queryPermission(RW)) !== 'granted' && (await dir.requestPermission(RW)) !== 'granted') {
         this.denied = true
         dir = null
       }
+      if (dir && gen && (await gen.queryPermission(RW)) !== 'granted' && (await gen.requestPermission(RW).catch(() => '')) !== 'granted') gen = null
       if (!dir) {
         if (!pick) return false
         if (!this.stored && !(await this.beforePick())) return false
-        dir = await showDirectoryPicker({ id: 'mathmusic-my-songs', mode: 'readwrite', startIn: this.stored ?? 'documents' })
-        if (dir.name !== DIR) dir = await dir.getDirectoryHandle(DIR, { create: true })
+        const chosen = await showDirectoryPicker({ id: 'mathmusic-my-songs', mode: 'readwrite', startIn: this.stored ?? 'documents' })
+        dir = chosen.name === DIR ? chosen : await chosen.getDirectoryHandle(DIR, { create: true })
+        gen = chosen.name === DIR ? null : await chosen.getDirectoryHandle(GEN, { create: true })
         await this.setMeta('mineDir', dir)
+        await this.setMeta('genDir', gen)
       }
       this.denied = false
-      await this.attach(dir, 'disk')
+      await this.attach(dir, 'disk', gen)
       return true
     } catch (e) {
       if (e.name !== 'AbortError') console.warn('my_songs/ not connected', e)
@@ -250,37 +331,33 @@ export class Library {
       return !!this.dir
     }
   }
-  async attach(dir, remote) {
-    this.dir = this.stored = dir
+  // my_songs/ (and generated/ when given) connected: read them, move the untouched generated songs that still sit
+  // in my_songs/ (from before generated/ existed) over, write the songs that waited
+  async attach(dir, remote, gen = undefined) {
+    this.shelves.mine.dir = this.stored = dir
+    if (gen !== undefined) this.shelves.gen.dir = this.storedGen = gen
     await this.reload(remote)
+    await this.migrate()
     await this.flush()
   }
-  async files() {
-    const out = new Map()
-    for await (const [name, h] of this.dir.entries()) out.set(name, h)
-    return out
+  async migrate() {
+    if (!this.genDir || !this.dir) return
+    for (const e of [...this.user.values()]) {
+      if (e.where !== 'disk' || e.shelf !== 'mine' || shelfOf(e) !== 'gen') continue
+      const moved = await this.shelves.gen.write(e)
+      await this.shelves.mine.remove(e.id, e.file)
+      this.user.set(e.id, moved)
+      this.emit(e.id, moved)
+    }
   }
-  async readIndex() {
-    try {
-      const j = JSON.parse(await (await (await this.dir.getFileHandle(INDEX)).getFile()).text())
-      return j?.songs && typeof j.songs === 'object' ? j.songs : {}
-    } catch { return {} }
-  }
-  async writeIndex(index, files) {
-    const songs = {}
-    for (const f of Object.keys(index).sort()) if (files.has(f)) songs[f] = index[f]
-    const w = await (await this.dir.getFileHandle(INDEX, { create: true })).createWritable()
-    await w.write(JSON.stringify({ format: 'mathmusic-my-songs', version: 1, songs }, null, 1) + '\n')
-    await w.close()
-  }
-  // my_songs/ as it is now on disk (songs waiting to be written stay as they are)
+  // the folders as they are now on disk (songs waiting to be written stay as they are; a folder not
+  // connected keeps what the page had of it)
   async reload(remote = 'tab') {
     if (!this.dir) return
-    const before = this.user, next = new Map(), index = await this.readIndex()
-    for (const [file, h] of await this.files()) {
-      if (h.kind !== 'file' || !file.endsWith('.js')) continue
-      const f = await h.getFile(), e = fromFile(file, await f.text(), f.lastModified, index)
-      next.set(e.id, e)
+    const before = this.user, next = new Map()
+    for (const shelf of Object.values(this.shelves)) {
+      if (shelf.dir) for (const e of await shelf.read()) next.set(e.id, e)
+      else for (const [id, e] of before) if (e.where === 'disk' && (e.shelf ?? 'mine') === shelf.key) next.set(id, e)
     }
     for (const [id, e] of before) if (e.where === 'pending') next.set(id, e)
     this.user = next
@@ -290,9 +367,10 @@ export class Library {
     }
     for (const id of before.keys()) if (!next.has(id)) this.emit(id, null, remote)
   }
-  // the songs that waited go into the folder (one already there with the same code is just dropped)
+  // the songs that waited go into their folder (one already there with the same code is just dropped)
   async flush() {
     for (const e of this.pending) {
+      if (!this.shelves[shelfOf(e)].dir) continue
       const twin = [...this.user.values()].find(x => x.where === 'disk' && x.id !== e.id && x.source === e.source)
       if (twin) {
         this.user.delete(e.id)
@@ -309,30 +387,21 @@ export class Library {
   async forget(id) {
     if (this.db) await tx(this.db, STORE, 'readwrite', s => s.delete(id)).catch(() => {})
   }
-  // writes the song's file (a renamed song moves to its new file) and its line in library.json
+  // into its folder (generated/ or my_songs/), and out of the other one when it moved (Ctrl+S on a generated
+  // song); null when that folder isn't connected
   async write(e) {
-    const index = await this.readIndex(), files = await this.files()
-    const old = Object.keys(index).find(f => index[f].id === e.id && files.has(f)) ?? (e.file && files.has(e.file) ? e.file : null)
-    const taken = new Set([...files.keys()].filter(f => f !== old))
-    const file = fileFor(e.name, old, taken)
-    const w = await (await this.dir.getFileHandle(file, { create: true })).createWritable()
-    await w.write(e.source)
-    await w.close()
-    files.set(file, true)
-    if (old && old !== file) {
-      await this.dir.removeEntry(old).catch(() => {})
-      files.delete(old)
-      delete index[old]
-    }
-    index[file] = { id: e.id, kind: e.kind, pristine: e.pristine, base: e.base, meta: e.meta, created: e.created, updated: e.updated }
-    await this.writeIndex(index, files)
-    const { where, ...rest } = e
-    return { ...rest, file, where: 'disk' }
+    const to = this.shelves[shelfOf(e)]
+    if (!to.dir) return null
+    const saved = await to.write(e)
+    const from = e.where === 'disk' && e.file && (e.shelf ?? 'mine') !== to.key ? this.shelves[e.shelf ?? 'mine'] : null
+    if (from?.dir) await from.remove(e.id, e.file)
+    return saved
   }
 
   // entry: { id?, name, source, kind: 'user' | 'generated', meta?, pristine? } → the saved entry, with
-  // where: 'disk' (in my_songs/) or 'pending' (waits in IndexedDB for the folder).
-  // pristine: a generated song nobody has touched (the generator may tidy those away).
+  // where: 'disk' (in its folder) or 'pending' (waits in IndexedDB for the folder), shelf: 'mine' | 'gen'.
+  // pristine: a generated song nobody has saved, renamed or copied — it lives in generated/ and the
+  // generator may tidy it away; saving it (pristine: false) moves it to my_songs/.
   // pick: true — an explicit save, which may open the folder dialog
   async save(entry, { pick = false } = {}) {
     const now = Date.now()
@@ -343,13 +412,13 @@ export class Library {
     if (await this.connect({ pick })) {
       try {
         saved = await this.write(e)
-        await this.forget(e.id)
+        if (saved) await this.forget(e.id)
       } catch (err) {
-        console.warn('could not write to my_songs/', err)
+        console.warn(`could not write to ${this.shelves[shelfOf(e)].name}/`, err)
       }
     }
     if (!saved) {
-      saved = { ...e, where: 'pending' }
+      saved = { ...e, where: 'pending', shelf: shelfOf(e) }
       if (this.db) await tx(this.db, STORE, 'readwrite', s => s.put(saved))
     }
     this.user.set(saved.id, saved)
@@ -357,17 +426,14 @@ export class Library {
     this.emit(saved.id, saved)
     return saved
   }
-  // a song with a file in my_songs/ needs the folder to be removed (else this throws)
+  // a song with a file needs its folder to be removed (else this throws)
   async remove(id, { pick = true } = {}) {
     const e = this.user.get(id)
     if (!e) return
-    if (e.file) {
-      if (!(await this.connect({ pick }))) throw new Error('нет доступа к папке my_songs')
-      const index = await this.readIndex(), files = await this.files()
-      for (const f of Object.keys(index)) if (index[f].id === id) { await this.dir.removeEntry(f).catch(() => {}); files.delete(f) }
-      await this.dir.removeEntry(e.file).catch(() => {})
-      files.delete(e.file)
-      await this.writeIndex(index, files)
+    if (e.file && e.where === 'disk') {
+      const shelf = this.shelves[e.shelf ?? 'mine']
+      if (!(await this.connect({ pick })) || !shelf.dir) throw new Error(`нет доступа к папке ${shelf.name}`)
+      await shelf.remove(id, e.file)
     }
     await this.forget(id)
     this.user.delete(id)

@@ -17,7 +17,7 @@ const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8')
 const text = f => read(f).replace(/\r\n?/g, '\n')
 const jsIn = dir => fs.readdirSync(path.join(ROOT, dir)).filter(f => f.endsWith('.js')).sort()
 
-// mine: false leaves my_songs/ out (MathMusic.exe reads the folder itself, and the page you hand out
+// mine: false leaves my_songs/ and generated/ out (MathMusic.exe reads the folders itself, and the page you hand out
 // shouldn't carry your songs)
 export async function build({ quiet = false, mine: withMine = true } = {}) {
   const songs = Object.fromEntries(jsIn('songs').map(f => [f.slice(0, -3), text(`songs/${f}`)]))
@@ -27,7 +27,12 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
   const mine = withMine && fs.existsSync(mineDir) ? Object.fromEntries(jsIn('my_songs').map(f => [f, { source: text(`my_songs/${f}`), mtime: fs.statSync(path.join(mineDir, f)).mtimeMs }])) : {}
   let mineIndex = null
   try { if (withMine) mineIndex = JSON.parse(read('my_songs/library.json')) } catch {}
-  const SRC = { engine: text('src/engine.js'), instruments: text('src/instruments.js'), songs, mine, mineIndex, formulas }
+  // generated/: the untouched 🎲 songs, the same way
+  const genDir = path.join(ROOT, 'generated')
+  const gen = withMine && fs.existsSync(genDir) ? Object.fromEntries(jsIn('generated').map(f => [f, { source: text(`generated/${f}`), mtime: fs.statSync(path.join(genDir, f)).mtimeMs }])) : {}
+  let genIndex = null
+  try { if (withMine) genIndex = JSON.parse(read('generated/library.json')) } catch {}
+  const SRC = { engine: text('src/engine.js'), instruments: text('src/instruments.js'), songs, mine, mineIndex, gen, genIndex, formulas }
   // app modules; the shared pure modules of src/ (theory, generator, melodies, midi, modes) are importable as './x.js'
   const APP = Object.fromEntries(jsIn('viz/app').map(f => [f, text(`viz/app/${f}`)]))
   for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js', 'modes.js', 'retune.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
@@ -52,7 +57,7 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
     .replace('/*__APP__*/null', () => safe(JSON.stringify(APP)))
   const out = path.join(ROOT, 'MathMusic Live.html')
   fs.writeFileSync(out, html)
-  if (!quiet) console.log(`visualiser → ${out} (${Object.keys(songs).length} songs + ${Object.keys(mine).length} in my_songs, ${(html.length / 1e6).toFixed(1)} MB)`)
+  if (!quiet) console.log(`visualiser → ${out} (${Object.keys(songs).length} songs + ${Object.keys(mine).length} in my_songs + ${Object.keys(gen).length} in generated, ${(html.length / 1e6).toFixed(1)} MB)`)
   return out
 }
 

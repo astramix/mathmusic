@@ -33,7 +33,7 @@ static class App {
     const string TITLE = "MathMusic";
     static string root, page;
     static readonly Regex Host = new Regex(@"^(localhost|127\.0\.0\.1)(:\d+)?$");
-    static readonly Regex Api = new Regex(@"^/api/(mine|songs)(?:/([^/]+))?$");
+    static readonly Regex Api = new Regex(@"^/api/(mine|gen|songs)(?:/([^/]+))?$");
     static readonly Regex SongFile = new Regex(@"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.js$");
 
     [STAThread]
@@ -213,7 +213,7 @@ static class App {
         if (!m.Success) return new Res(404, "not found");
         string mark;
         if (!h.TryGetValue("x-mathmusic", out mark) || mark != "1") return new Res(403, "header");
-        string dir = Path.Combine(root, m.Groups[1].Value == "mine" ? "my_songs" : "songs");
+        string g = m.Groups[1].Value, dir = Path.Combine(root, g == "mine" ? "my_songs" : g == "gen" ? "generated" : "songs");
         if (!m.Groups[2].Success) {
             if (method != "GET") return new Res(405, null);
             Directory.CreateDirectory(dir);

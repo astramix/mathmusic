@@ -132,3 +132,36 @@ test('my_songs/: songs are files, renamed songs move, waiting songs go in, remov
   const embedded = new Library({ songs: {}, mine: Object.fromEntries([...dir.files].filter(([f]) => f.endsWith('.js')).map(([f, source]) => [f, { source, mtime: 1 }])), mineIndex: JSON.parse(dir.files.get('library.json')) })
   assert.deepEqual(embedded.list().map(e => e.id).sort(), l.list().map(e => e.id).sort())
 })
+
+test('generated/: untouched 🎲 songs live there, Ctrl+S moves one to my_songs/, old ones move over, listed last', async () => {
+  const mine = fakeDir('my_songs'), gen = fakeDir('generated')
+  const GEN = n => setName(SONG.replace('bpm: 80', 'bpm: 80, generator: { style: "lofi", seed: 1 }'), n)
+  // a generated song from before generated/ existed, untouched, sitting in my_songs/
+  mine.files.set('old.js', GEN('old'))
+  mine.files.set('library.json', JSON.stringify({ songs: { 'old.js': { id: 'user:old', kind: 'generated', pristine: true } } }))
+  mine.files.set('mine.js', setName(SONG, 'mine'))
+  const l = new Library({ songs: { lofi: 'export default { name: "lofi" }' } })
+  await l.attach(mine, 'disk', gen)
+  assert.ok(!mine.files.has('old.js') && gen.files.has('old.js'), 'moved to generated/')
+  assert.equal(l.get('user:old').shelf, 'gen')
+
+  const g = await l.save({ name: 'Новая', source: GEN('Новая'), kind: 'generated', pristine: true })
+  assert.equal(g.shelf, 'gen')
+  assert.ok(gen.files.has('Novaya.js') && !mine.files.has('Novaya.js'))
+  assert.deepEqual(l.list().map(e => e.name), ['lofi', 'mine', 'Новая', 'old']) // built-in, mine, generated (newest first)
+
+  // Ctrl+S: no longer pristine → my_songs/, and out of generated/ (file and library.json line)
+  const s = await l.save({ ...l.get(g.id), pristine: false })
+  assert.equal(s.shelf, 'mine')
+  assert.ok(mine.files.has('Novaya.js') && !gen.files.has('Novaya.js'))
+  assert.ok(!(('Novaya.js') in JSON.parse(gen.files.get('library.json')).songs))
+  assert.equal(JSON.parse(mine.files.get('library.json')).songs['Novaya.js'].id, g.id)
+
+  await l.remove('user:old')
+  assert.ok(!gen.files.has('old.js'))
+
+  // without generated/ (only my_songs/ was chosen) a generated song waits in the browser
+  const only = new Library({ songs: {} })
+  await only.attach(fakeDir('my_songs'), 'disk', null)
+  assert.equal((await only.save({ name: 'x', source: GEN('x'), kind: 'generated', pristine: true })).where, 'pending')
+})

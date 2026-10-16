@@ -19,13 +19,13 @@ Open a source file only to change it or when something here is unclear.
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
   the app's 🎲 menu.
 - Program: `npm run exe [-- --shortcut]` → `MathMusic.exe` (viz/build-exe.js: page without my_songs, icon drawn in
-  code, viz/launcher.cs compiled by Windows' own csc, C# 5). The exe serves the page + my_songs/ itself (same API
+  code, viz/launcher.cs compiled by Windows' own csc, C# 5). The exe serves the page + my_songs/ + generated/ itself (same API
   and checks as serve.js — test/serve.test.js runs both), opens Chrome/Edge `--app` with its own profile
   (%LOCALAPPDATA%MathMusicrowser) and exits when that window closes. Users need no Node.js.
   Вид → Окно / Полноэкранное окно (work area, resizeTo) / Полный экран (Alt+Enter, F11) — main.js `setWindowMode`,
   remembered in localStorage `mm.window`; resizing works only in such an app window, not in a browser tab.
 - App: double-click `Visualizer.bat` (= `npm run app`: viz/serve.js on http://localhost:5178, builds the page on
-  every load and writes my_songs/ and songs/ itself — no folder dialog; 127.0.0.1 only, writes need the
+  every load and writes my_songs/, generated/ and songs/ itself — no folder dialog; 127.0.0.1 only, writes need the
   `x-mathmusic: 1` header, plain file names only). `npm run viz` builds the standalone `MathMusic Live.html`
   (render.js rebuilds it too; opened as a file it saves via File System Access); `npm run dev` rebuilds on
   every change. See "The app" below.
@@ -176,9 +176,13 @@ video frames) · editor.js (CodeMirror, lint, API hints from api.js, number slid
 LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code) · genui.js · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
 ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs) · gallery.js (right click: duplicate,
-rename, delete; built-in songs first, then my_songs/ on their own row; style chips filter by `style`) ·
-library.js (my songs are files in **my_songs/** + my_songs/library.json (id, kind, pristine, dates); build.js
-embeds the folder; from viz/serve.js the page writes it through the server (`serverFolder` — the same calls
+rename, delete; built-in songs first, then my_songs/, then generated/, each on its own row; style chips filter by `style`) ·
+library.js (my songs are files in **my_songs/**, the 🎲 songs nobody saved yet in **generated/** — each folder a `Shelf` with
+its library.json (id, kind, pristine, dates); `shelfOf(e)`: kind generated + pristine → generated/, else my_songs/; Ctrl+S,
+rename or duplicate (pristine: false) moves a song from generated/ to my_songs/; untouched generated songs found in
+my_songs/ (older versions) move over on attach; the song list and the gallery show built-in, my_songs/, generated/; build.js
+embeds both folders (not in the exe's page); the server API is /api/mine, /api/gen, /api/songs (serve.js and launcher.cs);
+opened as a file the page reaches generated/ only when the project folder was chosen (else 🎲 songs wait in IndexedDB); from viz/serve.js the page writes it through the server (`serverFolder` — the same calls
 as a directory handle), opened as a file through File System Access (dialog starts in Documents after an
 explaining modal; the handle is kept in IndexedDB, the browser may ask to allow it again per session); a song saved before the folder is connected waits in
 IndexedDB (`where: 'pending'`) and moves in on connect; unique names, file names transliterated, a renamed
@@ -196,7 +200,8 @@ going on from the same beat, paused stays paused) or «🎲 Следующая �
 localStorage `mm.tonality`; 🎲 makes new songs in it)). `node render.js my_songs/<file>.js` renders a saved song like any other.
 Editing state: app.drafts (one localStorage key per song) holds a draft exactly while the code differs from
 the saved one — `app.setDraft(cur, src)` keeps that true, `app.dirty(cur)` is the ●; `app.apply(src, { of: cur })`
-drops edits of a song no longer open. Generated songs carry `pristine` (the 🎲 menu tidies only untouched ones).
+drops edits of a song no longer open. generated/ keeps the last 20 (genui `KEEP`): each new 🎲 song pushes the oldest out,
+except one with a draft; an edit alone (no Ctrl+S) leaves a song in generated/.
 Test it in a real browser: Chrome headless over the DevTools protocol (Node's WebSocket, no puppeteer needed)
 or puppeteer-core + the installed Chrome (`--autoplay-policy=no-user-gesture-required`).
 

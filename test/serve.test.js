@@ -1,5 +1,5 @@
 // The app's local servers — viz/serve.js (Node, Visualizer.bat) and the one inside MathMusic.exe (C#,
-// viz/launcher.cs) — read and write my_songs/ (no folder dialog), and nothing else can: no other host,
+// viz/launcher.cs) — read and write my_songs/ and generated/ (no folder dialog), and nothing else can: no other host,
 // no request without the app's header, no path outside the folder. Both get the same checks.
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -40,6 +40,16 @@ async function check(root, port) {
     assert.equal(again.get(e.id).name, 'Снег')
     await again.remove(e.id)
     assert.deepEqual(fs.readdirSync(path.join(root, 'my_songs')), ['library.json'])
+
+    // generated/: an untouched 🎲 song goes there, Ctrl+S moves it to my_songs/
+    const gl = new Library({ songs: {} })
+    await gl.attach(serverFolder(base + '/api/mine', 'my_songs'), 'disk', serverFolder(base + '/api/gen', 'generated'))
+    const g = await gl.save({ name: 'Гроза', source: setName(SONG, 'Гроза'), kind: 'generated', pristine: true })
+    assert.deepEqual(fs.readdirSync(path.join(root, 'generated')).sort(), ['Groza.js', 'library.json'])
+    await gl.save({ ...gl.get(g.id), pristine: false })
+    assert.deepEqual(fs.readdirSync(path.join(root, 'generated')), ['library.json'])
+    assert.ok(fs.existsSync(path.join(root, 'my_songs', 'Groza.js')))
+    assert.equal((await fetch(base + '/api/gen/..%2Fsongs%2Fx.js', { method: 'PUT', headers: H, body: 'x' })).status, 400)
   }
 }
 

@@ -1,6 +1,6 @@
 // The 🎲 menu: a new song in a style, mutations of the current generated song (new melodies / new
 // arrangement / new instruments, everything else kept), the endless radio and the generation
-// dialog. Generated songs land in "Сгенерированные" (files in my_songs/): edit, export, save to songs/.
+// dialog. Generated songs land in "Сгенерированные" (files in generated/, the last 20); Ctrl+S moves one to my_songs/.
 import { app } from './app.js'
 import { h, esc, toast, modal, seg } from './ui.js'
 import { generate, STYLES, STYLE_LIST, describe } from './generate.js'
@@ -10,9 +10,10 @@ import { MODE_GROUPS, keyFor, tonalityLabel } from './modes.js'
 import { retuneSource } from './retune.js'
 import { themeFor } from './themes.js'
 import * as acorn from './acorn.js'
+import { shelfOf } from './library.js'
 
 const newSeed = () => 1 + Math.floor(Math.random() * 999998)
-const KEEP = 40 // untouched generated songs kept in the library; older untouched ones are dropped
+const KEEP = 20 // songs kept in generated/: the 21st new one takes the place of the oldest
 let last = { style: 'lofi', length: 'normal', key: null, bpm: null, sources: null }
 try { Object.assign(last, JSON.parse(localStorage.getItem('mm.gen') || '{}')) } catch {}
 const remember = () => { try { localStorage.setItem('mm.gen', JSON.stringify(last)) } catch {} }
@@ -42,15 +43,14 @@ async function create(opts, { save = true, quiet = false, from = 0 } = {}) {
   let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta, pristine: true }
   if (save) {
     entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta, pristine: true }, { pick: !quiet })
-    // keep the library tidy: forget the oldest generated songs nobody touched — never one that was
-    // saved, renamed or edited (pristine: false; songs from before the flag existed count as touched),
-    // one with unsaved edits, or the one playing
-    const old = app.lib.list().filter(e => e.kind === 'generated' && e.pristine === true && !app.drafts.has(e.id) && e.id !== app.current?.id && e.id !== entry.id)
+    // keep generated/ to the last KEEP: the oldest goes — never one saved with Ctrl+S, renamed or copied (those
+    // are in my_songs/) or one with unsaved edits; the one playing is about to give way to the new one anyway
+    const old = app.lib.list().filter(e => shelfOf(e) === 'gen' && !app.drafts.has(e.id) && e.id !== entry.id)
     for (const e of old.slice(KEEP - 1)) await app.lib.remove(e.id, { pick: false }).catch(() => {}) // the folder isn't connected: next time
     app.refreshSongList()
   }
   await app.open(entry, from)
-  t?.done(describe(meta) + (!save ? '' : entry.where === 'disk' ? ` · my_songs/${entry.file}` : ' · ⏳ ждёт папку my_songs (Песня → Подключить)'), 'ok')
+  t?.done(describe(meta) + (!save ? '' : entry.where === 'disk' ? ` · ${entry.shelf === 'gen' ? 'generated' : 'my_songs'}/${entry.file}` : ' · ⏳ ждёт папку проекта (Песня → Подключить)'), 'ok')
   return meta
 }
 
