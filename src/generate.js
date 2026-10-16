@@ -20,10 +20,18 @@
 // "Another one like this" = the same seeds except the melody seed.
 // opts.mode (an id of src/modes.js — dorian, phrygian, hirajoshi, blues…): the song is made in the major or minor
 // with the same third, then every pitch moves into the mode by its scale degree (D minor → D dorian: B♭ → B♮,
-// the chords follow: iv becomes IV); scales of other sizes take the nearest note of the scale.
+// the chords follow: iv becomes IV); scales of other sizes take the nearest note of the scale. Microtonal modes
+// work the same way — C major → C Rast puts E𝄳 and B𝄳 in the melody and the chords (C–E𝄳–G is a neutral triad, "Cn");
+// a quarter-tone tonic (Sikah on E𝄳) is made on its neighbour and moved down a quarter tone at the end.
+// opts.micro ('quarter' | 'eighth', or the modes quarter24 / eighth48): microtonal writing in the melodies — neutral
+// steps, quarter-tone passing notes and slides, or the eighth tones of expressive intonation (microMelody below).
+// opts.temperament (an id of src/tuning.js): the song sounds in that tuning — Werckmeister III, just intonation,
+// ¼-comma meantone by the spelling, adaptive just intonation on every chord… (the notes stay as written).
+// None of these options draws on the other dice: without them a seed gives exactly the song it always gave.
 import { MELODIES, PROGRESSIONS } from './melodies.js'
 import { parseKey, roman, voiceLead, spell, keyName, keyLabel, SCALES, pc, chordName } from './theory.js'
-import { modeOf, parentMode } from './modes.js'
+import { modeOf, parentMode, keyWithMode } from './modes.js'
+import { temperOf, temperOffsets } from './tuning.js'
 
 // ---- randomness ----------------------------------------------------------------------------------
 export function rng(seed) {
@@ -433,8 +441,15 @@ export function generate(opts = {}) {
 
   // key, tempo, form
   const key = { ...(parseKey(opts.key) ?? parseKey(pick(RA, S.keys))) }
-  const mode = opts.mode && !['major', 'minor'].includes(opts.mode) ? modeOf(opts.mode) : null
-  if (opts.mode) key.mode = opts.mode === 'major' || opts.mode === 'minor' ? opts.mode : parentMode(mode.iv)
+  // a quarter-tone tonic (E𝄳): the song is made on the semitone above, then moved down (shiftPitches)
+  const tonicShift = key.tonic - Math.round(key.tonic), tonicLabel = key.name ?? null
+  if (tonicShift) { key.tonic = Math.round(key.tonic) % 12; delete key.name }
+  const modeIn = opts.mode && !['major', 'minor'].includes(opts.mode) ? modeOf(opts.mode) : null
+  // the 24- and 48-step chromatic "modes" keep the key's own scale and write microtones into the melodies
+  const mode = modeIn?.grid ? null : modeIn
+  if (opts.mode && !modeIn?.grid) key.mode = opts.mode === 'major' || opts.mode === 'minor' ? opts.mode : parentMode(mode.iv)
+  const micro = opts.micro ?? (modeIn?.grid === 24 ? 'quarter' : modeIn?.grid === 48 ? 'eighth' : null)
+  const temperament = opts.temperament && opts.temperament !== 'equal' && !(modeIn && !modeIn.grid && modeIn.iv.some(v => v !== Math.round(v))) ? temperOf(opts.temperament) : null
   const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
   let form = pick(RA, S.forms).map(([name, bars, role, energy, o]) => ({ name, bars, role, energy, ...(o ?? {}) }))
   const target = { short: 95, normal: 160, long: 220 }[opts.length ?? 'normal'] // seconds
@@ -556,19 +571,25 @@ export function generate(opts = {}) {
     // the chord's own third, fifth and seventh above the root (the fifth of a ø7 chord is diminished!)
     h.ivs = [ch.ivs.find(i => i === 3 || i === 4) ?? 4, ch.ivs.find(i => i === 6 || i === 7 || i === 8) ?? 7, ch.ivs.find(i => i === 9 || i === 10 || i === 11) ?? 10]
   }
-  if (mode) toMode({ key, iv: mode.iv, themes: [A, B, BR, RUN], harmony })
+  if (mode) toMode({ key, iv: mode.iv, themes: [A, B, BR, RUN], harmony, id: opts.mode })
+  // microtonal writing in the melodies, with its own dice (the other choices stay as they were)
+  if (micro) {
+    const RU = rng((seeds.melody ^ 0x51ce5) >>> 0)
+    for (const th of [A, B, BR]) th.notes = microMelody(th.notes, { kind: micro, key, iv: mode?.iv, chordAt: b => th.chords[Math.floor(b / th.per) % th.chords.length], r: RU })
+  }
+  if (tonicShift) shiftPitches({ key, by: tonicShift, name: tonicLabel, themes: [A, B, BR, RUN], harmony, id: opts.mode })
   const solo = sectionInfo.find(s => s.role === 'solo')
   const names = NAMES[styleId] ?? NAMES.lofi
   // the name follows the arrangement; a mutated melody or sound gets a variant number
   const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
   const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
   const meta = {
-    style: styleId, seed, seeds, length: opts.length ?? 'normal', key: keyName(key), mode: mode ? opts.mode : null, modeName: mode?.name ?? null, bpm, title, form: form.map(f => f.name),
-    fixedKey: opts.key ?? null,
+    style: styleId, seed, seeds, length: opts.length ?? 'normal', key: keyName(key), mode: modeIn ? opts.mode : null, modeName: modeIn?.name ?? null, bpm, title, form: form.map(f => f.name),
+    fixedKey: opts.key ?? null, micro: opts.micro ?? null, temperament: temperament?.id ?? null,
     themes: { A: { from: melA.from, title: melA.title, how: A.how }, B: { from: melB.from, title: melB.title, how: B.how }, bridge: { rhythmFrom: melR.from } },
     instruments: inst,
   }
-  const source = emit({ S, styleId, key, mode, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI })
+  const source = emit({ S, styleId, key, mode, modeIn, micro, temperament, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI })
   return { source, meta }
 }
 
@@ -597,7 +618,7 @@ const fmtNotes = (notes, indent = '') => {
   for (const [b, n, d] of notes) {
     const k = Math.floor(b / 4 + 1e-9)
     if (!bars.has(k)) bars.set(k, [])
-    bars.get(k).push(`[${round(b)}, ${n}, ${round(d)}]`)
+    bars.get(k).push(`[${round(b)}, ${round(n)}, ${round(d)}]`)
   }
   return '[\n' + [...bars.values()].map(l => indent + '  ' + l.join(', ') + ',').join('\n') + '\n' + indent + ']'
 }
@@ -606,19 +627,21 @@ const PAD_ON = `const padOn = x => chordAt(x) && ['themeB', 'bridge', 'break', '
 const lane = { lead: [1.1, 3], lead2: [1, 2.9], counter: [0.8, 2.4], chords: [-1, 0.4], bass: [-3, -2], pad: [-1.7, -0.6], arp: [0.3, 1.2], texture: [-2.95, -2.85] }
 
 function emit(P) {
-  const { S, styleId, key, mode, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r } = P
+  const { S, styleId, key, mode, modeIn = mode, micro = null, temperament = null, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r } = P
+  const skey = keyWithMode(key, meta.mode) // the key the notes are spelt in (with a microtonal mode's degrees)
+  const ivText = m => (m.grid ? `${m.grid}-EDO` : m.iv.map(round).join(' '))
   const used = { engine: new Set(['mod', 'floor', 'exp', 'sin', 'TAU', 'hz', 'filter', 'reverb', 'delay', 'smooth']), instruments: new Set(['notesAt', 'hash', 'pan', 'arrangement', 'trigger', 'poly']) }
   const need = (mod, ...n) => n.forEach(x => used[mod].add(x))
   const tracks = []
   const sw = S.swing
   const roles = sectionInfo.map(s => [s.at, s.role, s.energy])
-  const keyText = mode ? `${spell(key.tonic + 60, key, false)} — ${mode.name.toLowerCase()}` : keyLabel(key)
+  const keyText = modeIn ? `${spell(key.tonic + 60, skey, false)} — ${modeIn.name.toLowerCase()}` : keyLabel(key)
   const boss = styleId === 'boss', hard = boss || !!S.hard // hard: the hardstyle kick, the reverse bass, the sidechain
 
   // ---- data
-  const H = harmony.map(h => `  [${h.at}, ${h.len}, ${h.bass}, [${h.voicing.join(', ')}], '${h.symbol}', [${h.ivs.join(', ')}]],`).join('\n')
+  const H = harmony.map(h => `  [${h.at}, ${h.len}, ${round(h.bass)}, [${h.voicing.map(round).join(', ')}], '${h.symbol}', [${h.ivs.map(round).join(', ')}]],`).join('\n')
   const head = []
-  head.push(`// ${meta.title} — ${S.label.toLowerCase()} in ${spell(key.tonic + 60, key, false)} ${mode ? mode.name.toLowerCase() + ` (${mode.iv.join(' ')})` : key.mode}, ${bpm} BPM. Generated by MathMusic`)
+  head.push(`// ${meta.title} — ${S.label.toLowerCase()} in ${spell(key.tonic + 60, skey, false)} ${modeIn ? modeIn.name.toLowerCase() + ` (${ivText(modeIn)})` : key.mode}, ${bpm} BPM. Generated by MathMusic`)
   head.push(`// (style ${styleId}, seed ${meta.seed}): ${sections.map(s => s[1]).join(' → ')}.`)
   head.push(`// Themes: A — ${meta.themes.A.title} (${meta.themes.A.how}), B — ${meta.themes.B.title} (${meta.themes.B.how}); the bridge melody is newly`)
   head.push(`// composed on the rhythm of a theme from ${BR.from}. Computed parts: ${[solo ? (boss ? 'a solo that is an equation (the graph of two sines)' : 'an improvised solo') : null, 'a counter-melody from the chords', plans.counter.some(p => p[1] === 'CANON') ? 'a canon' : null, RUN ? 'a run up to the dominant in every build-up' : null, hard ? 'a reverse bass that rolls in the final' : null, 'the theme at half speed in the outro', sectionInfo.some(s => s.keyUp) ? 'a key change up' : null].filter(Boolean).join(', ')}.`)
@@ -645,8 +668,8 @@ const BY_BEAT = []
 for (const h of HARMONY) for (let b = h[0]; b < h[0] + h[1]; b++) BY_BEAT[b] = h
 const chordAt = x => BY_BEAT[floor(x)] ?? null
 ${PAD_ON} // pads play here
-const SCALE = [${(mode ? mode.iv : key.mode === 'minor' ? MIN : MAJ).map(i => (i + key.tonic) % 12).join(', ')}] // ${keyText}, pitch classes from C
-${hard ? bossData({ need, key, bpm, sectionInfo }) : ''}
+const SCALE = [${(mode ? mode.iv : key.mode === 'minor' ? MIN : MAJ).map(i => round((i + key.tonic) % 12)).join(', ')}] // ${keyText}, pitch classes from C
+${hard ? bossData({ need, key, bpm, sectionInfo }) : ''}${temperament ? temperData({ temperament, key, sectionInfo }) + '\n' : ''}
 // ---- melodies: [beat, n from C4, length] — draw them in the piano roll ------------------------------
 // A — ${meta.themes.A.title}, ${meta.themes.A.how}; in ${keyText}
 const THEME_A = ${fmtNotes(A.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
@@ -657,11 +680,11 @@ const BRIDGE = ${fmtNotes(BR.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
 const REST = []
 ${RUN ? `// the build-up: the theme's opening over ${RUN.chords.slice(0, 2).map(c => chordName(c, key)).join(' – ')}, a run up from the dominant, a trill on it
 const RUN = ${fmtNotes(RUN.notes.map(([b, m, d]) => [round(b), m - 60, d]))}
-` : ''}${solo && boss ? equationSolo({ need, key, solo, r }) : solo ? `// the solo: a random walk over the scale, chord tones on the beats (improvise)
+` : ''}${micro && solo && !boss ? microSoloCode(micro, key) + '\n' : ''}${solo && boss ? equationSolo({ need, key, solo, r }) : solo ? `// the solo: a random walk over the scale, chord tones on the beats (improvise)
 const SOLO = improvise({
   start: ${solo.at}, length: ${solo.beats - 2}, rate: 2, seed: ${1 + Math.floor(r() * 999)}, swing: SW, lo: ${A.notes.reduce((a, e) => Math.min(a, e[1]), 99) - 60 - 2}, hi: ${A.notes.reduce((a, e) => Math.max(a, e[1]), 0) - 60 + 3},
   phrase: 8, rest: 0.2, hold: 0.3, scale: () => SCALE, chord: x => (chordAt(x)?.[3] ?? [0]).map(n => mod(n, 12)),
-}).map(([b, n, d]) => [b - ${solo.at}, n, d])` : 'const SOLO = []'}
+}).map(${micro ? `([b, n, d], j, a) => [b - ${solo.at}, n + MICRO(n, b, a[j + 1]?.[1]), d]` : `([b, n, d]) => [b - ${solo.at}, n, d]`})` : 'const SOLO = []'}
 const PHRASES = { A: THEME_A, B: THEME_B, BRIDGE, REST, SOLO${RUN ? ', RUN' : ''} }
 
 // who plays which phrase: [start beat, phrase, transpose, stretch (2 = half speed)]
@@ -692,9 +715,12 @@ const counterAt = x => {
   if (row[1] !== 'HARMONY') return null
   const m = leadAt(x), c = chordAt(x)
   if (!m || !c) return null
-  const pcs = c[3].map(n => mod(n, 12))
+${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `  // (microtonal: the chord tones themselves, in every octave)
+  let best = null
+  for (const v of c[3]) for (let o = -48; o <= 0; o += 12) { const n = v - 60 + o; if (n <= m.n - 3 + 1e-6 && n > m.n - 12 && (best == null || n > best)) best = n }
+  return best == null ? null : { ...m, n: best }` : `  const pcs = c[3].map(n => mod(n, 12))
   for (let n = m.n - 3; n > m.n - 12; n--) if (pcs.includes(mod(n + 60, 12))) return { ...m, n }
-  return null
+  return null`}
 }
 `
   need('instruments', 'improvise')
@@ -750,7 +776,7 @@ const counterAt = x => {
     outro: ${outro ? outro.at : END},
   },`
   }
-  const imp = mod => [...used[mod]].sort()
+  const imp = mod => [...used[mod]].sort().map(x => (temperament && mod === 'engine' && x === 'hz' ? 'hz as hz12' : x))
   const out = [
     ...head,
     `import { ${imp('engine').join(', ')} } from '../src/engine.js'`,
@@ -760,14 +786,15 @@ const counterAt = x => {
     `export default {
   name: '${meta.title}',
   bpm: ${bpm},
-  key: '${keyName(key)}',${mode ? `
-  mode: '${meta.mode}', // ${mode.name}: ${mode.iv.join(' ')}` : ''}
+  key: '${keyName(key)}',${modeIn ? `
+  mode: '${meta.mode}', // ${modeIn.name}: ${ivText(modeIn)}` : ''}${temperament ? `
+  tuning: { id: '${temperament.id}', name: ${JSON.stringify(temperament.name)}, offsets: TEMPER }, // cents of C … B from 12-TET` : ''}
   length: END,
   theme: '${S.theme}',
   style: '${styleId}',
-  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}) })},
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}) })},
   sections: SECTIONS,${bossField}
-  tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.key)}: track${i}`).join(', ')} },
+  tracks: ${temperament ? 'withNow(' : ''}{ ${tracks.map((t, i) => `${JSON.stringify(t.key)}: track${i}`).join(', ')} }${temperament ? ')' : ''},
 }
 `,
   ]
@@ -2351,19 +2378,154 @@ export function modeMapper(key, iv, tr = 0) {
   }
 }
 // the whole song into the mode: themes, voicings, bass; each chord's third/fifth/seventh and name found again
-function toMode({ key, iv, themes, harmony }) {
-  const M = modeMapper(key, iv)
+function toMode({ key, iv, themes, harmony, id }) {
+  const M = modeMapper(key, iv), micro = iv.some(v => v !== Math.round(v))
   for (const th of themes) if (th) th.notes = th.notes.map(([b, n, d]) => [b, M(n), d])
   for (const h of harmony) {
     const Mt = modeMapper(key, iv, h.tr)
     h.voicing = h.voicing.map(Mt)
     h.bass = Mt(h.bass)
+    if (micro) { describeChord(h, keyWithMode(key, id)); continue }
     const pcs = h.voicing.map(n => pc(n - h.bass)), has = i => pcs.includes(i)
     const third = [4, 3].find(has), fifth = [7, 6, 8].find(has) ?? pc(Mt(h.bass + 7) - h.bass), sev = [10, 11, 9].find(has)
     h.ivs = [third ?? (has(5) ? 5 : 2), fifth, sev ?? 10]
     const q = third === 4 ? (fifth === 8 ? 'aug' : sev === 10 ? '7' : sev === 11 ? 'maj7' : '') : third === 3 ? (fifth === 6 ? (sev === 10 ? 'm7b5' : 'dim') : sev === 10 ? 'm7' : 'm') : has(5) ? 'sus4' : 'sus2'
     h.symbol = chordName({ root: pc(h.bass), quality: q }, key)
   }
+}
+
+// A chord in any tuning: its third, fifth and seventh above the bass (fractional in a microtonal mode) and its name —
+// a neutral third (3½ semitones) is 'n': C–E𝄳–G = 'Cn', with B𝄳 'Cnⁿ7'
+function describeChord(h, skey) {
+  const rel = h.voicing.map(n => (((n - h.bass) % 12) + 12) % 12)
+  const find = (lo, hi, pref) => rel.filter(v => v > lo && v < hi).reduce((a, v) => (a == null || Math.abs(v - pref) < Math.abs(a - pref) ? v : a), null)
+  const third = find(2.6, 4.6, 3.5), fifth = find(5.6, 8.4, 7), sev = find(8.6, 11.6, 10.25)
+  const sus = rel.some(v => Math.abs(v - 5) < 0.3) ? 5 : 2
+  h.ivs = [third ?? sus, fifth ?? 7, sev ?? 10].map(round)
+  const t = third == null ? `sus${sus === 5 ? 4 : 2}` : third < 3.25 ? 'm' : third > 3.75 ? '' : 'n'
+  const f = fifth == null || Math.abs(fifth - 7) < 0.25 ? '' : fifth < 7 ? (t === 'm' ? '°' : '♭5') : t === '' ? '+' : '♯5'
+  const s = sev == null ? '' : Math.abs(sev - 9) < 0.25 ? '6' : Math.abs(sev - 11) < 0.25 ? 'maj7' : Math.abs(sev - 10.5) < 0.25 ? 'ⁿ7' : '7'
+  let q = t.startsWith('sus') ? (s === '7' ? '7' : '') + t : t + f + s
+  if (t === 'm' && f === '°') q = sev == null ? '°' : Math.abs(sev - 9) < 0.25 ? '°7' : 'ø7'
+  h.symbol = spell(60 + h.bass, skey, false) + q
+}
+// a quarter-tone tonic: everything made on the semitone above moves down (E → E𝄳), the chords are named again
+function shiftPitches({ key, by, name, themes, harmony, id }) {
+  for (const th of themes) if (th) th.notes = th.notes.map(([b, n, d]) => [b, round(n + by), d])
+  key.tonic = (key.tonic + by + 12) % 12
+  key.name = name
+  key.shift = by
+  const skey = keyWithMode(key, id)
+  for (const h of harmony) {
+    h.voicing = h.voicing.map(n => round(n + by))
+    h.bass = round(h.bass + by)
+    describeChord(h, skey)
+  }
+}
+
+// ---- microtones in a melody (opts.micro) ------------------------------------------------------------------------
+// quarter tones: a step of a minor third (or an augmented second) is split by its neutral midpoint (D–F → D E𝄳 F,
+//   the gesture of maqam Bayati); a semitone step passes through the quarter tone between (E–F → E E𝄲 F); a long note
+//   is reached by a slide from a quarter tone below and turns a quarter tone up before it ends; off the beat the 3rd
+//   and 7th degrees turn neutral where the chord doesn't hold them (the colour of maqam Rast);
+// eighth tones: expressive intonation — a leading tone rising to the tonic is played an eighth tone high, a ♭6 or ♭2
+//   falling a semitone an eighth tone low (as string players and singers do); long notes are scooped from an eighth
+//   tone below; semitone steps glide through 25-cent steps.
+// Grace notes take their time from the end of the note before them, never from the next beat: the rhythm stays.
+function microMelody(notes, { kind, key, chordAt, r }) {
+  const out = [], tonic = key.tonic, minor = key.mode === 'minor', q = kind === 'quarter'
+  const deg = n => ((Math.round(n - tonic) % 12) + 12) % 12
+  const onBeat = b => Math.abs(b - Math.round(b)) < 1e-6
+  const chordTone = (n, b) => { const ch = chordAt(b); return !!ch && ch.tones.includes(pc(n)) }
+  const push = (b, n, d) => { if (d > 1e-6) out.push([round(b), round(n), round(d)]) }
+  notes.forEach(([b, n, d], i) => {
+    const next = notes[i + 1], step = next ? next[1] - n : 0, gapless = !!next && Math.abs(next[0] - (b + d)) < 1e-6
+    let m = n
+    if (q && !onBeat(b) && d <= 1 && n === Math.round(n) && !chordTone(n, b) && r() < 0.6) {
+      const g = deg(n)
+      if (!minor && (g === 4 || g === 11)) m = n - 0.5
+      if (minor && (g === 3 || g === 10)) m = n + 0.5
+    }
+    if (!q && gapless) {
+      const g = deg(n), gn = deg(next[1])
+      if (g === 11 && gn === 0 && step === 1) m = n + 0.25 // the leading tone, high
+      if (step === -1 && ((minor && g === 8 && gn === 7) || (g === 1 && gn === 0))) m = n - 0.25 // ♭6 → 5, ♭2 → 1, low
+    }
+    let start = b, len = d
+    if (d >= 1.5 && r() < (q ? 0.45 : 0.55)) { // a slide into a long note
+      const g = Math.min(0.125, d / 8)
+      push(b, m - (q ? 0.5 : 0.25), g)
+      start += g
+      len -= g
+    }
+    let tail = null
+    if (gapless && len >= 0.5) {
+      const a = Math.abs(step), s = Math.sign(step)
+      if (q && a === 3 && r() < 0.7) tail = [n + 1.5 * s] // the neutral step
+      else if (q && a === 1 && r() < 0.6) tail = [n + 0.5 * s]
+      else if (!q && a === 1 && r() < 0.5) tail = [n + 0.25 * s, n + 0.5 * s, n + 0.75 * s] // a glide
+    }
+    if (!tail && q && len >= 2 && r() < 0.35) tail = [m + 0.5, m] // a quarter-tone turn
+    if (tail) {
+      const each = Math.min(q ? 0.125 : 1 / 12, len / (2 * tail.length))
+      push(start, m, len - each * tail.length)
+      tail.forEach((p, k) => push(start + len - each * (tail.length - k), p, each))
+    } else push(start, m, len)
+  })
+  return out
+}
+// the solo is improvised inside the song: the same inflections, as code (applied to each improvised note)
+const microSoloCode = (kind, key) => kind === 'quarter'
+  ? `// microtones in the solo: off the beat the ${key.mode === 'minor' ? 'minor 3rd and 7th rise' : '3rd and 7th fall'} a quarter tone (neutral, as in maqam Rast)
+const MICRO = (n, b, next) => { const g = mod(Math.round(n) - ${round(key.tonic)}, 12); return mod(b, 1) > 0.01 && (${key.mode === 'minor' ? 'g === 3 || g === 10' : 'g === 4 || g === 11'}) && hash(floor(8 * b), 41) < 0.6 ? ${key.mode === 'minor' ? '0.5' : '-0.5'} : 0 }`
+  : `// microtones in the solo: expressive intonation — a leading tone rising to the tonic an eighth tone high, ♭6 → 5 and ♭2 → 1 an eighth tone low
+const MICRO = (n, b, next) => { const g = mod(Math.round(n) - ${round(key.tonic)}, 12), h = next == null ? -1 : mod(Math.round(next) - ${round(key.tonic)}, 12); return g === 11 && h === 0 ? 0.25 : (g === 8 && h === 7) || (g === 1 && h === 0) ? -0.25 : 0 }`
+
+// ---- temperaments (opts.temperament) -----------------------------------------------------------------------------
+// The song keeps its notes; every frequency passes through tuneHz — the note's offset from 12-TET in cents, by pitch
+// class, interpolated between neighbouring notes (so glides and vibrato stay smooth). After a key change up a tuning
+// built on the tonic or on the spelling moves with it. Adaptive just intonation tunes every note by its interval to the
+// root of the chord sounding at that moment.
+function temperData({ temperament: t, key, sectionInfo }) {
+  const ups = [...new Set(sectionInfo.map(s => s.keyUp ?? 0))].filter(Boolean)
+  const offs = tr => temperOffsets(t.id, { ...key, tonic: (((key.tonic + tr) % 12) + 12) % 12 })
+  const head = `
+// ---- the tuning: ${t.name}${t.alt ? ` (${t.alt})` : ''} — ${t.short}
+// every frequency passes through tuneHz: its note's offset from 12-TET in cents, interpolated between notes`
+  const interp = `const tuneHz = f => {
+  if (!(f > 0)) return f
+  const m = 69 + 12 * Math.log2(f / 440), a = Math.floor(m), u = m - a
+  const c = u <= 0.35 ? off(a) : u >= 0.65 ? off(a + 1) : off(a) + ((off(a + 1) - off(a)) * (u - 0.35)) / 0.3
+  return f * 2 ** (c / 1200)
+}
+const hz = (n, base = 110) => tuneHz(hz12(n, base))
+let NOW = 0 // the beat being rendered: every track's audio sets it (withNow, at the end)
+const withNow = tracks => {
+  for (const t of Object.values(tracks)) { const a = t.audio; t.audio = ctx => { const f = a(ctx); return x => ((NOW = x), f(x)) } }
+  return tracks
+}`
+  if (t.kind === 'adaptive') return `${head}
+// adaptive: a note k semitones above the root of the chord at NOW — third 5/4 or 6/5, fifth 3/2, the dominant's seventh
+// 7/4, a minor seventh 9/5, a major seventh 15/8 (cents from 12-TET); the root itself stays where 12-TET has it
+const JUST = [0, 11.731, 3.91, 15.641, -13.686, -1.955, -9.776, 1.955, 13.686, -15.641, 17.596, -11.731]
+const off = m => {
+  const c = chordAt(NOW)
+  if (!c) return 0
+  const k = mod(m - Math.round(c[2]), 12), [t3, t5, t7] = c[5]
+  if (k === 10) return t3 === 4 && t5 === 7 ? -31.174 : 17.596
+  if (k === 6 && t5 === 6) return 9.776
+  if (k === 9 && t7 === 9) return 25.39
+  return JUST[k]
+}
+const TEMPER = JUST
+${interp}`
+  return `${head}
+const TEMPER = [${offs(0).join(', ')}] // C C♯ D … B
+${ups.length && t.kind !== 'fixed' ? `const TEMPER_UP = { ${ups.map(u => `${u}: [${offs(u).join(', ')}]`).join(', ')} } // after the key changes up
+const KEY_UPS = ${JSON.stringify(sectionInfo.filter(s => s.keyUp).map(s => [s.at, s.keyUp]))}
+const temperNow = () => { let T = TEMPER; for (const [s, k] of KEY_UPS) if (s <= NOW) T = TEMPER_UP[k]; return T }
+const off = m => temperNow()[mod(m, 12)]` : 'const off = m => TEMPER[mod(m, 12)]'}
+${interp}`
 }
 
 // describe a generated song for the UI

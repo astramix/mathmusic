@@ -1,9 +1,16 @@
 // Modes and scales: the well-known ones first, then the rarer ones by family — the modes of melodic and harmonic
-// minor and harmonic major, the Middle East and the Balkans, Japan and East Asia, the islands (Okinawa, Java and
-// Bali, the British Isles), India's thaats, the symmetric scales of the 20th century. Shared by the app (the
-// «Лады» menu), the generator (generate({ mode })) and the tests.
-//   iv: semitones above the tonic;  short: one line for the menu;  text: what it sounds like and where it lives.
-// Gamelan tunings (slendro, pelog) are not 12-TET: their entries are the usual approximations.
+// minor and harmonic major, the Middle East and the Balkans, Japan and East Asia, the islands (Okinawa, the British
+// Isles), India's thaats, the symmetric scales of the 20th century — and the microtonal ones in their real tunings:
+// Arabic maqamat in quarter tones, Persian dastgah-ha (koron, sori), Turkish makamlar in the 53 commas of
+// Arel–Ezgi–Uzdilek, measured gamelan tunings, the 24- and 48-step chromatic scales. Shared by the app (the «Лады»
+// menu), the generator (generate({ mode })), retune.js and the tests.
+//   iv: semitones above the tonic, fractional for microtones (3.5 = a neutral third, E𝄳 above C);  system: how its
+//   notes are spelt ('aeu' Turkish commas, 'persian' koron/sori, 'cents' a measured scale: nearest note ± cents);
+//   home: the tonic it is usually written on;  short: one line for the menu;  text: what it is and where it lives.
+import { spellParts, parseKey } from './theory.js'
+
+const commas = ks => ks.map(k => Math.round((k * 120000) / 53) / 10000) // Turkish degrees: commas of 53-EDO → semitones
+const centsIv = cs => cs.map(c => c / 100)
 
 export const MODE_GROUPS = [
   {
@@ -125,10 +132,6 @@ export const MODE_GROUPS = [
     id: 'islands', label: 'Островные',
     modes: [
       { id: 'ryukyu', name: 'Рюкю (Окинава)', alt: 'окинавская пентатоника', iv: [0, 4, 5, 7, 11], short: 'Окинава: 1 3 4 5 7 — полутоны у кварты и октавы', text: 'Лад островов Рюкю: без II и VI ступеней, два полутона (3–4 и 7–8). Сансин (окинавский сямисэн), песни «Shima Uta».' },
-      { id: 'slendro', name: 'Слендро (Ява, Бали)', alt: 'приближение в 12-TET', iv: [0, 2, 5, 7, 9], short: 'гамелан: пять почти равных шагов', text: 'В гамелане пять ступеней почти равны (≈ 240 центов); в равномерной темперации это лишь приближение пентатоникой. Каждый гамелан настроен по-своему.' },
-      { id: 'pelog', name: 'Пелог (Ява)', alt: 'приближение в 12-TET', iv: [0, 1, 3, 7, 8], short: 'гамелан: два больших и три малых шага', text: 'Семиступенный лад, из которого берут пять нот; шаги неравные (малые и большие). Приближение: 1 ♭2 ♭3 5 ♭6. На Яве строй отличается от балийского.' },
-      { id: 'pelogSelisir', name: 'Пелог селисир (Бали)', alt: 'приближение в 12-TET', iv: [0, 1, 3, 7, 8], short: 'бали: гонг-кебьяр', text: 'Главный лад балийского гонг-кебьяра; парные инструменты настроены чуть врозь — отсюда мерцающие биения.' },
-      { id: 'pelogTembung', name: 'Пелог тембунг (Бали)', alt: 'приближение в 12-TET', iv: [0, 1, 5, 7, 8], short: 'бали: родственник японского ин', text: 'Другая пятиступенная выборка пелога; по звучанию близка к японскому ин-ладу.' },
       { id: 'gaelic', name: 'Гэльская гексатоника', alt: 'Шотландия, Ирландия, Гебриды', iv: [0, 2, 4, 5, 7, 9], short: 'шесть нот без VII — волынки и острова', text: 'Мажор без VII ступени: песни Гебридских островов, Ирландии и Шотландии; мелодии волынок часто обходят седьмую ступень.' },
       { id: 'scottish', name: 'Шотландская пентатоника', iv: [0, 2, 5, 7, 9], short: 'ступенная пентатоника волынок', text: 'Пентатоника без терции (как ё) — звукоряд многих шотландских мелодий («Auld Lang Syne» близка к мажорной пентатонике).' },
       { id: 'hawaiian', name: 'Гавайская', alt: 'мажор с минорной терцией', iv: [0, 2, 3, 5, 7, 9, 11], short: 'то же, что мелодический минор', text: 'В справочниках гамм «гавайской» называют мелодический минор; в самой гавайской музыке (слэк-ки гитара) звучат мажор и пентатоники в открытых строях.' },
@@ -147,6 +150,91 @@ export const MODE_GROUPS = [
     ],
   },
   {
+    id: 'maqam', label: 'Арабские макамы — четверти тона', micro: true,
+    modes: [
+      { id: 'rast', name: 'Раст', alt: 'макам Раст', home: 'C', iv: [0, 2, 3.5, 5, 7, 9, 10.5], short: 'главный арабский макам: нейтральные терция и септима (E𝄳, B𝄳)',
+        text: 'Джинс Раст на C (C D E𝄳 F) и джинс Раст на G (G A B𝄳 C). Терция и септима нейтральные — посередине между малой и большой: так их записывает теория 24 четвертей тона (Каирский конгресс, 1932); в живом исполнении E𝄳 подвижна и обычно чуть выше. Вниз септима часто становится B♭. Основа арабской классики.' },
+      { id: 'bayati', name: 'Баяти', home: 'D', iv: [0, 1.5, 3, 5, 7, 8, 10], short: 'самый частый макам: нейтральная секунда E𝄳 над тоникой',
+        text: 'Джинс Баяти на D (D E𝄳 F G) и джинс Нахаванд на G (G A B♭ C). Секунда в три четверти тона над тоникой даёт тёплый, «разговорный» звук — чтение Корана, народные песни, Умм Кульсум.' },
+      { id: 'sikah', name: 'Сика', home: 'E𝄳', iv: [0, 1.5, 3.5, 5.5, 7, 8.5, 10.5], short: 'тоника сама на четверть тона: E𝄳 F G A B𝄳 C D',
+        text: 'Джинс Сика (E𝄳 F G) — трихорд от нейтральной ноты, третьей ступени Раста. Звучит зыбко и нежно; продолжается Растом на G.' },
+      { id: 'huzam', name: 'Хузам', home: 'E𝄳', iv: [0, 1.5, 3.5, 4.5, 7.5, 8.5, 10.5], short: 'Сика + Хиджаз: E𝄳 F G A♭ B C D',
+        text: 'Джинс Сика на E𝄳 и джинс Хиджаз на G (G A♭ B C): увеличенная секунда над нейтральной тоникой. Драматичный египетский звук.' },
+      { id: 'saba', name: 'Саба', home: 'D', iv: [0, 1.5, 3, 4, 7, 8, 10], short: 'самый печальный: уменьшённая кварта G♭',
+        text: 'Джинс Саба на D: D E𝄳 F G♭ — кварта уменьшена, опереться не на что; дальше Хиджаз на F (F G♭ A B♭). Плач, траур, азан на рассвете.' },
+      { id: 'hijazRast', name: 'Хиджаз', alt: 'с Растом наверху', home: 'D', iv: [0, 1, 4, 5, 7, 8.5, 10], short: 'увеличенная секунда E♭–F♯ и нейтральная B𝄳 сверху',
+        text: 'Джинс Хиджаз на D (D E♭ F♯ G) и джинс Раст на G (G A B𝄳 C). Двенадцатитоновое приближение без четвертитона — фригийский доминантовый лад.' },
+      { id: 'suznak', name: 'Сузнак', home: 'C', iv: [0, 2, 3.5, 5, 7, 8, 11], short: 'Раст внизу, Хиджаз наверху',
+        text: 'Джинс Раст на C и джинс Хиджаз на G (G A♭ B C): после нейтральной терции — увеличенная секунда и вводный тон.' },
+      { id: 'iraq', name: 'Ирак', home: 'B𝄳', iv: [0, 1.5, 3.5, 5, 6.5, 8.5, 10.5], short: 'от B𝄳: Сика, затем Баяти на D',
+        text: 'Тоника B𝄳 и нижний джинс Сика (B𝄳 C D), выше — Баяти на D (D E𝄳 F G). Макам иракской классики.' },
+    ],
+  },
+  {
+    id: 'dastgah', label: 'Персидские дастгяхи — корон и сори', micro: true,
+    modes: [
+      { id: 'shur', name: 'Шур', home: 'G', system: 'persian', iv: [0, 1.5, 3, 5, 7, 8, 10], short: 'главный дастгях: A корон над тоникой G',
+        text: 'G A𝄳 B♭ C D E♭ F. Корон (знак Вазири, 1920-е) понижает ноту примерно на четверть тона, сори — повышает. Из Шура выросли авазы Абу-Ата, Дашти, Афшари, Баят-е Торк. Запись в 24 четвертях — приближение: в живом исполнении корон подвижен.' },
+      { id: 'homayun', name: 'Хомаюн', home: 'G', system: 'persian', iv: [0, 1.5, 4, 5, 7, 8, 10], short: 'G A𝄳 B C D E♭ F — увеличенная секунда от корона',
+        text: 'Вторая ступень — корон, третья — натуральная: между ними 1¼ тона. Торжественный и печальный; из него — аваз Исфахан.' },
+      { id: 'chahargah', name: 'Чахаргях', home: 'C', system: 'persian', iv: [0, 1.5, 4, 5, 7, 8.5, 11], short: 'C D𝄳 E F G A𝄳 B — два одинаковых тетрахорда',
+        text: 'Оба тетрахорда: ¾ тона, 1¼ тона, полутон. Величественный, «героический» дастгях.' },
+    ],
+  },
+  {
+    id: 'makam', label: 'Турецкие макамы — 53 коммы (AEU)', micro: true,
+    modes: [
+      { id: 'trRast', name: 'Раст (турецкий)', home: 'G', system: 'aeu', iv: commas([0, 9, 17, 22, 31, 40, 48]), short: 'G A B♭¹ C D E F♯⁴ — сегях всего на комму ниже си',
+        text: 'Теория Арель — Эзги — Уздилек: октава = 53 коммы по 22,6 ¢, целый тон 9 комм, большой мюдженнеб 8, малый 5, бакийе 4. Сегях (B♭¹) на одну комму ниже пифагорова си, эвидж — F♯⁴. Турецкий Раст заметно светлее арабского. Шаги: 9 8 5 9 9 8 5.' },
+      { id: 'ussak', name: 'Ушшак', home: 'A', system: 'aeu', iv: commas([0, 8, 13, 22, 31, 35, 44]), short: 'A B♭¹ C D — нейтральная секунда в 8 комм',
+        text: 'Тетрахорд Ушшак (8 + 5 + 9) и Бусэлик-Кюрди сверху (E F G A: 4 + 9 + 9). Родня арабскому Баяти, но секунда шире: ≈ 181 ¢ против 150.' },
+      { id: 'huseyni', name: 'Хюсейни', home: 'A', system: 'aeu', iv: commas([0, 8, 13, 22, 31, 39, 44]), short: 'Ушшак с F♯⁴ наверху',
+        text: 'Пентахорд Хюсейни на A (8 5 9 9) и тетрахорд Ушшак на E (E F♯⁴ G A). Светлая шестая ступень делает его мягче Ушшака.' },
+      { id: 'trHicaz', name: 'Хиджаз (турецкий)', home: 'A', system: 'aeu', iv: commas([0, 5, 17, 22, 31, 39, 44]), short: 'A B♭⁴ C♯⁴ D — увеличенная секунда в 12 комм',
+        text: 'Тетрахорд Хиджаз (5 + 12 + 5) и пентахорд Раст на D (D E F♯⁴ G A). Увеличенная секунда = 12 комм ≈ 272 ¢ — у́же, чем 300 ¢ в 12-TET.' },
+      { id: 'trSaba', name: 'Саба (турецкий)', home: 'A', system: 'aeu', iv: commas([0, 8, 13, 18, 31, 35, 44]), short: 'A B♭¹ C D♭⁴ — уменьшённая кварта',
+        text: 'Тетрахорд Саба (8 + 5 + 5) кончается на D♭⁴ — кварта уменьшена; дальше Хиджаз D♭⁴ E F (13 + 4). Самый скорбный макам. Шаги: 8 5 5 13 4 9 9.' },
+      { id: 'kurdi', name: 'Кюрди', home: 'A', system: 'aeu', iv: commas([0, 4, 13, 22, 31, 35, 44]), short: 'A B♭⁵ C D — секунда в 4 коммы',
+        text: 'Тетрахорд Кюрди (4 + 9 + 9) — турецкий «фригийский»: секунда — пифагорова лимма ≈ 90 ¢ (нота кюрди, B♭⁵; у Хиджаза выше на комму — дик кюрди, B♭⁴).' },
+      { id: 'nihavent', name: 'Нихавенд', home: 'G', system: 'aeu', iv: commas([0, 9, 13, 22, 31, 35, 48]), short: 'G A B♭⁵ C D E♭⁵ F♯⁴ — турецкий гармонический минор',
+        text: 'Пентахорд Бусэлик (9 4 9 9) и тетрахорд Хиджаз (4 + 13 + 5) сверху. Самый «европейский» из макамов, любимец XIX века.' },
+    ],
+  },
+  {
+    id: 'gamelan', label: 'Гамелан — измеренные строи', micro: true,
+    modes: [
+      { id: 'slendro', name: 'Слендро', alt: 'Ява, гамелан Kyai Madu Laras', home: 'D', system: 'cents', iv: centsIv([0, 263, 500, 723, 961]),
+        short: 'пять почти равных шагов: 263 237 223 238 239 ¢ (замер)',
+        text: 'Настоящий строй, а не пентатоника: сарон барунг гамелана Kyai Madu Laras (Оксфорд) после настройки мастерами Пак Пангийо и Пак Аль Сутикно в 1987 году (по таблицам Дж. Монтегю). Каждый гамелан настроен по-своему, а октавы у него слегка растянуты.' },
+      { id: 'slendroKunst', name: 'Слендро (Kyai Kanyut Mesem)', alt: 'замер Я. Кунста', home: 'D', system: 'cents', iv: centsIv([0, 224, 477.5, 715, 947.5]),
+        short: 'шаги 224 253½ 237½ 232½ ¢ — гамелан Мангкунегарана',
+        text: 'Измерения Яапа Кунста (в изложении Л. Полански): 224, 253½, 237½, 232½ и 264 ¢ — октава растянута до 1211½ ¢; здесь она приведена к 1200, последний шаг 252½ ¢.' },
+      { id: 'pelog', name: 'Пелог (7 звуков)', alt: 'Ява, Kyai Madu Laras', home: 'D', system: 'cents', iv: centsIv([0, 120, 267, 538, 667, 779, 977]),
+        short: 'неравные шаги 120 147 271 129 112 198 223 ¢ (замер)',
+        text: 'Семь звуков, из которых каждая патет берёт пять. Сарон барунг того же гамелана (1987): 0, 120, 267, 538, 667, 779, 977 ¢. Статистически близок к выборке из 9-EDO (Сурйодининграт, 1972), но не равен ей.' },
+      { id: 'pelogBem', name: 'Пелог бем (1 2 3 5 6)', home: 'D', system: 'cents', iv: centsIv([0, 120, 267, 667, 779]),
+        short: 'пятизвучие пелога без 4 и 7 — звукоряд и балийского селисира',
+        text: 'Звуки 1 2 3 5 6 измеренного пелога. Тот же звукоряд у балийского гонг-кебьяра (селисир), но балийские гамеланы строятся иначе — здесь яванские значения.' },
+      { id: 'pelogBarang', name: 'Пелог баранг (2 3 5 6 7)', home: 'E', system: 'cents', iv: centsIv([0, 147, 547, 659, 857]),
+        short: 'пятизвучие с седьмым звуком вместо первого',
+        text: 'Патет баранг заменяет звук 1 на 7 (баранг): 2 3 5 6 7 — светлее бема.' },
+    ],
+  },
+  {
+    id: 'micro', label: 'Микрохроматика — ¼ и ⅛ тона', micro: true,
+    modes: [
+      { id: 'quarter24', name: 'Четвертитоновая хроматика', alt: '24-EDO', grid: 24, iv: Array.from({ length: 24 }, (_, i) => i / 2),
+        short: 'все 24 четверти тона: генератор пишет мелодии с ¼ тона',
+        text: 'Октава из 24 шагов по 50 ¢ — Хаба, Вышнеградский, арабская теория. Знаки Штейна — Циммермана: 𝄲 полудиез, 𝄳 полубемоль, ♯𝄲 и ♭𝄳 — на полтора. Генератор вплетает четвертитоны в мелодию: проходящие между соседними ступенями, опевания, «скольжения» к опорным нотам.' },
+      { id: 'eighth48', name: 'Восьмитоновая хроматика', alt: '48-EDO', grid: 48, iv: Array.from({ length: 48 }, (_, i) => i / 4),
+        short: 'шаг 25 ¢ — восьмая тона, стрелки Гулда',
+        text: 'Октава из 48 шагов. Восьмая тона пишется стрелкой на соседнем знаке (система Штейна — Циммермана — Гулда, как в MuseScore): 𝄮 ♮↑ +25 ¢, 𝄱 ♯↓ +75 ¢, 𝄬 ♭↑ −75 ¢, 𝄯 ♮↓ −25 ¢. Генератор добавляет мелодии восьмитоновые подъезды и «выразительную интонацию».' },
+      { id: 'thai', name: 'Тайский строй', alt: '7-EDO', system: 'cents', iv: centsIv([0, 171.43, 342.86, 514.29, 685.71, 857.14, 1028.57]),
+        short: 'семь равных шагов по 171 ¢ — ни мажор, ни минор',
+        text: 'Классические ансамбли Таиланда (пипхат) строят октаву почти на 7 равных частей. Любая терция нейтральная (343 ¢), квинта 686 ¢ — звук без «мажора» и «минора».' },
+    ],
+  },
+  {
     id: 'symmetric', label: 'Симметричные и синтетические',
     modes: [
       { id: 'wholeTone', name: 'Целотонная', iv: [0, 2, 4, 6, 8, 10], short: 'одни целые тоны: Дебюсси, «сон»', text: 'Шесть нот через тон — нет ни квинты, ни тяготения. Дебюсси («Паруса»), Глинка (Черномор), звук сна и воспоминаний в кино.' },
@@ -162,28 +250,73 @@ export const MODE_GROUPS = [
   },
 ]
 
+// old ids → the modes that replaced them (songs made with the 12-TET approximations of Balinese pelog)
+const ALIASES = { pelogSelisir: 'pelogBem', pelogTembung: 'pelogBem' }
 export const MODES = Object.fromEntries(MODE_GROUPS.flatMap(g => g.modes.map(m => [m.id, { ...m, group: g.id }])))
+for (const [a, b] of Object.entries(ALIASES)) MODES[a] = MODES[b]
 export const modeOf = id => MODES[id] ?? MODES.major
-// the major/minor relative used to borrow chords and themes: by the third (no third: by the sixth/seventh)
-export const parentMode = iv => (iv.includes(4) ? 'major' : iv.includes(3) ? 'minor' : iv.includes(11) || iv.includes(9) ? 'major' : 'minor')
+// a mode whose notes leave 12-TET (or are spelt their own way)
+export const isMicro = m => !!m && (!!m.system || m.iv.some(v => Math.abs(v - Math.round(v)) > 1e-6))
+// the major/minor relative used to borrow chords and themes: by the third (no third: by the sixth/seventh); a
+// microtonal third (neutral 3½, a Turkish 3.85) goes to the side it leans to
+export const parentMode = iv => {
+  if (iv.includes(4)) return 'major'
+  if (iv.includes(3)) return 'minor'
+  const t = iv.find(v => v > 2.6 && v < 4.6)
+  if (t != null && t !== Math.round(t)) return t >= 3.5 ? 'major' : 'minor'
+  return iv.includes(11) || iv.includes(9) ? 'major' : 'minor'
+}
+// the key a microtonal mode is spelt in: the tonic with the mode's degrees and its system (theory.spellParts)
+export function keyWithMode(key, id) {
+  const m = id && MODES[id]
+  return m && isMicro(m) && key ? { ...key, steps: m.iv, system: m.system ?? null } : key
+}
 
-// the steps of a scale: 'Т–П–Т…' (П полутон, Т тон, 1½ увеличенная секунда, 2 большая терция)
-export const stepFormula = iv => [...iv, 12].slice(1).map((v, i) => ({ 1: 'П', 2: 'Т', 3: '1½', 4: '2Т', 5: '2½' }[v - iv[i]] ?? '?')).join('–')
-// degrees as in a major scale: 1 ♭2 2 … (the alteration relative to the major scale)
-export const degreeFormula = iv => {
-  const MAJ = [0, 2, 4, 5, 7, 9, 11]
-  if (iv.length === 7) return iv.map((v, i) => ({ '-2': '𝄫', '-1': '♭', 0: '', 1: '♯' }[v - MAJ[i]] ?? '?') + (i + 1)).join(' ')
+const near = (a, b, e = 0.02) => Math.abs(a - b) < e
+const frac = { 0.25: '⅛', 0.5: '¼', 0.75: '⅜', 1.5: '¾', 2.5: '1¼', 3.5: '1¾', 4.5: '2¼' }
+// the steps of a scale: 'Т–П–Т…' (П полутон, Т тон, 1½ увеличенная секунда, 2 большая терция); in quarter and eighth
+// tones ¾, ¼, ⅛…; a Turkish makam in commas (9–8–5…), a measured scale in cents
+export const stepFormula = (iv, system = null) => {
+  const steps = [...iv, 12].slice(1).map((v, i) => v - iv[i])
+  if (system === 'aeu') return steps.map(s => Math.round((s * 53) / 12)).join('–') + ' комм'
+  if (system === 'cents' || steps.some(s => !near(s * 4, Math.round(s * 4), 0.01))) return steps.map(s => Math.round(s * 100)).join('–') + ' ¢'
+  return steps.map(s => {
+    const k = Math.round(s * 4) / 4
+    return { 1: 'П', 2: 'Т', 3: '1½', 4: '2Т', 5: '2½' }[k] ?? (frac[k] ? frac[k] + 'т' : '?')
+  }).join('–')
+}
+// degrees as in a major scale: 1 ♭2 2 … (the alteration relative to the major scale: 𝄳3 is a neutral third)
+export const degreeFormula = (iv, system = null) => {
+  const MAJ = [0, 2, 4, 5, 7, 9, 11], SIGN = { '-2': '𝄫', '-1.5': '♭𝄳', '-1': '♭', '-0.5': '𝄳', 0: '', 0.5: '𝄲', 1: '♯', 1.5: '♯𝄲' }
+  if (system === 'cents') return iv.map(v => Math.round(v * 100)).join(' ') + ' ¢'
+  if (system === 'aeu' && iv.length === 7) { // commas above the Pythagorean major scale
+    const P = [0, 9, 18, 22, 31, 40, 49], A = { '-8': '♭⁸', '-5': '♭⁵', '-4': '♭⁴', '-1': '♭¹', 0: '', 1: '♯¹', 4: '♯⁴', 5: '♯⁵', 8: '♯⁸' }
+    return iv.map((v, i) => (A[Math.round((v * 53) / 12) - P[i]] ?? '?') + (i + 1)).join(' ')
+  }
+  if (iv.length === 7) return iv.map((v, i) => {
+    const a = v - MAJ[i], q = Math.round(a * 2) / 2
+    return (near(a, q) ? SIGN[q] ?? '?' : `${a > 0 ? '+' : '−'}${Math.round(Math.abs(a) * 100)}¢ `) + (i + 1)
+  }).join(' ')
   const NAME = ['1', '♭2', '2', '♭3', '3', '4', '♯4', '5', '♭6', '6', '♭7', '7']
-  return iv.map(v => NAME[v]).join(' ')
+  return iv.map(v => (near(v, Math.round(v)) ? NAME[Math.round(v)] : `${Math.round(v * 100)}¢`)).join(' ')
 }
 
 // ---- spelling ------------------------------------------------------------------------------------------------
 const LETTERS = 'CDEFGAB', NAT = [0, 2, 4, 5, 7, 9, 11], ACC = { '-2': '𝄫', '-1': '♭', 0: '', 1: '♯', 2: '𝄪' }
 const STEPS = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6]
-export const tonicPc = name => (NAT[LETTERS.indexOf(name[0])] + (/[♯#]/.test(name.slice(1)) ? 1 : /[♭b]/.test(name.slice(1)) ? -1 : 0) + 12) % 12
+// the pitch class of a tonic name: 'F♯' → 6, 'E𝄳' → 3.5
+export const tonicPc = name => parseKey(name)?.tonic ?? (NAT[LETTERS.indexOf(name[0])] + (/[♯#]/.test(name.slice(1)) ? 1 : /[♭b]/.test(name.slice(1)) ? -1 : 0) + 12) % 12
 // note names of a scale on a spelled tonic: seven-note scales take seven letters in a row (so D dorian has B♮,
-// F lydian has B♮, E♭ harmonic minor has D♮…); other sizes use the letter of the nearest major-scale degree
-export function spellScale(tonic, iv) {
+// F lydian has B♮, E♭ harmonic minor has D♮…); other sizes use the letter of the nearest major-scale degree;
+// microtonal scales are spelt by their system (theory.spellParts): E𝄳, B♭¹, D♯−37¢
+export function spellScale(tonic, iv, system = null) {
+  if (system || iv.some(v => !near(v, Math.round(v), 1e-6)) || tonicPc(tonic) !== Math.round(tonicPc(tonic))) {
+    const t = tonicPc(tonic), key = { tonic: t, mode: 'major', name: tonic, steps: iv.length === 7 ? iv : null, system }
+    return iv.map(v => {
+      const s = spellParts(60 + t + v, key)
+      return s.name + (Math.abs(s.cents) >= 1 ? `${s.cents > 0 ? '+' : '−'}${Math.round(Math.abs(s.cents))}¢` : '')
+    })
+  }
   const tl = LETTERS.indexOf(tonic[0]), t = tonicPc(tonic)
   return iv.map((v, i) => {
     const li = (tl + (iv.length === 7 ? i : STEPS[v])) % 7
@@ -192,15 +325,16 @@ export function spellScale(tonic, iv) {
     return LETTERS[li] + (ACC[acc] ?? '?')
   })
 }
-// the triads on each degree of a seven-note scale: { root, quality ('', 'm', '°', '+', 'sus'), roman }
-export function modeTriads(iv) {
-  if (iv.length !== 7) return []
+// the triads on each degree of a seven-note scale: { root, quality ('', 'm', '°', '+', 'n' neutral, '?'), roman }
+export function modeTriads(iv, system = null) {
+  if (iv.length !== 7 || system === 'aeu' || system === 'cents') return []
   const ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
   return iv.map((v, i) => {
     const third = (iv[(i + 2) % 7] - v + 12) % 12, fifth = (iv[(i + 4) % 7] - v + 12) % 12
-    const q = third === 4 && fifth === 7 ? '' : third === 3 && fifth === 7 ? 'm' : third === 3 && fifth === 6 ? '°' : third === 4 && fifth === 8 ? '+' : '?'
+    const is = (a, b) => near(third, a) && near(fifth, b)
+    const q = is(4, 7) ? '' : is(3, 7) ? 'm' : is(3, 6) ? '°' : is(4, 8) ? '+' : near(third, 3.5) && near(fifth, 7) ? 'n' : '?'
     const r = q === 'm' || q === '°' ? ROM[i].toLowerCase() : ROM[i]
-    return { i, third, fifth, q, roman: r + (q === '°' ? '°' : q === '+' ? '+' : '') }
+    return { i, third, fifth, q, roman: r + (q === '°' ? '°' : q === '+' ? '+' : q === 'n' ? 'ⁿ' : '') }
   })
 }
 

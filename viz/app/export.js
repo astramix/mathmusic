@@ -7,7 +7,9 @@ import { toast, download } from './ui.js'
 import { renderSong, renderSongCached } from './player.js'
 import { trackList, SR } from './runtime.js'
 import { nameIn, fileName } from './library.js'
-import { midiFile } from './midi.js'
+import { midiFile, isMicrotonal } from './midi.js'
+import { tuningFiles } from './tuning.js'
+import { MODES } from './modes.js'
 
 const fileBase = () => fileName(nameIn(app.current?.source ?? '', app.current?.entry?.name ?? 'song'))
 const mutedSet = () => new Set((app.scene?.tracks ?? []).filter(t => t.muted).map(t => t.key))
@@ -227,7 +229,12 @@ export async function exportAudio(fmt) {
   const name = fileBase()
   if (fmt === 'mid') {
     download(name + '.mid', new Blob([midiFile(cur.song, { muted: mutedSet() })], { type: 'audio/midi' }))
-    return toast('🎼 MIDI: каждая дорожка — отдельный трек, барабаны на 10-м канале' + (mutedSet().size ? ' · заглушённые не вошли' : ''), { kind: 'ok' })
+    const micro = isMicrotonal(cur.song)
+    return toast('🎼 MIDI: каждая дорожка — отдельный трек, барабаны на 10-м канале' + (mutedSet().size ? ' · заглушённые не вошли' : '') + (micro ? '\nмикротоны и строй округлены до полутонов — для точных нот есть «MIDI · MPE» и файлы строя' : ''), { kind: 'ok', ms: micro ? 8000 : 4000 })
+  }
+  if (fmt === 'mpe') {
+    download(name + '-mpe.mid', new Blob([midiFile(cur.song, { muted: mutedSet(), mpe: true })], { type: 'audio/midi' }))
+    return toast('🎼 MIDI MPE: каждая нота на своём канале (2–9) со своим питч-бендом ±48 — микротоны и строй до цента. В Ableton — инструмент в режиме MPE, дорожки импортируй по одной', { kind: 'ok', ms: 9000 })
   }
   const t = toast(`экспорт ${fmt.toUpperCase()}…`, { progress: true })
   try {
@@ -264,6 +271,16 @@ async function stems(name, t) {
   const z = await zip(files)
   download(`${name}-stems.zip`, z)
   t.done(`🗂 ${keys.length} стемов + микс · ${(z.size / 1e6).toFixed(0)} МБ — в Ableton они складываются ровно в mix.wav`)
+}
+// the song's tuning for other programs: Scala .scl + .kbm, Ableton Live 12 .ascl (a temperament: 12 notes from C;
+// a microtonal mode: its own degrees from the tonic) — in one ZIP
+export async function exportTuning() {
+  const cur = app.current
+  if (!cur?.song) return toast('нет песни')
+  const name = fileBase(), mode = cur.song.mode ? MODES[cur.song.mode] : null
+  const files = Object.entries(tuningFiles(cur.song, { mode, base: name })).map(([f, text]) => ({ name: `${name}-tuning/${f}`, blob: new Blob([text], { type: 'text/plain' }) }))
+  download(`${name}-tuning.zip`, await zip(files))
+  toast('🎚 строй: .scl и .kbm (Scala, Surge, Pianoteq…), .ascl — Ableton Live 12 (Tuning → загрузить). MIDI-ноты остаются обычными', { kind: 'ok', ms: 8000 })
 }
 export function exportSource() {
   const cur = app.current

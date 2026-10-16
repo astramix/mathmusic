@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
   the generator (11 styles × 3 seeds: loads, renders, lead on its chords), retune (every song in two modes), theory, MIDI export, the song
-  library's names/backup, the app build + syntax (acorn and `node --check`).
+  library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]`
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
   the app's 🎲 menu.
@@ -44,12 +44,15 @@ export default {
   //   (what its graph becomes and how it flies; the kick track also sets the rhythm), chord: x ⇒ 'F♯m', loop, outro (beats) } — a Glitch Forest boss; the game's
   //   tools/score-export.mjs turns it into js/score-data/<name>.js (MP3 + a score per beat)
   // optional: theme: 'lofi' (visualiser colours, viz/app/themes.js); generated songs also carry
-  // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length }
+  // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length, key?, mode?, micro?, temperament? }
+  // optional: mode: 'rast' (a modes.js id — a microtonal one makes the app spell E𝄳, B♭¹, D♯−37¢);
+  //   tuning: { id: 'werckmeister3', name, offsets: [12 cents of C … B from 12-TET] } — what the song sounds in (export, inspector)
 }
 ```
 - `graph(x)` → number | number[] | null; y range −3…5. Lanes: drums 2…4.5, lead 1…3,
   chords −1…0.5, bass −3…−2, ambience ≈ −2.9.
-- `midi(x)` → MIDI notes sounding at x (for Export). C4 = 60, A4 = 69.
+- `midi(x)` → MIDI notes sounding at x (for Export). C4 = 60, A4 = 69. Microtones are fractional: 63.5 = E𝄳4,
+  60.25 = C𝄮4 (rounded to the cent); a temperament doesn't show here — midi() is the written note.
 - `formula` → LaTeX string or [main, …definitions]: the full math of the sound, shown in the visualiser.
   Macros: `saw sq tri Pi_d LP_{fc} HP BP SS_N Rev Dly Cho Tape ol lfsr`; t = s since the note,
   τ = beats since the hit, T = s since start. Older songs keep theirs in `viz/formulas.js`.
@@ -104,17 +107,38 @@ Composition: `voiceChords([[root, 3rd, 5th(, 7th)] pcs…], {lo, hi, voices})` �
 no parallel fifths/octaves, the third never doubled).
 
 ## theory.js (shared by the generator, the app, the tests — not imported by songs)
-`freq(n)` A4 = 440 · `pc(n)` · `parseKey('F#m')` → {tonic, mode} · `keyName`, `keyLabel` ('F♯ минор') ·
-`spell(n, key)` → 'B♭4' / 'C♯5' (by scale degree: E♯ in F♯ major) · `songKey(song)` (song.key or
+`freq(n)` A4 = 440 · `pc(n)` · `parseKey('F#m' | 'E𝄳')` → {tonic (3.5 for E𝄳), mode, name?} · `keyName`, `keyLabel` ('F♯ минор') ·
+`spell(n, key)` → 'B♭4' / 'C♯5' (by scale degree: E♯ in F♯ major; integers exactly as always). Microtones
+(`spellParts(n, key)` → {letter, acc, alter, oct, cents, text, glyph (SMuFL), xml (MusicXML)}): Stein–Zimmermann–Gould on
+the 48-EDO grid — 𝄳/𝄲 quarter tones, ♭𝄳/♯𝄲 three quarters, an eighth tone = an arrow on the semitone sign beside it
+(𝄮 ♮↑ +25 ¢, 𝄱 ♯↓ +75 ¢, 𝄬 ♭↑, 𝄯 ♮↓, 𝄰 ♯↑, 𝄭 ♭↓); a key with `steps` (its mode's degrees) spells degree by
+degree (C rast: E𝄳, B𝄳); `system: 'aeu'` Turkish commas above the Pythagorean natural (♭¹ koma, ♭⁴ bakiye, ♭⁵
+küçük, ♭⁸ büyük mücenneb), 'persian' koron/sori, 'cents' a measured scale: the nearest note + cents (F4−37¢) · `songKey(song)` (song.key or
 Krumhansl–Kessler, bass-weighted) · `SCALES` · `QUALITIES` · `roman('V7/V', key)` → {root, quality, tones, ivs} ·
 `chordName(ch, key)` · `voiceLead(pcs, prev, {lo, hi, voices})` smooth compact voicings · `snap(n, pcs)`.
 
 ## modes.js (shared by the app, the generator, the tests — not imported by songs)
-`MODE_GROUPS` — 77 modes in 11 groups, the well-known first: basic, church modes, pentatonics/blues, modes of melodic
-minor, harmonic minor, harmonic major, Middle East/Balkans, Japan & East Asia, islands (Ryukyu, slendro/pelog as 12-TET
-approximations, Gaelic), India (thaats), symmetric. Each { id, name, alt, iv, short, text }. `MODES[id]`,
-`parentMode(iv)` (major/minor by the third), `spellScale(tonic, iv)` (seven letters for seven notes: E♭ dorian →
-E♭ F G♭ A♭ B♭ C D♭), `modeTriads`, `stepFormula`, `degreeFormula`, `KEYS` (30 keys round the circle of fifths with signatures).
+`MODE_GROUPS` — 99 modes in 16 groups, the well-known first: basic, church modes, pentatonics/blues, modes of melodic
+minor, harmonic minor, harmonic major, Middle East/Balkans, Japan & East Asia, islands (Ryukyu, Gaelic), India (thaats),
+then the microtonal ones (`micro: true`), each in its real tuning: Arabic maqamat in quarter tones (rast bayati sikah
+huzam saba hijazRast suznak iraq; 24-EDO as in the Cairo 1932 theory), Persian dastgah-ha (shur homayun chahargah,
+`system: 'persian'`), Turkish makamlar in 53 commas of Arel–Ezgi–Uzdilek (trRast ussak huseyni trHicaz trSaba kurdi
+nihavent, `system: 'aeu'`), measured gamelan (slendro / pelog / pelogBem / pelogBarang: saron barung of Kyai Madu Laras,
+Oxford, tuned 1987 — J. Montagu's tables; slendroKunst: Kunst's Kanyut Mesem; `system: 'cents'`), microchromatic grids
+(quarter24, eighth48 — `grid: 24|48`: the generator writes ¼/⅛ tones into the melodies) and Thai 7-EDO; then symmetric.
+Each { id, name, alt, iv (fractional semitones), system?, home (its usual tonic), short, text }. `MODES[id]` (old ids
+pelogSelisir/pelogTembung → pelogBem), `isMicro(m)`, `keyWithMode(key, id)` (the key with the mode's steps/system for
+spelling), `parentMode(iv)` (major/minor by the third; a neutral third leans by size), `spellScale(tonic, iv, system)`
+(seven letters for seven notes: E♭ dorian → E♭ F G♭ A♭ B♭ C D♭; C rast → … E𝄳 … B𝄳), `modeTriads(iv, system)` ('n' = neutral),
+`stepFormula(iv, system)` (Т–П… / ¾т / commas / cents), `degreeFormula`, `KEYS` (30 keys round the circle of fifths with signatures).
+
+## tuning.js (temperaments and tuning files — the generator, retune, the app, the tests; not imported by songs)
+`TEMPERAMENTS`: equal; just (5-limit on the tonic, Ptolemy's ratios); adaptive (each chord pure on its root: 5/4, 6/5,
+3/2, the dominant's 7/4, 9/5, 15/8 — generator only); by spelling, on the chain of fifths so G♯ ≠ A♭: pythagorean,
+meantone (¼ comma), edo19, edo31, edo53; fixed well temperaments werckmeister3, kirnberger3, vallotti (A4 = 440 kept).
+`temperOffsets(id, key)` → 12 cents by absolute pitch class (the tonic keeps its 12-TET pitch for tonic/spelled kinds) ·
+`adaptiveOffset(k, [3rd, 5th, 7th])` · `tuningFiles(song, { mode, base })` → Scala .scl + .kbm and Ableton Live 12 .ascl
+(`@ABL REFERENCE_PITCH 3 0 <C4 Hz>` — Live calls MIDI 60 "C3", `@ABL NOTE_NAMES` spelt by the key) · `gridOf`, `quantize`.
 
 ## retune.js (the app's «эта же музыка в …», tests — not imported by songs)
 `retuneSource(source, song, { tonic, mode }, { parse: acorn.parse, theme })` → { source, name, plan }: any song (built-in
@@ -129,11 +153,22 @@ mapped the same way; the copy keeps `export default __retuneSong({ … })` with 
 reads that form) and its parameters in `const __RT = {…}`, so retuning a copy starts from the original. Generated songs are
 made again from their seeds instead (genui `regenerate`). test/retune.test.js retunes every song into two modes.
 A song that writes a pitch some other way (a hand-made phase increment from a variable not built from these) is not moved.
+Microtonal targets ({ tonic: 'E𝄳', mode: 'sikah' }) work the same way (`degreeTable` returns fractional shifts, midi()
+reports 63.5); `target.temperament` adds `__RT.tm` (cents per section offset — the tuning follows each modulation) and
+__T in __R; the copy gets a `tuning` field. The prelude ends with `// ---- end of the retune prelude`, so retuning a copy
+replaces the whole prelude.
 
 ## The generator (src/generate.js, src/melodies.js)
-`generate({ style, seed, key?, mode?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme? })` → { source, meta }.
+`generate({ style, seed, key?, mode?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme?, micro?, temperament? })` → { source, meta }.
 `mode` (a modes.js id): made in the major/minor with the same third, then every pitch (themes, voicings, bass) moves
 into the mode by scale degree (`modeMapper`; other sizes: nearest note), chords renamed; the song gets `mode: 'dorian'`.
+A microtonal mode the same way (C rast: E𝄳, B𝄳 in melody and chords — `describeChord` names them, 'n' = neutral third);
+a quarter-tone key ('E𝄳' sikah) is made a semitone up and moved down (`shiftPitches`). `micro: 'quarter' | 'eighth'` (or the
+modes quarter24 / eighth48) — `microMelody`: neutral steps (D–E𝄳–F), quarter-tone passing notes, slides and turns, or the
+eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, glides); the solo gets `MICRO`. `temperament` (a
+tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
+sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
+others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
 Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
@@ -173,9 +208,11 @@ inspector, live formulas) · player.js (worker pool renders tracks in parallel �
 (classic worker) · worklet.js · runtime.js (ES module → function body, keeps line numbers) · view.js
 (scene: classic / paper — axes, formulas pop up when a part enters / space 3D; the same code draws the
 video frames) · editor.js (CodeMirror, lint, API hints from api.js, number sliders, full check with
-LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code) · genui.js · export.js (MP3
+LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code; rows in semitones, ¼ or ⅛ tones — chosen from
+the notes / the song's mode) · genui.js (dialog: Строй, Микротоны ¼/⅛) · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
-ch. 10 / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs; saved into the project's **videos/** — `lib.videoFolder({ pick })` asked before encoding, `lib.writeVideo` in 16 MB pieces through the server, or a folder handle: videos/ in the chosen project folder or a folder picked once; downloaded only without one) · gallery.js (right click: duplicate,
+ch. 10 / MIDI MPE: microtones and tunings as per-note pitch bends — lower zone, members ch. 2–9, ±48 st, MCM + RPN 0 /
+the tuning as .scl .kbm .ascl in a ZIP / stems ZIP) · video.js (MP4 H.264 + AAC|Opus via WebCodecs; saved into the project's **videos/** — `lib.videoFolder({ pick })` asked before encoding, `lib.writeVideo` in 16 MB pieces through the server, or a folder handle: videos/ in the chosen project folder or a folder picked once; downloaded only without one) · gallery.js (right click: duplicate,
 rename, delete; built-in songs first, then my_songs/, then generated/, each on its own row; style chips filter by `style`) ·
 library.js (my songs are files in **my_songs/**, the 🎲 songs nobody saved yet in **generated/** — each folder a `Shelf` with
 its library.json (id, kind, pristine, dates); `shelfOf(e)`: pristine (a 🎲 song or a retuned copy nobody saved) → generated/, else my_songs/; Ctrl+S,
@@ -194,7 +231,9 @@ on world-fixed grids, the nearest layer on bar lines via X(b)); space: `sceneryB
 every N beats beside the lanes, crossing the playhead plane on their beat, torii/lancet arches over all lanes. Driven by
 `musicOf(scene)`: beat phase, downbeat, kick (drum tracks' onsets), energy, progress, section flash — never Math.random) ·
 modesui.js («Лады» and «Тональность» side by side on the right, #keynav: a card per mode with notes spelt on the
-tonic, steps, triads, ▶ scale/chords; 30 keys. Picking one never stops the music and offers «↻ Эта же музыка → …» (genui
+tonic, steps, triads, cents, ▶ scale/chords and ▶ «и в 12-TET» for microtonal modes, quarter-tone tonics (E𝄳…); 30 keys;
+«🎚 Строй»: a card per temperament — cents of every note in the key, ▶ a cadence in 12-TET and in the tuning, `app.temperament`
+(localStorage `mm.temper`) for the next 🎲 songs. Picking one never stops the music and offers «↻ Эта же музыка → …» (genui
 `sameIn`: a generated song again from its seeds, any other — built-in too — a retuned copy via retune.js,
 in generated/ until Ctrl+S, going on from the same beat, paused stays paused) or «🎲 Следующая музыка → …» (`app.tonality` {tonic, mode} | null, kept in
 localStorage `mm.tonality`; 🎲 makes new songs in it)). `node render.js my_songs/<file>.js` renders a saved song like any other.

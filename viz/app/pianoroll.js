@@ -2,14 +2,17 @@
 // — and lets you draw them with the mouse. Every change rewrites that array in the code, so the
 // song plays the new melody at once.
 //   click — a note (length = the last one used) · drag — move · drag the right edge — length
-//   right click / double click / Del — delete · ↑↓ — semitone (Shift: octave) · ←→ — by the grid
+//   right click / double click / Del — delete · ↑↓ — a row (Shift: octave) · ←→ — by the grid
 //   wheel — scroll · Ctrl+wheel — zoom · Shift — no snapping
+// Rows are semitones, quarter tones or eighth tones (the pitch grid in the header): n may be 3.5 (E𝄳) or 0.25 (C𝄮);
+// names follow the song's key and mode (Stein–Zimmermann–Gould accidentals, Turkish commas, cents).
 // n counts semitones from a base note: read from the comment near the array ("n from F4"),
 // changeable in the header. Rows of the song's scale are lighter; names follow the key.
 import { app } from './app.js'
 import { h, toast } from './ui.js'
 import * as acorn from './acorn.js'
 import { spell, pc, freq, SCALES, parseKey } from './theory.js'
+import { MODES } from './modes.js'
 
 const NOTE_RE = /\b(?:n|semitones|notes?)?\s*(?:from|от)\s+([A-G](?:#|♯|b|♭)?-?\d)\b/i
 const midiOf = name => {
@@ -71,17 +74,20 @@ export function createPianoRoll(root) {
   const gridSel = h('select', { title: 'сетка' })
   for (const [v, l] of [[1, '1 доля'], [0.5, '1/8'], [0.25, '1/16'], [1 / 3, 'триоль 1/8'], [1 / 6, 'триоль 1/16'], [2, '1/2']]) gridSel.append(new Option(l, v))
   gridSel.value = 0.25
+  // the pitch grid: semitones, quarter tones (24-EDO), eighth tones (48-EDO)
+  const resSel = h('select', { title: 'шаг по высоте: полутон, четверть тона, восьмая тона' })
+  for (const [v, l] of [[1, 'полутоны'], [0.5, '¼ тона'], [0.25, '⅛ тона']]) resSel.append(new Option(l, v))
   const play = h('button', { title: 'прослушать мелодию отдельно (по кругу)' }, '▶ слушать')
   const info = h('span', { class: 'dim' })
-  root.append(h('div', { class: 'pr-head' }, h('span', { class: 'title' }, '🎹 пианоролл'), sel, baseSel, gridSel, play,
+  root.append(h('div', { class: 'pr-head' }, h('span', { class: 'title' }, '🎹 пианоролл'), sel, baseSel, gridSel, resSel, play,
     h('button', { title: 'новая мелодия в коде', onclick: () => newMelody() }, '＋ новая'), info, h('span', { class: 'sp' }),
-    h('span', { class: 'dim' }, 'клик — нота · тяни — сдвиг/длина · ПКМ — удалить · ↑↓←→'),
+    h('span', { class: 'dim' }, 'клик — нота · тяни — сдвиг/длина · ПКМ — удалить · ↑↓←→ · ¼ и ⅛ тона — шаг по высоте'),
     h('button', { onclick: () => app.togglePianoRoll(false), title: 'закрыть (P)' }, '✕')))
   const body = h('div', { class: 'pr-body', tabindex: 0 }), cv = h('canvas')
   body.append(cv)
   root.append(body)
   const g = cv.getContext('2d')
-  let W = 0, H = 0, mels = [], cur = null, notes = [], base = 69, px = 48, row = 14, scrollX = 0, top = 84, selIdx = new Set(), lastDur = 0.5
+  let W = 0, H = 0, mels = [], cur = null, notes = [], base = 69, px = 48, row = 14, scrollX = 0, top = 84, selIdx = new Set(), lastDur = 0.5, res = 1
   let drag = null, hover = null, playing = null
 
   function resize() {
@@ -125,6 +131,7 @@ export function createPianoRoll(root) {
       selIdx.clear()
     }
     info.textContent = m.base ? `n от ${m.base}` : 'база не указана в коде — выбери'
+    if (!keepView) setRes(fineness(notes.map(e => e[1])))
     draw()
   }
   // no "n from X" comment: assume the song's tonic in octave 4 or 5
@@ -136,13 +143,29 @@ export function createPianoRoll(root) {
     while (b + mid < 60) b += 12
     return b
   }
+  // the finest grid the notes (or the song's mode) need: 1, 0.5 or 0.25
+  function fineness(ns) {
+    const mode = app.current?.song?.mode && MODES[app.current.song.mode], vals = [...ns, ...(mode ? mode.iv : [])]
+    if (mode?.grid === 48 || vals.some(v => Math.abs(v * 2 - Math.round(v * 2)) > 0.01)) return 0.25
+    if (mode?.grid === 24 || vals.some(v => Math.abs(v - Math.round(v)) > 0.01)) return 0.5
+    return 1
+  }
+  function setRes(r) {
+    const c = top
+    res = r
+    resSel.value = r
+    row = r === 1 ? 14 : r === 0.5 ? 12 : 9
+    top = Math.round(c / r) * r
+  }
+  resSel.onchange = () => { setRes(+resSel.value); draw() }
   sel.onchange = () => select(mels.find(m => m.name === sel.value), false)
   baseSel.onchange = () => { base = +baseSel.value; draw() }
 
   // ---- geometry ----
   const KEYS = 52
   const X = b => KEYS + (b - scrollX) * px, B = sx => (sx - KEYS) / px + scrollX
-  const Yr = midi => (top - midi) * row + 0, M = sy => Math.floor(top - sy / row + 1)
+  const Yr = midi => ((top - midi) / res) * row, M = sy => top - (Math.floor(sy / row) - 0) * res
+  const rows = () => { const out = []; for (let m = M(H) - res; m <= top + res; m += res) out.push(Math.round(m * 4) / 4); return out }
   const grid = () => +gridSel.value
   const snap = (b, e) => (e?.shiftKey ? b : Math.round(b / grid()) * grid())
   const noteAt = (sx, sy) => {
@@ -155,13 +178,15 @@ export function createPianoRoll(root) {
 
   function draw() {
     if (!W) return
-    const key = app.current?.key ?? parseKey('C'), scale = SCALES[key.mode === 'minor' ? 'minor' : 'major'].map(i => (i + key.tonic) % 12)
+    const key = app.current?.key ?? parseKey('C'), mode = app.current?.song?.mode && MODES[app.current.song.mode]
+    const scale = (mode && !mode.grid ? mode.iv : SCALES[key.mode === 'minor' ? 'minor' : 'major']).map(i => (((i + key.tonic) % 12) + 12) % 12)
+    const pcf = m => ((m % 12) + 12) % 12, isIn = m => scale.some(p => Math.abs(pcf(m) - p) < 0.13 * Math.min(1, res * 2) || Math.abs(pcf(m) - p - 12) < 0.01)
     g.fillStyle = '#100d22'
     g.fillRect(0, 0, W, H)
-    // rows
-    for (let m = M(H) - 1; m <= top + 1; m++) {
-      const y = Yr(m), inScale = scale.includes(pc(m))
-      g.fillStyle = pc(m) === key.tonic ? '#2a2350' : inScale ? '#1b1638' : '#130f28'
+    // rows (microtonal rows a little darker, so the semitones still read)
+    for (const m of rows()) {
+      const y = Yr(m), on12 = Math.abs(m - Math.round(m)) < 1e-6
+      g.fillStyle = Math.abs(pcf(m) - key.tonic) < 1e-6 ? '#2a2350' : isIn(m) ? '#1b1638' : on12 ? '#130f28' : '#0f0c20'
       g.fillRect(KEYS, y, W - KEYS, row - 1)
     }
     // beats & bars
@@ -196,14 +221,16 @@ export function createPianoRoll(root) {
       g.fillRect(X(b), 0, 1.5, H)
     }
     // keyboard
-    for (let m = M(H) - 1; m <= top + 1; m++) {
-      const y = Yr(m), black = [1, 3, 6, 8, 10].includes(pc(m))
-      g.fillStyle = black ? '#1c1a24' : '#e9e6f2'
-      g.fillRect(0, y, KEYS - 2, row - 1)
-      if (pc(m) === 0 || pc(m) === key.tonic || row >= 13) {
-        g.fillStyle = black ? '#cfcbe0' : '#2b2840'
-        g.font = `${pc(m) === key.tonic ? 'bold ' : ''}10px system-ui`
-        g.fillText(spell(m, key), 4, y + row - 3)
+    for (const m of rows()) {
+      const y = Yr(m), on12 = Math.abs(m - Math.round(m)) < 1e-6, black = on12 && [1, 3, 6, 8, 10].includes(pc(m))
+      // microtonal keys: a narrow strip between the keys, tinted (¼ violet, ⅛ blue)
+      g.fillStyle = !on12 ? (Math.abs(m * 2 - Math.round(m * 2)) < 1e-6 ? '#6b5bb8' : '#3f5f9a') : black ? '#1c1a24' : '#e9e6f2'
+      g.fillRect(on12 ? 0 : 10, y, KEYS - 2 - (on12 ? 0 : 10), row - 1)
+      const tonic = Math.abs(pcf(m) - key.tonic) < 1e-6
+      if (pc(m) === 0 && on12 || tonic || row >= 13 || (!on12 && row >= 9 && isIn(m))) {
+        g.fillStyle = black || !on12 ? '#e4e0f2' : '#2b2840'
+        g.font = `${tonic ? 'bold ' : ''}${row >= 12 ? 10 : 8}px system-ui`
+        g.fillText(spell(m, key).replace(/[+−]\d+¢$/, ''), on12 ? 4 : 12, y + row - 2)
       }
     }
     if (!cur) {
@@ -338,10 +365,10 @@ export function createPianoRoll(root) {
       }
       return
     }
-    const db = (sx - drag.sx) / px, dn = Math.round(-(sy - drag.sy) / row), e0 = notes[drag.i]
+    const db = (sx - drag.sx) / px, dn = Math.round(-(sy - drag.sy) / row) * res, e0 = notes[drag.i]
     if (drag.edge) e0[2] = Math.max(grid() / (e.shiftKey ? 4 : 1), snap(drag.d0 + db, e))
     else {
-      const nb = Math.max(0, snap(drag.b0 + db, e)), nn = drag.n0 + dn
+      const nb = Math.max(0, snap(drag.b0 + db, e)), nn = Math.round((drag.n0 + dn) * 4) / 4
       if (nn !== e0[1]) beep(base + nn, 0.2)
       e0[0] = +nb.toFixed(4)
       e0[1] = nn
@@ -360,7 +387,7 @@ export function createPianoRoll(root) {
     e.preventDefault()
     if (e.ctrlKey) px = Math.max(10, Math.min(240, px * (e.deltaY > 0 ? 0.88 : 1.14)))
     else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) scrollX = Math.max(0, scrollX + (e.deltaX || e.deltaY) / px)
-    else top = Math.max(24, Math.min(120, top + (e.deltaY > 0 ? -2 : 2)))
+    else top = Math.max(24, Math.min(120, top + (e.deltaY > 0 ? -2 : 2) * res))
     draw()
   }, { passive: false })
   body.addEventListener('keydown', e => {
@@ -370,8 +397,8 @@ export function createPianoRoll(root) {
       notes = notes.filter((_, i) => !selIdx.has(i))
       selIdx.clear()
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1)
-      sel.forEach(n => (n[1] += d))
+      const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : res)
+      sel.forEach(n => (n[1] = Math.round((n[1] + d) * 4) / 4))
       beep(base + sel[0][1])
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       const d = (e.key === 'ArrowRight' ? 1 : -1) * grid()

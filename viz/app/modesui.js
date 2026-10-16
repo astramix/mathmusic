@@ -2,14 +2,19 @@
 // its own). Choosing one never stops the music; it asks what to do with it: the same music in it now (a generated
 // song made again from its seeds, any other — built-in too — a retuned copy, src/retune.js; it goes on from the same
 // beat) or the next music in it (🎲 makes new songs in it). Every mode has a card: what it is, its steps and degrees,
-// its notes spelt on the tonic, the triads on its degrees, and it plays.
+// its notes spelt on the tonic, the triads on its degrees, and it plays. «Строй» does the same for tunings
+// (src/tuning.js): a card with the cents of every note and a cadence to hear in 12-TET and in the tuning.
 import { app } from './app.js'
 import { h, esc, toast, modal } from './ui.js'
-import { MODE_GROUPS, MODES, modeOf, KEYS, signature, spellScale, stepFormula, degreeFormula, modeTriads, tonalityLabel, tonicPc } from './modes.js'
-import { keyLabel } from './theory.js'
+import { MODE_GROUPS, MODES, modeOf, KEYS, signature, spellScale, stepFormula, degreeFormula, modeTriads, tonalityLabel, tonicPc, isMicro } from './modes.js'
+import { keyLabel, tonicName, parseKey, spell } from './theory.js'
+import { TEMPERAMENTS, temperOf, temperOffsets } from './tuning.js'
 import { sameIn } from './genui.js'
 
 const TONICS = ['C', 'C♯', 'D♭', 'D', 'D♯', 'E♭', 'E', 'F', 'F♯', 'G♭', 'G', 'G♯', 'A♭', 'A', 'A♯', 'B♭', 'B', 'C♭']
+// a microtonal mode may stand on a quarter tone too (Sikah on E𝄳, Iraq on B𝄳)
+const QUARTER_TONICS = ['C𝄲', 'D𝄳', 'D𝄲', 'E𝄳', 'F𝄲', 'G𝄳', 'G𝄲', 'A𝄳', 'A𝄲', 'B𝄳']
+const tonicsFor = m => (isMicro(m) ? [...TONICS, ...QUARTER_TONICS].sort((a, b) => tonicPc(a) - tonicPc(b) || a.length - b.length) : TONICS)
 app.tonality = null // { tonic: 'D', mode: 'dorian' } | null = auto
 try { app.tonality = JSON.parse(localStorage.getItem('mm.tonality') || 'null') } catch {}
 const listeners = new Set()
@@ -24,7 +29,7 @@ export function setTonality(t, { quiet = false } = {}) {
 // a tonality was picked: the same music in it now, or the next music in it — the music keeps playing meanwhile
 export function offer(t) {
   const label = tonalityLabel(t), cur = app.current
-  const now = cur?.song ? `«${esc(cur.entry?.name ?? cur.song.name)}»${cur.key ? ` · ${esc(keyLabel(cur.key))}${cur.song.mode && MODES[cur.song.mode] ? ` (${esc(MODES[cur.song.mode].name.toLowerCase())})` : ''}` : ''}` : ''
+  const now = cur?.song ? `«${esc(cur.entry?.name ?? cur.song.name)}»${cur.key ? ` · ${esc(app.tonalityOf(cur.song, cur.key))}` : ''}` : ''
   const how = !cur?.song ? '' : cur.song.generator
     ? 'Сгенерированная песня сочинится заново с теми же зёрнами — мелодии, аранжировка и инструменты те же.'
     : `Получится копия в «Сгенерированные» (Ctrl+S сохранит её в «Мои»): каждая нота встанет на ту же ступень нового лада${cur.entry?.kind === 'builtin' ? ', встроенная песня не изменится' : ''}; модуляции внутри песни сохранятся.`
@@ -34,22 +39,25 @@ export function offer(t) {
     ...(cur?.song ? [{ label: `↻ Эта же музыка → ${label}`, primary: true, action: () => sameIn(t) }] : []),
   ])
 }
-const tonicNow = () => app.tonality?.tonic ?? (app.current?.key ? keyLabel(app.current.key).split(' ')[0] : 'C')
+const tonicNow = () => app.tonality?.tonic ?? (app.current?.key ? tonicName(app.current.key) : 'C')
 
 // ---- sound: a little additive keyboard for the cards ----------------------------------------------------------
 let ctx = null
-function playNotes(list) { // [[when s, midi, length s], …]
+// [[when s, MIDI (fractional for microtones), length s], …]; cents: a temperament's offsets of C … B
+function playNotes(list, cents = null) {
   ctx ??= new AudioContext()
   const t0 = ctx.currentTime + 0.05, out = ctx.createGain()
   out.gain.value = 0.22
   out.connect(ctx.destination)
   for (const [at, n, d] of list) {
-    const f = 440 * 2 ** ((n - 69) / 12), g = ctx.createGain()
+    const off = cents && Math.abs(n - Math.round(n)) < 0.01 ? cents[((Math.round(n) % 12) + 12) % 12] / 100 : 0
+    const f = 440 * 2 ** ((n + off - 69) / 12), g = ctx.createGain()
     g.gain.setValueAtTime(0, t0 + at)
     g.gain.linearRampToValueAtTime(0.5, t0 + at + 0.01)
     g.gain.exponentialRampToValueAtTime(0.001, t0 + at + d + 0.6)
     g.connect(out)
-    for (const [mul, a] of [[1, 1], [2, 0.3], [3, 0.12]]) {
+    // a reed-like tone: enough harmonics that the beating of a tempered third is heard
+    for (const [mul, a] of [[1, 1], [2, 0.4], [3, 0.22], [4, 0.12], [5, 0.08], [6, 0.04]]) {
       const o = ctx.createOscillator(), og = ctx.createGain()
       o.frequency.value = f * mul
       og.gain.value = a
@@ -58,12 +66,14 @@ function playNotes(list) { // [[when s, midi, length s], …]
       o.stop(t0 + at + d + 0.7)
     }
   }
+  return list.reduce((e, [at, , d]) => Math.max(e, at + d), 0)
 }
 const base = tonic => 60 + tonicPc(tonic) - (tonicPc(tonic) > 6 ? 12 : 0) // the tonic between F♯3 and F4
-const playScale = (tonic, iv) => {
+const scaleNotes = (tonic, iv) => {
   const b = base(tonic), up = [...iv, 12].map(v => b + v), down = [...up].reverse().slice(1)
-  playNotes([...up, ...down].map((n, i) => [i * 0.28, n, 0.3]))
+  return [...up, ...down].map((n, i) => [i * 0.28, n, 0.3])
 }
+const playScale = (tonic, iv) => playNotes(scaleNotes(tonic, iv))
 const playChords = (tonic, iv) => {
   const b = base(tonic)
   playNotes([...iv, 12].flatMap((v, i) => {
@@ -71,22 +81,32 @@ const playChords = (tonic, iv) => {
     return [0, 2, 4].map(k => [i * 0.75, note(k), 0.7])
   }))
 }
+// the microtonal scale, then the nearest 12-TET notes — what the ear should notice
+const playVersus12 = (tonic, iv) => {
+  const a = scaleNotes(tonic, iv), t = playNotes(a) + 0.8
+  playNotes(a.map(([at, n, d]) => [at + t, Math.round(n), d]))
+}
 
 // ---- the card of a mode ---------------------------------------------------------------------------------------------
-export function modeCard(id, tonicIn = tonicNow()) {
-  const m = modeOf(id)
-  let tonic = tonicIn
+export function modeCard(id, tonicIn = null) {
+  const m = modeOf(id), micro = isMicro(m), TON = tonicsFor(m)
+  let tonic = tonicIn ?? (app.tonality?.mode === id ? app.tonality.tonic : micro && m.home ? m.home : tonicNow())
   const body = h('div', { class: 'modecard' })
   const sel = h('select', { title: 'тоника' })
-  for (const t of TONICS) sel.append(new Option(t, t))
-  sel.value = TONICS.includes(tonic) ? tonic : 'C'
-  const notes = h('div', { class: 'notes' }), chords = h('div', { class: 'chords' })
+  for (const t of TON) sel.append(new Option(t, t))
+  sel.value = TON.includes(tonic) ? tonic : 'C'
+  tonic = sel.value
+  const notes = h('div', { class: 'notes' }), chords = h('div', { class: 'chords' }), cents = h('div', { class: 'formula' })
   const render = () => {
-    const names = spellScale(tonic, m.iv)
+    const names = spellScale(tonic, m.iv, m.system ?? null)
     notes.replaceChildren(...names.map((n, i) => h('span', { class: 'note' + (i === 0 ? ' tonic' : '') }, n)))
-    const tri = modeTriads(m.iv)
-    chords.replaceChildren(...(tri.length ? [h('div', { class: 'dim' }, 'Трезвучия на ступенях:'), h('div', { class: 'row' }, ...tri.map(c => h('span', { class: 'chord', title: c.q === '?' ? 'не терцовое трезвучие' : '' },
-      h('b', {}, c.roman), ' ', names[c.i] + { '': '', m: 'm', '°': '°', '+': '+', '?': '(?)' }[c.q])))] : [h('div', { class: 'dim' }, m.iv.length < 7 ? 'Лад из ' + m.iv.length + ' ступеней: аккорды берутся из соседнего мажора/минора, мелодия — только по этим нотам.' : 'Многоступенный лад: генератор берёт ближайшие ноты лада.')]))
+    cents.replaceChildren(...(micro && !m.grid ? [h('span', { class: 'dim' }, 'В центах от тоники: '), m.iv.map(v => Math.round(v * 100)).join(' · ') + ' · 1200'] : []))
+    const tri = modeTriads(m.iv, m.system ?? null)
+    chords.replaceChildren(...(tri.length ? [h('div', { class: 'dim' }, 'Трезвучия на ступенях:'), h('div', { class: 'row' }, ...tri.map(c => h('span', { class: 'chord', title: c.q === '?' ? 'не терцовое трезвучие' : c.q === 'n' ? 'нейтральная терция — 3½ полутона' : '' },
+      h('b', {}, c.roman), ' ', names[c.i] + { '': '', m: 'm', '°': '°', '+': '+', n: 'n', '?': '(?)' }[c.q])))]
+      : [h('div', { class: 'dim' }, m.grid ? `Сетка из ${m.grid} ступеней: генератор оставляет мажор/минор тональности и вплетает в мелодии ${m.grid === 24 ? 'четверти' : 'восьмые'} тона.`
+        : m.system === 'aeu' || m.system === 'cents' ? 'Аккорды здесь не терцовые: генератор переносит гармонию по ступеням, мелодия звучит в точном строе лада.'
+          : m.iv.length < 7 ? 'Лад из ' + m.iv.length + ' ступеней: аккорды берутся из соседнего мажора/минора, мелодия — только по этим нотам.' : 'Многоступенный лад: генератор берёт ближайшие ноты лада.')]))
   }
   sel.onchange = () => { tonic = sel.value; render() }
   render()
@@ -95,10 +115,12 @@ export function modeCard(id, tonicIn = tonicNow()) {
     h('p', { class: 'short' }, m.short),
     h('p', {}, m.text),
     h('div', { class: 'row' }, h('span', { class: 'dim' }, 'Тоника'), sel,
-      h('button', { onclick: () => playScale(tonic, m.iv) }, '▶ гамма'),
-      m.iv.length === 7 ? h('button', { onclick: () => playChords(tonic, m.iv) }, '▶ аккорды') : ''),
+      h('button', { onclick: () => playScale(tonic, m.grid ? m.iv.slice(0, m.grid / 2 + 1) : m.iv) }, '▶ гамма'),
+      m.iv.length === 7 ? h('button', { onclick: () => playChords(tonic, m.iv) }, '▶ аккорды') : '',
+      micro && !m.grid ? h('button', { onclick: () => playVersus12(tonic, m.iv), title: 'сначала лад, потом те же ступени в 12-TET' }, '▶ и в 12-TET') : ''),
     notes,
-    h('div', { class: 'formula' }, h('span', { class: 'dim' }, 'Шаги: '), stepFormula(m.iv), h('span', { class: 'dim' }, '   ступени: '), degreeFormula(m.iv)),
+    cents,
+    h('div', { class: 'formula' }, h('span', { class: 'dim' }, 'Шаги: '), stepFormula(m.iv, m.system ?? null), h('span', { class: 'dim' }, '   ступени: '), degreeFormula(m.iv, m.system ?? null)),
     chords,
   )
   const name = () => tonalityLabel({ tonic, mode: id })
@@ -112,11 +134,77 @@ export function modeCard(id, tonicIn = tonicNow()) {
   dlg = modal(`${m.name}`, body, [{ label: 'Закрыть' }])
 }
 
+// ---- tunings (src/tuning.js): «Строй» -------------------------------------------------------------------------------
+app.temperament = null // an id of tuning.js for the next 🎲 songs | null = 12-TET
+try { app.temperament = JSON.parse(localStorage.getItem('mm.temper') || 'null') } catch {}
+const temperListeners = new Set()
+export const onTemperament = f => (temperListeners.add(f), f(app.temperament))
+export function setTemperament(id, { quiet = false } = {}) {
+  app.temperament = id && id !== 'equal' ? id : null
+  try { localStorage.setItem('mm.temper', JSON.stringify(app.temperament)) } catch {}
+  temperListeners.forEach(f => f(app.temperament))
+  if (!quiet) toast(app.temperament ? `🎲 следующая музыка — в строе «${temperOf(app.temperament).name}»` : '🎚 строй: равномерная темперация', { ms: 4000 })
+}
+// the song playing now as a target: its own tonic and mode, in tuning `id`
+const currentTarget = id => {
+  const cur = app.current, k = cur?.key
+  if (!k) return null
+  const mode = cur.song.mode ?? (k.mode === 'minor' ? 'minor' : 'major')
+  return { tonic: tonicName(k), mode, temperament: id }
+}
+export function temperCard(id) {
+  const t = temperOf(id), cur = app.current, key = cur?.key && !cur.key.steps ? cur.key : parseKey('C')
+  const body = h('div', { class: 'modecard' })
+  const offs = temperOffsets(id, key)
+  const table = offs ? h('div', { class: 'row' }, ...offs.map((o, p) => h('span', { class: 'chord', title: `${o >= 0 ? '+' : ''}${o.toFixed(2)} ¢ от 12-TET` },
+    h('b', {}, spell(60 + p, key, false)), ' ', `${o > 0.05 ? '+' : o < -0.05 ? '−' : ''}${Math.abs(o).toFixed(1)}`))) : h('div', { class: 'dim' }, t.kind === 'adaptive' ? 'Отклонения меняются с каждым аккордом.' : 'Все отклонения — ноль.')
+  // a cadence I – IV – V7 – I in the key, first in 12-TET, then in this tuning: the beating of the thirds is the difference
+  const cadence = () => {
+    const b = 48 + key.tonic, minor = key.mode === 'minor', third = minor ? 3 : 4
+    const chords = [[0, third, 7, 12], [5, 5 + (minor ? 3 : 4), 12, 17], [7, 11, 14, 17], [0, third, 7, 12 + third]]
+    return chords.flatMap((c, i) => c.map(v => [i * 1.1, b + v, 1]))
+  }
+  const play = cents => playNotes(cadence(), cents)
+  body.append(
+    h('div', { class: 'alt' }, t.alt ? `${t.alt}` : ''),
+    h('p', { class: 'short' }, t.short),
+    h('p', {}, t.text),
+    h('div', { class: 'dim' }, `Отклонения от 12-TET в ${keyLabel(key)}, центы:`),
+    table,
+    h('div', { class: 'row' },
+      h('button', { onclick: () => play(null), title: 'тоника — субдоминанта — доминантсептаккорд — тоника' }, '▶ каденция в 12-TET'),
+      offs ? h('button', { onclick: () => play(offs) }, `▶ в строе «${t.name}»`) : '',
+      offs ? h('button', { onclick: () => { const d = playNotes(cadence()) + 0.8; playNotes(cadence().map(([at, n, l]) => [at + d, n, l]), offs) } }, '▶ подряд: 12-TET → строй') : ''),
+  )
+  let dlg = null
+  const target = currentTarget(id), micro = cur?.song?.mode && isMicro(MODES[cur.song.mode])
+  const canNow = cur?.song && !micro && (t.kind !== 'adaptive' || cur.song.generator)
+  const go = h('button', { class: 'primary', onclick: () => (dlg?.close(), sameIn(target)) }, `↻ Эта же музыка → ${t.name}`)
+  const next = h('button', { onclick: () => (dlg?.close(), setTemperament(id)) }, `🎲 Следующая музыка → ${t.name}`)
+  if (!canNow) go.style.display = 'none'
+  body.append(h('div', { class: 'row actions' }, next, go))
+  if (cur?.song && !canNow) body.append(h('p', { class: 'dim' }, micro ? 'Эта песня в микротоновом ладу — у неё свой точный строй.' : 'Адаптивный строй — только для сгенерированных песен: ему нужны аккорды.'))
+  dlg = modal(`🎚 ${t.name}`, body, [{ label: 'Закрыть' }])
+}
+export function temperItems() {
+  const cur = app.current?.song
+  return [
+    ...(cur ? [{ header: `В песне: ${cur.tuning?.name ?? 'равномерная темперация'}` }] : []),
+    { label: 'Равномерная темперация (12-TET)', checked: () => !app.temperament, action: () => temperCard('equal') },
+    '-',
+    { header: 'Исторические и чистые строи' },
+    ...TEMPERAMENTS.filter(t => t.id !== 'equal').map(t => ({ label: t.name, note: t.short, checked: app.temperament === t.id ? true : undefined, action: () => temperCard(t.id) })),
+    '-',
+    { html: 'Строй меняет звучание двенадцати нот (ноты те же): клик — карточка с таблицей отклонений в центах и ▶ каденцией в 12-TET и в строе. Микротоновые лады (макамы, гамелан) — в меню «Лады».' },
+  ]
+}
+export const temperButtonLabel = id => (id ? `🎚 ${temperOf(id).name}` : '🎚 Строй: 12-TET')
+
 // ---- the menus ---------------------------------------------------------------------------------------------------
 const songLine = () => {
   const s = app.current?.song
   if (!s) return null
-  return { header: `В песне: ${s.mode && MODES[s.mode] ? `${keyLabel(app.current.key).split(' ')[0]} ${MODES[s.mode].name.toLowerCase()}` : keyLabel(app.current.key)}` }
+  return { header: `В песне: ${app.tonalityOf(s, app.current.key)}` }
 }
 export function modeItems() {
   const cur = app.tonality
@@ -142,7 +230,7 @@ export function keyItems() {
   return [
     ...[songLine()].filter(Boolean),
     { label: 'Авто — тональность песни', checked: () => !app.tonality, action: () => setTonality(null) },
-    ...(custom ? ['-', { header: `Тоника для лада «${modeOf(cur.mode).name}»` }, { label: 'выбрать…', items: () => TONICS.map(t => ({ label: `${t} ${modeOf(cur.mode).name.toLowerCase()}`, checked: cur.tonic === t ? true : undefined, action: () => offer({ tonic: t, mode: cur.mode }) })) }] : []),
+    ...(custom ? ['-', { header: `Тоника для лада «${modeOf(cur.mode).name}»` }, { label: 'выбрать…', items: () => tonicsFor(modeOf(cur.mode)).map(t => ({ label: `${t} ${modeOf(cur.mode).name.toLowerCase()}`, checked: cur.tonic === t ? true : undefined, action: () => offer({ tonic: t, mode: cur.mode }) })) }] : []),
     '-', { header: 'Мажор — по квинтовому кругу' },
     ...KEYS.filter(k => k[2] === 'major').map(item),
     '-', { header: 'Минор — по квинтовому кругу' },

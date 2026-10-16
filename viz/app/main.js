@@ -9,7 +9,8 @@ import { Library, nameIn, setName, cleanName, lf, shelfOf } from './library.js'
 import { Scene, GRID } from './view.js'
 import { THEMES, themeFor, applyUiTheme } from './themes.js'
 import { formulaOf, formulaHTML, substitute, tex, formulaImage } from './formula.js'
-import { songKey, spell, keyLabel, freq } from './theory.js'
+import { songKey, spell, keyLabel, freq, tonicName, pc } from './theory.js'
+import { keyWithMode, MODES } from './modes.js'
 
 const SRC = MM.SRC
 app.SRC = SRC
@@ -55,7 +56,16 @@ function refreshSongList() {
 }
 app.refreshSongList = refreshSongList
 
-const keyOf = song => songKey(song)
+// the key notes are spelt in: with a microtonal mode's degrees and spelling system (E𝄳, B♭¹, D♯−37¢)
+const keyOf = song => keyWithMode(songKey(song), song.mode)
+// 'F мажор', 'E𝄳 сика', 'D дорийский · Веркмейстер III'
+const tonalityOf = (song, k) => {
+  const m = song.mode && MODES[song.mode]
+  return (m ? `${tonicName(k)} ${m.name.replace(/^Натуральный /, '').toLowerCase()}` : keyLabel(k)) + (song.tuning?.name ? ` · ${song.tuning.name}` : '')
+}
+app.tonalityOf = tonalityOf
+// what a written note sounds at: a temperament moves it by its pitch class's cents (song.tuning.offsets)
+const soundOf = (song, n) => { const o = song?.tuning?.offsets?.[pc(n)] ?? 0; return { hz: freq(n + o / 100), cents: o } }
 function makeTracks(song, songName, old) {
   return trackList(song).map(([key, t], i) => {
     const f = formulaOf(SRC, songName, key, t)
@@ -618,6 +628,8 @@ menubar($('menus'), [
       { icon: '🎚', label: 'WAV · 24 бит, 44.1 кГц', action: () => exportAudio('wav') },
       { icon: '🌀', label: 'OGG · Opus 256 кбит/с', action: () => exportAudio('ogg') },
       { icon: '🎼', label: 'MIDI · все дорожки', action: () => exportAudio('mid') },
+      { icon: '🎼', label: 'MIDI · микротоны и строй (MPE)', action: () => exportAudio('mpe'), note: 'каждая нота со своим питч-бендом — четверти, восьмые тона, темперации до цента' },
+      { icon: '🎚', label: 'Строй для синтезатора · .scl .kbm .ascl', action: () => lazy('export.js').then(m => m.exportTuning()), note: 'Scala и Ableton Live 12 — строй или микротоновый лад песни' },
       { icon: '🗂', label: 'Стемы — WAV каждой дорожки', action: () => exportAudio('stems') },
       '-',
       { icon: '🎬', label: 'Видео MP4 с формулами…', action: () => lazy('video.js').then(m => m.videoDialog()) },
@@ -653,8 +665,12 @@ menubar($('menus'), [
 menubar($('keynav'), [
   { label: 'Лады', items: () => lazy('modesui.js').then(m => m.modeItems()) },
   { label: '🎼 Тональность: авто', items: () => lazy('modesui.js').then(m => m.keyItems()) },
+  { label: '🎚 Строй: 12-TET', items: () => lazy('modesui.js').then(m => m.temperItems()) },
 ])
-lazy('modesui.js').then(m => m.onTonality(t => ($('keynav').querySelectorAll('.mbtn')[1].textContent = m.keyButtonLabel(t))))
+lazy('modesui.js').then(m => {
+  m.onTonality(t => ($('keynav').querySelectorAll('.mbtn')[1].textContent = m.keyButtonLabel(t)))
+  m.onTemperament(id => ($('keynav').querySelectorAll('.mbtn')[2].textContent = m.temperButtonLabel(id)))
+})
 
 // ---- legend: click = mute, shift/right click = solo, hover = highlight ------------------------------------------
 let legendHover = null
@@ -673,7 +689,7 @@ function buildLegend() {
     el.append(row)
   }
   const k = app.current?.key
-  el.append(h('div', { class: 'help' }, `${k ? keyLabel(k) + ' · ' : ''}${app.current.song.bpm} BPM`), h('div', { class: 'help' }, 'клик — выкл · shift/ПКМ — соло'))
+  el.append(h('div', { class: 'help' }, `${k ? tonalityOf(app.current.song, k) + ' · ' : ''}${app.current.song.bpm} BPM`), h('div', { class: 'help' }, 'клик — выкл · shift/ПКМ — соло'))
 }
 function solo(t) {
   const tr = app.scene.tracks, only = tr.every(o => o === t || o.muted) && !t.muted
@@ -719,7 +735,7 @@ function valuesFor(t, x) {
   const notes = app.scene.midiAt(t, x), v = { x, T: x * sec }
   if (notes.length && !isDrum(t)) {
     v.n = notes[0]
-    v.f = freq(notes[0])
+    v.f = soundOf(app.current.song, notes[0]).hz
   }
   const sc = app.scene.tracks.find(o => o.key === t.key)
   if (sc && sc.onset > -1e8 && x >= sc.onset) {
@@ -745,7 +761,7 @@ function showInspector(ins) {
     inspKey = key
     const k = app.current.key
     const list = notes.length
-      ? notes.map(n => (isDrum(t) ? `<span><b>${DRUMS[n] ?? 'drum'}</b></span>` : `<span><b>${spell(n, k)}</b><small>${freq(n).toFixed(2)} Гц</small></span>`)).join('')
+      ? notes.map(n => (isDrum(t) ? `<span><b>${DRUMS[n] ?? 'drum'}</b></span>` : `<span><b>${spell(n, k)}</b><small>${soundOf(app.current.song, n).hz.toFixed(2)} Гц${Math.abs(soundOf(app.current.song, n).cents) >= 0.5 ? ` · ${soundOf(app.current.song, n).cents > 0 ? '+' : '−'}${Math.abs(soundOf(app.current.song, n).cents).toFixed(1)} ¢` : ''}</small></span>`)).join('')
       : '<span class="rest">без ноты</span>'
     const f = live ? liveFormula(t, player.x) : t.formulaHTML || '<span class="rest">у этой дорожки нет формулы</span>'
     el.innerHTML = `<h3><span class="dot" style="background:${t.color}"></span>${esc(t.key)}${t.bad ? ' · <span style="color:var(--danger)">' + esc(t.bad) + '</span>' : ''}</h3><div class="notes">${list}</div><div class="f">${f}</div>`
@@ -807,7 +823,7 @@ function frame(now) {
   geo = sc.draw(g, {
     style: V.style, W, H, zoom: V.zoom, fx: V.fx, scenery: V.scenery, labels: V.labels, focus, inspect: V.style === 'classic' ? ins : null,
     scope: V.scope && player.playing ? player.scope() : null, cached: player.cachedRanges?.(), mouseX: mouse && mouse.y > H - 44 ? mouse.x : null,
-    title: cur.song.name, subtitle: `${keyLabel(cur.key)} · ${cur.song.bpm} BPM`, left: $('legend').style.display === 'none' ? 0 : 190,
+    title: cur.song.name, subtitle: `${tonalityOf(cur.song, cur.key)} · ${cur.song.bpm} BPM`, left: $('legend').style.display === 'none' ? 0 : 190,
   })
   if (ins && V.style === 'classic') showInspector(ins)
   else $('insp').style.display = 'none'

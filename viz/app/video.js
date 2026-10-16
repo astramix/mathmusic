@@ -125,7 +125,7 @@ export async function makeVideo(o) {
     }
     // frames
     const nt = audio.keys.length, lv = new Float32Array(tracks.length)
-    const title = song.name, subtitle = `${keyLabel(key)} · ${song.bpm} BPM`
+    const title = song.name, subtitle = `${app.tonalityOf?.(song, key) ?? keyLabel(key)} · ${song.bpm} BPM`
     for (let f = 0; f < frames; f++) {
       if (cancelled) throw new Error('отменено')
       if (failure) throw failure

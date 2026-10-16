@@ -5,7 +5,8 @@
 import { app } from './app.js'
 import { h, esc, contextMenu } from './ui.js'
 import { themeFor } from './themes.js'
-import { songKey, keyLabel } from './theory.js'
+import { songKey, keyLabel, tonicName } from './theory.js'
+import { MODES } from './modes.js'
 import { trackList } from './runtime.js'
 import { styleIn, shelfOf } from './library.js'
 import { STYLE_LIST } from './generate.js'
@@ -137,7 +138,7 @@ function card(entry) {
   const key = songKey(song), th = themeFor(song), secs = (song.length * 60) / song.bpm
   const st = STYLE_INFO[c.dataset.style]
   const tag = [entry.kind === 'generated' ? '🎲' : entry.kind === 'user' ? 'моя' : '', entry.where === 'pending' ? '⏳ не в папке' : '', st.id !== 'other' ? st.emoji : ''].filter(Boolean).join(' ')
-  meta.innerHTML = `<b>${esc(song.name)}</b>${tag ? `<span class="tag">${tag}</span>` : ''}<div class="d">${keyLabel(key)} · ${song.bpm} BPM · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')} · ${trackList(song).length} дорожек</div>`
+  meta.innerHTML = `<b>${esc(song.name)}</b>${tag ? `<span class="tag">${tag}</span>` : ''}<div class="d">${song.mode && MODES[song.mode] ? `${tonicName(key)} ${MODES[song.mode].name.replace(/^Натуральный /, '').toLowerCase()}` : keyLabel(key)}${song.tuning?.name ? ` · ${song.tuning.name}` : ''} · ${song.bpm} BPM · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')} · ${trackList(song).length} дорожек</div>`
   // sample every curve once
   const W = 520, H = 240, res = Math.max(1, Math.round(W * 3 / song.length))
   const lines = trackList(song).filter(([, t]) => t.graph).map(([, t], i) => {

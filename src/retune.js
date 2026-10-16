@@ -9,29 +9,35 @@
 //     own key and keeps its modulation;
 //   · the tracks' midi() go through the same map (note names, MIDI export), name/key/mode are the new ones.
 // The prelude keeps its parameters (__RT), so a copy can be retuned again from the original's scale.
+// Microtonal modes work the same way (C major → C Rast: E → E𝄳, B → B𝄳; to a measured slendro: the nearest of its
+// five notes) and midi() then reports the microtones (63.5). A temperament (src/tuning.js) re-tunes the twelve notes
+// of the result: every frequency gets its note's offset in cents, per the key of each section.
 // parse: acorn's parse (the app has viz/app/acorn.js), passed in so this file runs in Node and in the page.
-import { MODES, modeOf, tonicPc, keyFor, tonalityLabel } from './modes.js'
-import { songKey } from './theory.js'
+import { MODES, modeOf, tonicPc, keyFor, tonalityLabel, isMicro } from './modes.js'
+import { songKey, parseKey } from './theory.js'
+import { temperOf, temperOffsets } from './tuning.js'
 
 const UNPITCHED = /drum|kick|snare|hat|perc|clap|paw|hiss|claw|beat|fx|sfx|noise|ambience|rain|vinyl|riser|taiko|tsuzumi|kane/i
 const pcOf = n => ((n % 12) + 12) % 12
 const parentOf = iv => (iv.includes(3) && !iv.includes(4) ? 'minor' : 'major')
+const r4 = v => Math.round(v * 1e4) / 1e4
 
-// semitone shift of every pitch class (relative to the tonic) from scale src to scale dst
+// semitone shift of every pitch class (relative to the tonic) from scale src to scale dst (dst may be microtonal)
 export function degreeTable(src, dst) {
-  const set = new Set(dst), S = i => (i < 7 ? src[i] : 12), D = i => (i < dst.length ? dst[i] : 12 + dst[0])
+  const inDst = v => dst.some(d => Math.abs(pcOf(v) - d) < 1e-6 || Math.abs(pcOf(v) - d - 12) < 1e-6)
+  const S = i => (i < 7 ? src[i] : 12), D = i => (i < dst.length ? dst[i] : 12 + dst[0])
   return Array.from({ length: 12 }, (_, p) => {
     if (dst.length !== 7 || src.length !== 7) { // a pentatonic or other size: the nearest note of the new scale
       let best = 0
       for (const o of [-12, 0, 12]) for (const v of dst) if (Math.abs(v + o - p) < Math.abs(best - p) || (Math.abs(v + o - p) === Math.abs(best - p) && v + o < best)) best = v + o
-      return best - p
+      return r4(best - p)
     }
     const d = src.indexOf(p)
-    if (d >= 0) return dst[d] - p
+    if (d >= 0) return r4(dst[d] - p)
     const below = src.findLastIndex(v => v < p), lo = D(below) + (p - S(below)), hi = D(below + 1) - (S(below + 1) - p)
-    const inLo = set.has(pcOf(lo)), inHi = set.has(pcOf(hi))
+    const inLo = inDst(lo), inHi = inDst(hi)
     const v = inLo !== inHi ? (inLo ? hi : lo) : Math.abs(hi - p) <= Math.abs(lo - p) ? hi : lo
-    return v - p
+    return r4(v - p)
   })
 }
 
@@ -81,31 +87,41 @@ export function modulations(song, key, iv) {
   return out.length ? out : [[0, 0]]
 }
 
-// the parameters of a retuned copy: { name, tonic, iv (the original's scale), tr, to, sect, key, mode }
+// the parameters of a retuned copy: { name, tonic, iv (the original's scale), tr, to, sect, key, mode, tm }
+// target: { tonic: 'D' | 'E𝄳', mode, temperament? } — tm: the temperament's cents of the twelve notes per section
+// offset (a tuning on the tonic or on the spelling follows each modulation), null in 12-TET or a microtonal mode
 export function retunePlan(song, target, prev = null) {
   const key = prev ? { tonic: prev.tonic } : songKey(song)
-  const iv = prev ? prev.iv : scaleOf(song, key), dst = modeOf(target.mode).iv
-  let tr = pcOf(tonicPc(target.tonic) - key.tonic)
-  if (tr > 5) tr -= 12
+  const iv = prev ? prev.iv : scaleOf(song, key), m = modeOf(target.mode), dst = m.iv
+  let tr = r4(pcOf(tonicPc(target.tonic) - key.tonic))
+  if (tr > 5.75) tr = r4(tr - 12)
+  const sect = prev ? prev.sect : modulations(song, key, iv)
+  const t = target.temperament && !isMicro(m) ? temperOf(target.temperament) : null
+  const tkey = parseKey(keyFor(target.tonic, target.mode))
+  const tm = t && t.kind !== 'equal' && t.kind !== 'adaptive'
+    ? Object.fromEntries([...new Set(sect.map(s => s[1]))].map(o => [o, temperOffsets(t.id, { ...tkey, tonic: pcOf(tkey.tonic + o) })]))
+    : null
   return {
-    name: prev?.name ?? song.name, tonic: key.tonic, iv, tr, to: degreeTable(iv, dst),
-    sect: prev ? prev.sect : modulations(song, key, iv),
-    key: keyFor(target.tonic, target.mode), mode: ['major', 'minor'].includes(target.mode) ? null : target.mode, label: tonalityLabel(target),
+    name: prev?.name ?? song.name, tonic: key.tonic, iv, tr, to: degreeTable(iv, dst), sect,
+    key: keyFor(target.tonic, target.mode), mode: ['major', 'minor'].includes(target.mode) ? null : target.mode,
+    label: tonalityLabel(target) + (tm ? ` · ${t.name}` : ''), tm, temperament: tm ? t : null,
   }
 }
 
-const rtData = rt => ({ name: rt.name, label: rt.label, key: rt.key, mode: rt.mode, tonic: rt.tonic, iv: rt.iv, tr: rt.tr, to: rt.to, sect: rt.sect })
+const rtData = rt => ({ name: rt.name, label: rt.label, key: rt.key, mode: rt.mode, tonic: rt.tonic, iv: rt.iv, tr: rt.tr, to: rt.to, sect: rt.sect, ...(rt.tm ? { tm: rt.tm } : {}) })
 
 // ---- the code -----------------------------------------------------------------------------------------------
+const PRELUDE_END = '// ---- end of the retune prelude'
 const PRELUDE = rt => `
 // ---- a retuned copy: «${rt.name}» in ${rt.label} (Лады → «эта же музыка в …») ----------------------------
 // every pitch made from a note number goes through __N: the note moves to the same degree of the new mode, then
 // to the new tonic; continuous between notes (bends, vibrato and glides keep their shape); __X = the beat now.
+// __T: a temperament's offset of the note (cents, by pitch class of the section's key), between notes interpolated.
 const __RT = ${JSON.stringify(rtData(rt))}
 let __X = 0
+const __off = () => { let o = 0; for (const s of __RT.sect) if (s[0] <= __X) o = s[1]; return o }
 const __map = n => {
-  let o = 0
-  for (const s of __RT.sect) if (s[0] <= __X) o = s[1]
+  const o = __off()
   return n + __RT.to[(((n - __RT.tonic - o) % 12) + 12) % 12] + __RT.tr
 }
 const __N = n => {
@@ -115,13 +131,18 @@ const __N = n => {
   const lo = __map(a) + 0.35, hi = __map(a + 1) - 0.35
   return lo + ((hi - lo) * (u - 0.35)) / 0.3
 }
-const __R = f => (f > 0 && Number.isFinite(f) ? 440 * 2 ** ((__N(69 + 12 * Math.log2(f / 440)) - 69) / 12) : f)
-const __Nrel = (n, base) => { const b = 69 + 12 * Math.log2(base / 440); return __N(n + b) - b }
+const __T = m => {
+  if (!__RT.tm) return m
+  const T = __RT.tm[__off()] ?? __RT.tm[0], at = k => T[((k % 12) + 12) % 12] / 100, a = Math.floor(m), u = m - a
+  return m + (u <= 0.35 ? at(a) : u >= 0.65 ? at(a + 1) : at(a) + ((at(a + 1) - at(a)) * (u - 0.35)) / 0.3)
+}
+const __R = f => (f > 0 && Number.isFinite(f) ? 440 * 2 ** ((__T(__N(69 + 12 * Math.log2(f / 440))) - 69) / 12) : f)
+const __Nrel = (n, base) => { const b = 69 + 12 * Math.log2(base / 440); return __T(__N(n + b)) - b }
 const __retuneSong = s => {
   for (const t of Object.values(s.tracks ?? {})) {
     if (!t || typeof t !== 'object') continue
     if (typeof t.midi === 'function') {
-      const m = t.midi, one = (n, x) => (Number.isFinite(n) ? ((__X = x), Math.round(__N(n))) : n)
+      const m = t.midi, one = (n, x) => (Number.isFinite(n) ? ((__X = x), Math.round(__N(n) * 100) / 100) : n)
       t.midi = x => { const v = m(x); return Array.isArray(v) ? v.map(n => one(n, x)) : one(v, x) }
     }
     if (typeof t.audio === 'function') {
@@ -131,6 +152,7 @@ const __retuneSong = s => {
   }
   return s
 }
+${PRELUDE_END}
 `
 const WRAPPERS = {
   hz: `const hz = (n, base = 110) => __R(__hz(n, base))`,
@@ -202,9 +224,14 @@ export function retuneSource(source, song, target, { parse, theme = null }) {
   if (!def) throw new Error('в песне нет export default')
   if (prev) { // a copy again: new parameters and fields, the same original underneath
     const call = def.declaration, obj = call.type === 'CallExpression' ? call.arguments[0] : call
-    const line = source.indexOf(m[0]), head = source.lastIndexOf('// ---- a retuned copy:', line)
-    const edits = [[line, line + m[0].length, `const __RT = ${JSON.stringify(rtData(rt))}`], ...fieldEdits(obj, rt, null)]
-    if (head >= 0) edits.push([head, source.indexOf('\n', head), `// ---- a retuned copy: «${rt.name}» in ${rt.label} (Лады → «эта же музыка в …») ----------------------------`])
+    const line = source.indexOf(m[0]), head = source.lastIndexOf('// ---- a retuned copy:', line), end = source.indexOf(PRELUDE_END, line)
+    const edits = [...fieldEdits(obj, rt, null)]
+    // the whole prelude anew (older copies, without its end mark, get new parameters only)
+    if (head >= 0 && end > 0) edits.push([head, end + PRELUDE_END.length, PRELUDE(rt).trim()])
+    else {
+      edits.push([line, line + m[0].length, `const __RT = ${JSON.stringify(rtData(rt))}`])
+      if (head >= 0) edits.push([head, source.indexOf('\n', head), `// ---- a retuned copy: «${rt.name}» in ${rt.label} (Лады → «эта же музыка в …») ----------------------------`])
+    }
     return { source: apply(source, edits), name: `${rt.name} · ${rt.label}`, plan: rt }
   }
   const edits = [] // [pos, text]: inserted, from the end
@@ -302,6 +329,7 @@ function fieldEdits(obj, rt, theme) {
   set('name', JSON.stringify(`${rt.name} · ${rt.label}`))
   set('key', JSON.stringify(rt.key))
   if (rt.mode || prop('mode')) set('mode', rt.mode ? JSON.stringify(rt.mode) : 'null')
+  if (rt.temperament || prop('tuning')) set('tuning', rt.temperament ? JSON.stringify({ id: rt.temperament.id, name: rt.temperament.name, offsets: rt.tm[0] ?? Object.values(rt.tm)[0] }) : 'null')
   if (theme && !prop('theme')) set('theme', JSON.stringify(theme))
   return out
 }

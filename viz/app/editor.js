@@ -592,7 +592,7 @@ export async function fullCheck() {
   }).join('')
   const L = lufs(r.L, r.R), secs = r.end / 44100
   modal('Проверка песни', `
-    <p>${esc(r.song.name)} · ${keyLabel(cur.key)} · ${r.song.bpm} BPM · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')} ·
+    <p>${esc(r.song.name)} · ${esc(app.tonalityOf?.(r.song, cur.key) ?? keyLabel(cur.key))} · ${r.song.bpm} BPM · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')} ·
     громкость микса <b>${L.toFixed(1)} LUFS</b> <span class="dim">(после нормализации к −1 dBFS; стриминг ≈ −14)</span></p>
     <table><tr><th>дорожка</th><th>пик dB</th><th>RMS dB</th><th>диапазон</th><th></th></tr>${rows}</table>
     ${problems.length ? '<h3>ошибки</h3><pre>' + esc(problems.map(p => (p.line ? `стр. ${p.line}: ` : '') + p.message).join('\n')) + '</pre>' : '<p style="color:var(--ok)">✓ без NaN и исключений</p>'}

@@ -936,14 +936,19 @@ export function improvise({ start, length, rate = 2, seed = 1, scale, chord, lo,
     if (local >= phrase - breathe || hash(j, seed) < rest) continue
     const off = j % 2 === 1 && rate === 2 ? swing - 0.5 : 0 // swung off-beat eighths, in beats
     const target = mid + span * sin((PI * local) / phrase) * (hash(floor(b / phrase), seed + 7) < 0.5 ? 1 : -0.6)
-    const cands = []
-    for (let m = lo; m <= hi; m++) if (inScale(scale(x), m)) cands.push(m)
+    const sc = scale(x), cands = []
+    if (sc.every(Number.isInteger)) {
+      for (let m = lo; m <= hi; m++) if (inScale(sc, m)) cands.push(m)
+    } else { // a microtonal scale (pitch classes like 3.5): its own notes in every octave
+      for (let o = Math.floor(lo / 12) * 12 - 12; o <= hi; o += 12) for (const p of sc) if (o + p >= lo && o + p <= hi) cands.push(o + p)
+      cands.sort((a, b) => a - b)
+    }
     let i = cands.reduce((best, m, k) => (Math.abs(m - n) < Math.abs(cands[best] - n) ? k : best), 0)
     const step = [1, 1, 2, 1, 2, 3][floor(hash(j, seed + 1) * 6)] * (cands[i] > target ? -1 : 1) * (hash(j, seed + 2) < 0.75 ? 1 : -1)
     i = clamp(i + step, 0, cands.length - 1)
     n = cands[i]
     if (j % rate === 0) {
-      const tones = cands.filter(m => chord(x).includes(((m % 12) + 12) % 12))
+      const ch = chord(x), tones = cands.filter(m => ch.some(p => Math.abs((((m % 12) + 12) % 12) - p) < 1e-6))
       if (tones.length) n = tones.reduce((a, m) => (Math.abs(m - n) < Math.abs(a - n) ? m : a))
     }
     const d = hash(j, seed + 3) < hold ? 2 / rate : 1 / rate
