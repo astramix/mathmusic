@@ -32,7 +32,8 @@ import { MELODIES, PROGRESSIONS } from './melodies.js'
 import { parseKey, roman, voiceLead, spell, keyName, keyLabel, SCALES, pc, chordName, QUALITIES } from './theory.js'
 import { composeFugue, fugueMode } from './fugue.js'
 import { at as pitchAt } from './counterpoint.js'
-import { modeOf, parentMode, keyWithMode } from './modes.js'
+import { composeMaqam, MAQAMAT, IQA } from './maqam.js'
+import { modeOf, parentMode, keyWithMode, MODES } from './modes.js'
 import { temperOf, temperOffsets } from './tuning.js'
 
 // ---- randomness ----------------------------------------------------------------------------------
@@ -176,6 +177,14 @@ export const STYLES = {
     keys: ['Dm', 'Gm', 'Cm', 'Am', 'Em', 'Fm', 'Bm', 'C', 'D', 'G', 'F', 'Bb', 'Eb', 'A'], moods: ['classical'],
     about: 'канон в октаву и трёхголосная фуга по правилам контрапункта: тема, тональный/реальный ответ, обратимое противосложение, интермедии-секвенции, средние проведения, стретта, кода с пикардийской терцией · камерный ансамбль / струнные / орган / клавесин',
     lead: ['violin', 'flute', 'organ', 'harpsichord'], chords: ['continuo'], bass: ['cello', 'pedal 16′'], kit: '—', forms: [], drums: {}, themes: {},
+  },
+  // Arabic music in quarter tones (src/maqam.js): a maqam's sayr in phrases AA′BA, a tahwil to a related maqam, taqsims
+  // over a drone, heterophony of a takht (oud, qanun, ney, violin, cello), the iqa' on darbuka and riq (generateMaqam)
+  maqam: {
+    label: 'Макам', emoji: '🪘', theme: 'desert', bpm: [88, 112], swing: 0.5,
+    keys: ['D', 'C', 'G'], moods: ['world'],
+    about: 'арабский макам в четвертитонах: баяти, раст, саба, хиджаз, сика, хузам, сузнак, ирак — сайр (нижний джинс → гаммаз → верх → кафла), тахвиль в родственный макам, таксимы уда и ная, гетерофония такхта, икаа на дарбуке и рике',
+    lead: ['oud', 'qanun', 'ney', 'violin'], chords: ['—'], bass: ['cello'], kit: 'darbuka, riq', forms: [], drums: {}, themes: {},
   },
   // the Romantic orchestra: Tchaikovsky, Grieg, Dvořák, Chopin — horn, oboe or a singing cello over a nocturne piano,
   // harp rolls, a brass choir, celesta, strings and a choir; timpani
@@ -438,6 +447,7 @@ const NAMES = {
   meow: [['fluffy', 'sleepy', 'tiny', 'ginger', 'purring', 'naughty'], ['kitten', 'paws', 'whiskers', 'tail', 'meow', 'nap']],
   boss: [['crimson', 'final', 'iron', 'binary', 'fatal', 'glitch', 'overclocked', 'null'], ['algorithm', 'kernel', 'protocol', 'overlord', 'core', 'equation', 'warden', 'daemon']],
   romantic: [['autumn', 'white', 'northern', 'moonlit', 'tender', 'stormy', 'distant'], ['romance', 'nocturne', 'ballade', 'elegy', 'serenade', 'rhapsody', 'waltz']],
+  maqam: [['layali', 'nasim', 'qamar', 'sahra', 'bahr', 'nur', 'warda', 'shams'], ['al-andalus', 'dimashq', 'al-qahira', 'halab', 'baghdad', 'tunis', 'al-layl', 'as-subh']],
   fugue: [['fuga', 'ricercar', 'contrapunctus', 'fughetta', 'canon-e-fuga'], ['dorica', 'notturna', 'aurea', 'di-vetro', 'serena', 'antica', 'stellata', 'd-inverno', 'del-lago']],
   jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
 }
@@ -452,6 +462,7 @@ export function generate(opts = {}) {
   }
   // the fugue: its own composer (src/fugue.js) and writer
   if (styleId === 'fugue') return generateFugue(opts, S, seeds)
+  if (styleId === 'maqam') return generateMaqam(opts, S, seeds)
   const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
 
   // key, tempo, form
@@ -3161,6 +3172,188 @@ const chordAt = x => BY_HALF[floor(2 * x)] ?? null
   parts: ${JSON.stringify(parts)}, // the staves of the score
   sections: SECTIONS,
   tracks: ${temperament ? 'withNow(' : ''}{ ${tracks.map((t, i) => `${JSON.stringify(t.key)}: track${i}`).join(', ')} }${temperament ? ')' : ''},
+}
+`,
+  ]
+  return { source: out.join('\n'), meta }
+}
+
+// ---- the maqam style: Arabic music in quarter tones, composed by its sayr (src/maqam.js) -------------------------------
+// A takht: oud, qanun, ney, violin, cello, darbuka, riq. The ensemble plays one melody in heterophony — each instrument
+// its own way (the qanun's tremolo and octaves, the oud's risha strokes, the ney's legato, the cello on the beats);
+// the taqsims are free solos over the cello's drone; the iqa' on darbuka and riq.
+const MAQAM_STYLE_MODES = ['bayati', 'rast', 'saba', 'hijazRast', 'sikah', 'huzam', 'suznak', 'iraq']
+function generateMaqam(opts, S, seeds) {
+  const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
+  // the maqam: opts.mode if it is one of these, else drawn; the tonic its usual one unless a key is given
+  const mode = MAQAMAT[opts.mode] ? opts.mode : pick(RA, MAQAM_STYLE_MODES)
+  const M = modeOf(mode)
+  const home = parseKey(opts.key ?? M.home ?? 'D')
+  const tonicName = home.name ?? spell(Math.round(home.tonic) + 60, { tonic: 0, mode: 'major' }, false)
+  const tonic = 60 + home.tonic - (home.tonic > 6.5 ? 12 : 0) // the qarar between F♯3 and F♯4
+  const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
+  const length = opts.length ?? 'normal'
+  const temperament = null
+  const F = composeMaqam({ mode, tonic, r: RM, length })
+  const soloist = pick(RI, ['ney', 'qanun', 'violin']) // who plays the second taqsim
+  const names = NAMES.maqam
+  const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
+  const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
+  const key = { tonic: home.tonic, mode: parentMode(M.iv) }
+  const skey = keyWithMode({ ...key, ...(home.name ? { name: home.name } : {}) }, mode)
+  const sp = n => spell(n, skey)
+  const ENS = new Set(['dulab', 'lower jins', 'ghammaz', 'tahwil', 'qafla'])
+  const ens = F.sections.filter(s => ENS.has(s[1])).map(s => s[0])
+  const T1 = F.taqsims[0], T2 = F.taqsims[1] ?? null
+  const fmt = list => fmtNotes(list.map(([b, n, d]) => [round(b), round(n - 60), round(d)]))
+  const modName = id => MODES[id]?.name ?? id
+  const keysField = F.keys.filter((k, i, A) => !i || k[1] !== A[i - 1][1] || k[2] !== A[i - 1][2]).map(([a, m, sh]) => [a, spell(Math.round((tonic + sh) * 2) / 2, skey, false).replace(/\d+$/, ''), m])
+  const meta = {
+    style: 'maqam', seed: (opts.seed ?? 1) >>> 0, seeds, length, key: tonicName, mode, modeName: M.name, bpm, title, form: F.sections.map(s => s[1]),
+    fixedKey: opts.key ?? null, micro: null, temperament: null, meter: null, modulations: [{ at: F.keys[1]?.[0], section: 'tahwil', key: `${tonicName} ${F.modulation.mode}`, type: 'maqam' }],
+    themes: { A: { from: 'сайр', title: `макам ${M.name}`, how: `сайр, икаа ${F.iqaA}` }, B: { from: 'сайр', title: `тахвиль в ${modName(F.modulation.mode)}`, how: 'composed' }, bridge: { rhythmFrom: null } },
+    instruments: { soloist },
+  }
+  const used = { engine: new Set(['floor', 'mod', 'hz', 'filter', 'reverb', 'smooth', 'exp']), instruments: new Set(['notesAt', 'hash', 'pan', 'trigger', 'oud', 'qanun', 'ney', 'bowed', 'darbukaDrum', 'riqDrum']) }
+  const head = [
+    `// ${title} — макам ${M.name} (${mode}) on ${tonicName}, ${bpm} BPM. Generated by MathMusic (style maqam, seed ${meta.seed}):`,
+    `// ${F.sections.map(s => s[1]).join(' → ')}.`,
+    `// The scale is ${M.name}'s in quarter tones (24-EDO, the Cairo 1932 theory): ${M.iv.map(v => sp(tonic + v)).join(' ')}${MAQAMAT[mode].down ? ` — descending, ${Object.entries(MAQAMAT[mode].down).map(([k, v]) => `${sp(tonic + M.iv[k])} becomes ${sp(tonic + v)}`).join(', ')}` : ''}.`,
+    `// Sayr: the lower jins around the qarar ${sp(tonic)}, the climb to the ghammaz ${sp(tonic + M.iv[MAQAMAT[mode].ghammaz])}, the upper jins, the qafla from above;`,
+    `// a section is AA′BA in two-bar phrases. Tahwil: ${modName(F.modulation.mode)} ${F.modulation.shift ? `on ${sp(tonic + F.modulation.shift)}` : 'on the same tonic'}, then home.`,
+    `// Heterophony: one melody, every instrument its own way. Taqsims: the oud, then the ${soloist}, free over the cello's drone.`,
+    `// Iqa' on a sixteenth grid (D dum, T tek, k ka): ${[...new Set(F.iqa.map(i => i[1]).filter(Boolean))].map(n => `${n} ${IQA[n]}`).join(', ')}.`,
+    `// x is time in beats; n counts semitones from C4 (MIDI 60) — 3.5 is E𝄳4. Draw the melody in the piano roll (P, ¼-tone rows).`,
+  ]
+  const data = `
+const SECTIONS = ${JSON.stringify(F.sections)}
+const END = ${F.length}
+const C4 = 440 * 2 ** (-9 / 12) // 261.63 Hz, exact equal temperament (quarter tones: 2^(n/12) with n = 3.5 …)
+const ENSEMBLE = ${JSON.stringify(ens)} // the sections the takht plays together (32 beats each, the dulab 16)
+const ENS_LEN = { ${F.sections.filter(s => ENS.has(s[1])).map((s, i, a) => `${s[0]}: ${(F.sections[F.sections.indexOf(s) + 1]?.[0] ?? F.length) - s[0]}`).join(', ')} }
+const together = x => ENSEMBLE.some(a => x >= a && x < a + ENS_LEN[a])
+
+// ---- the melody (the sayr), the taqsims, the drone: [beat, n from C4, length] -----------------------------------------
+const MELODY = ${fmt(F.melody)}
+// taqsim I — the oud, free, from beat ${T1.at}
+const TAQSIM_1 = ${fmt(T1.notes)}
+${T2 ? `// taqsim II — the ${soloist}, from beat ${T2.at}
+const TAQSIM_2 = ${fmt(T2.notes)}` : 'const TAQSIM_2 = []'}
+// the cello's drone on the qarar under the taqsims
+const DRONE = ${fmt(F.drone)}
+const melodyAt = x => (together(x) ? notesAt(MELODY, x) : null)
+
+// ---- the iqa': [start beat, cycle | null] per section; a cycle is 16 sixteenths of one bar
+const IQA = ${JSON.stringify(Object.fromEntries(Object.entries(IQA)))}
+const IQA_PLAN = ${JSON.stringify(F.iqa)}
+const cycleAt = x => { let c = null; for (const [a, n] of IQA_PLAN) if (a <= x) c = n; return x < END ? c : null }
+// the stroke struck last at x: { s: 'D' | 'T' | 'k', τ (beats since), v }; fills (k between, a tek roll) in every 4th bar
+function strokeAt(x) {
+  for (let j = floor(4 * x); j >= floor(4 * x) - 8; j--) {
+    const c = cycleAt(j / 4)
+    if (!c) return null
+    const bar = floor(j / 16), i = mod(j, 16), fill = mod(bar, 4) === 3 && i >= 12
+    let s = IQA[c][i]
+    if (s === '-' && (fill || hash(j, 7) < 0.3)) s = fill ? 'T' : 'k'
+    if (s !== '-') return { s, τ: x - j / 4, v: s === 'D' ? 0.9 : s === 'T' ? 0.75 : 0.4 + 0.15 * hash(j, 3) }
+  }
+  return null
+}
+`
+  const track = (name, color, lane, formula, init, body, midi = null) => ({ name, code: `{
+  color: '${color}',
+  graph: x => { ${lane} },
+  midi: x => { ${midi ?? 'return []'} },
+  formula: ${JSON.stringify(formula)},
+  audio({ bpm }) {
+    const sec = 60 / bpm, ${init}
+    return x => {
+${body}
+    }
+  },
+}` })
+  const laneOf = (y0, k) => `const m = playAt(x); return m ? ${y0} + (m.n + 12) * ${k} : null`
+  const tracks = [
+    track('oud', '#e0a060', laneOf(0.75, 0.05).replace('playAt', 'oudAt'), ['O = \\Rev\\big[0.55\\LP s + 0.5\\BP_{110}s + 0.6\\BP_{250}s + 0.35\\BP_{600}s\\big],\\quad s:\\ y[n] = e[n] + g\\big(a\\,y[n - D] + (1 - a)\\,y[n - D - 1]\\big),\\ D = \\tfrac{SR}{f} - \\varphi(f)', 'f = 261.63\\cdot 2^{n/12},\\ n \\in \\tfrac12\\mathbb Z\\ \\text{— четверти тона точно: дробная задержка струны}'],
+      `o = oud(), fire = trigger(), verb = reverb({ room: 0.78, damp: 0.45, wet: 0.26 })`,
+      `      const m = oudAt(x)
+      // the melody's notes, and on a long one the risha strikes again every half beat (softer)
+      if (m && fire(m.at + floor(m.τ * 2) / 2)) o.hit(hz(m.n, C4), m.τ < 0.25 ? 0.75 : 0.45, { from: m.slide ? -0.5 : 0, glide: 0.05 })
+      return verb(...pan(1.25 * o(), -0.25))`, `const m = oudAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
+    track('qanun', '#f2d38a', laneOf(0.95, 0.05).replace('playAt', 'qanunAt'), ['Q = \\sum_{c \\in \\{-3, 0, 3\\}} s\\big(f\\cdot 2^{c/1200}\\big)\\quad\\text{— три струны хора; тремоло на долгих нотах: щипок каждую } \\tfrac18 \\text{ доли'],
+      `q = qanun(), fire = trigger(), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })`,
+      `      const m = qanunAt(x)
+      // a note: plucked with its lower octave; a long one in tremolo, alternating the hands
+      if (m) {
+        const j = m.d >= 1 ? floor(m.τ * 8) : 0
+        if (fire(m.at + j / 8)) { q.hit(hz(m.n, C4), j ? 0.32 + 0.08 * (j % 2) : 0.6); if (!j) q.hit(hz(m.n - 12, C4), 0.35) }
+      }
+      return verb(...pan(1.3 * q(), 0.3))`, `const m = qanunAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
+    track('ney', '#d8f0e0', laneOf(1.15, 0.05).replace('playAt', 'neyAt'), ['N = a\\big(\\tanh 1.3(0.55\\sin 2\\pi\\!\\int\\! g + 0.12\\sin 4\\pi\\!\\int\\! g + 0.05\\sin 6\\pi\\!\\int\\! g) + 0.3(\\BP_g + 0.6\\BP_{2g})\\eta\\big)', 'g = f\\cdot 2^{(0.22\\,v(t)\\sin 2\\pi\\cdot5.2T - 0.25(1 - s(t)))/12}\\ \\text{— дыхание громче тона, позднее вибрато'],
+      `n = ney(), verb = reverb({ room: 0.85, damp: 0.35, wet: 0.38 })
+    let p = 0`, `      const m = neyAt(x)
+      if (m) p = m.n
+      return verb(...pan(0.3 * n(hz(p, C4), !!m && m.u < 0.95), 0.1))`, `const m = neyAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
+    track('violin', '#ffd0a0', laneOf(0.85, 0.05).replace('playAt', 'violinAt'), ['Vn = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{R_i}\\,s\\Big),\\quad s = \\saw\\big(f\\cdot 2^{0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big)\\ \\text{— скрипка такхта, глиссандо между нотами'],
+      `bow = bowed({ base: C4, sec }), verb = reverb({ room: 0.84, damp: 0.38, wet: 0.36 })`,
+      `      return verb(...pan(0.26 * bow(violinAt(x), x * sec), 0.42))`, `const m = violinAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
+    track('cello', '#c08a5a', `const m = celloAt(x); return m ? -3 + (m.n + 24) * 0.05 : null`, ['Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big)\\quad\\text{— мелодия октавой ниже на долях; бурдон на караре под таксимами'],
+      `bow = bowed({ base: C4, body: 0.6, sec }), verb = reverb({ room: 0.8, damp: 0.45, wet: 0.3 })`,
+      `      return verb(...pan(0.22 * bow(celloAt(x), x * sec), -0.05))`, `const m = celloAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
+    track('darbuka', '#d98b5f', `const s = strokeAt(x); return s && s.τ < 0.25 ? (s.s === 'D' ? 3 : s.s === 'T' ? 3.9 : 3.5) : null`, ['D(t) = e^{-t/0.22}\\sin\\varphi + 0.35e^{-t/0.08}\\sin 1.59\\varphi + \\ldots,\\ \\varphi = 2\\pi\\cdot95\\,(t + \\ldots)\\ \\text{(дум)};\\quad T(t) = e^{-t/0.045}\\sum a_i\\sin 2\\pi f_i t\\ \\text{(тек)}'],
+      `d = darbukaDrum(), verb = reverb({ room: 0.6, damp: 0.5, wet: 0.16 })`,
+      `      const s = strokeAt(x)
+      return verb(...pan(s ? 0.55 * s.v * d(s.τ * sec, s.s === 'D' ? 'dum' : s.s === 'T' ? 'tek' : 'ka') : (d(9, 'dum', false), 0), -0.1))`,
+      `const s = strokeAt(x); return s && s.τ < 0.1 ? [s.s === 'D' ? 41 : s.s === 'T' ? 60 : 61] : []`),
+    track('riq', '#fff0b0', `const s = strokeAt(x); return s && s.τ < 0.2 ? 4.4 : null`, ['R = e^{-t/0.09}\\big(0.75 + 0.25\\sin 2\\pi\\cdot38t\\big)\\big(\\BP_{7.2\\text{к}} + \\BP_{9.1\\text{к}}\\big)\\eta\\ \\text{— тарелочки бубна; кожа на дум'],
+      `ri = riqDrum(), verb = reverb({ room: 0.6, damp: 0.5, wet: 0.14 })`,
+      `      // the jingles on every eighth, the skin with the darbuka's dum and tek
+      const s = strokeAt(x), j = floor(2 * x), c = cycleAt(x)
+      const t8 = (x - j / 2) * sec, y = c ? 0.32 * ri(t8, 'jingle') * (mod(j, 2) ? 0.6 : 1) : ri(9, 'jingle', false)
+      return verb(...pan(y + (s && s.s !== 'k' && s.τ < 0.5 ? 0.3 * s.v * ri(s.τ * sec, s.s === 'D' ? 'dum' : 'tek') : 0), 0.35))`,
+      `const c = cycleAt(x); return c && x - floor(2 * x) / 2 < 0.1 ? [54] : []`),
+  ]
+  const players = `
+// who plays what: the oud the first taqsim and the melody; the qanun, the ney and the violin the melody (the ${soloist}
+// also the second taqsim); the cello the melody an octave down on the beats, and the drone under the taqsims
+const solo = (list, x) => notesAt(list, x)
+const oudAt = x => solo(TAQSIM_1, x) ?? melodyAt(x)
+const qanunAt = x => ${soloist === 'qanun' ? 'solo(TAQSIM_2, x) ?? ' : ''}melodyAt(x)
+// the ney leaves out the quickest notes between the beats (it holds the note before)
+const neyAt = x => {
+  ${soloist === 'ney' ? 'const s = solo(TAQSIM_2, x)\n  if (s) return s\n  ' : ''}const m = melodyAt(x)
+  if (!m || m.d >= 0.5 || mod(m.at, 0.5) === 0) return m
+  return melodyAt(m.at - 0.01) ?? m
+}
+const violinAt = x => ${soloist === 'violin' ? 'solo(TAQSIM_2, x) ?? ' : ''}(together(x) && !SECTIONS.some(([a, n]) => n === 'dulab' && x >= a && x < a + 16) ? melodyAt(x) : null)
+const celloAt = x => {
+  const d = notesAt(DRONE, x)
+  if (d) return d
+  const m = melodyAt(floor(x))
+  return m && { ...m, n: m.n - 12, at: Math.max(m.at, floor(x)), τ: x - Math.max(m.at, floor(x)), d: Math.min(1, m.at + m.d - floor(x)), u: (x - floor(x)) / Math.min(1, m.at + m.d - floor(x)) }
+}
+`
+  const imp = mod => [...used[mod]].sort()
+  const out = [
+    ...head,
+    `import { ${imp('engine').join(', ')} } from '../src/engine.js'`,
+    `import {\n  ${imp('instruments').join(', ')},\n} from '../src/instruments.js'`,
+    data + players,
+    ...tracks.map((t, i) => `// ---- ${t.name} ${'-'.repeat(Math.max(4, 90 - t.name.length))}\nconst track${i} = ${t.code}\n`),
+    `export default {
+  name: '${title}',
+  bpm: ${bpm},
+  key: '${tonicName}',
+  mode: '${mode}', // ${M.name}: ${M.iv.join(' ')}
+  length: END,
+  theme: '${S.theme}',
+  style: 'maqam',
+  generator: ${JSON.stringify({ style: 'maqam', seed: meta.seed, seeds, length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(opts.mode && MAQAMAT[opts.mode] ? { mode } : {}) })},
+  keys: ${JSON.stringify(keysField)}, // the maqam of each stretch (the tahwil) — for the note names
+  signature: 'home',
+  parts: ['oud', 'qanun', 'ney', 'violin', 'cello'],
+  sections: SECTIONS,
+  tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.name)}: track${i}`).join(', ')} },
 }
 `,
   ]

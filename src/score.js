@@ -12,6 +12,7 @@
 // x (the song's beats) is a quarter note, or a dotted quarter in compound meters (song.meter '12/8': 112 BPM counts
 // dotted quarters). Meters: song.meter ('4/4', '12/8', '7/8'…) or song.meters [[beat, '7/8'], …] per section.
 import { spellParts, pc, chordName, roman, keyAt } from './theory.js'
+import './modes.js' // (lends keyAt the spelling of a mode)
 
 export const DIV = 48 // ticks per quarter note
 const VALUES = [[288, 'whole', 1], [192, 'whole', 0], [144, 'half', 1], [96, 'half', 0], [72, 'quarter', 1], [48, 'quarter', 0], [36, 'eighth', 1], [24, 'eighth', 0],

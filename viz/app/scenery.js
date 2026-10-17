@@ -321,7 +321,27 @@ function catpost(g, x, y, s, m, side, rgb, b = 0) {
   g.fillRect(x - 0.2 * s, y - 2 * s, 0.4 * s, 2 * s)
   if (hsh(b * 0.37) < 0.5) cat(g, x, y - 2 * s, s * 0.9, 'rgba(14,10,16,0.95)', Math.sin(m.x * Math.PI + b))
 }
-const PROPS = { lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost }
+// a fanous: the pierced brass lantern of Ramadan nights on a post, its light breathing with the beat
+function lantern(g, x, y, s, m, side, rgb) {
+  const top = y - 4.2 * s, lx = x + side * 0.7 * s
+  g.fillStyle = 'rgba(12,8,6,0.92)'
+  g.fillRect(x - 0.1 * s, top, 0.2 * s, 4.2 * s)
+  g.fillRect(x, top, side * 0.75 * s, 0.12 * s)
+  halo(g, lx, top + 0.9 * s, 2.2 * s, rgb, 0.22 + 0.18 * m.down + 0.1 * m.kick)
+  g.fillStyle = rgba(rgb, 0.75)
+  g.beginPath()
+  g.moveTo(lx, top + 0.15 * s)
+  g.lineTo(lx + 0.35 * s, top + 0.55 * s)
+  g.lineTo(lx + 0.3 * s, top + 1.25 * s)
+  g.lineTo(lx, top + 1.55 * s)
+  g.lineTo(lx - 0.3 * s, top + 1.25 * s)
+  g.lineTo(lx - 0.35 * s, top + 0.55 * s)
+  g.closePath()
+  g.fill()
+  g.fillStyle = 'rgba(30,18,8,0.7)'
+  for (let j = 0; j < 3; j++) g.fillRect(lx - 0.24 * s + j * 0.18 * s, top + 0.6 * s, 0.08 * s, 0.5 * s)
+}
+const PROPS = { lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern }
 
 function torii(g, cx, y, s, half, rgb, a) {
   g.fillStyle = rgba(rgb, a)
@@ -349,7 +369,23 @@ function lancet(g, cx, y, s, half, rgb, a) {
   g.lineTo(cx + half, y)
   g.stroke()
 }
-const SPANS = { torii, lancet }
+// a horseshoe arch (Córdoba, Fez): the circle goes on below its centre line, on two slim columns
+function horseshoe(g, cx, y, s, half, rgb, a) {
+  g.strokeStyle = rgba(rgb, a)
+  g.lineWidth = Math.max(1.5, 0.3 * s)
+  const r = half * 1.12, cyy = y - 6 * s, th = Math.asin(half / r)
+  g.beginPath()
+  g.moveTo(cx - half, y)
+  g.lineTo(cx - half, cyy + Math.cos(th) * r)
+  g.arc(cx, cyy, r, Math.PI / 2 + th, Math.PI / 2 - th + TAU, false)
+  g.lineTo(cx + half, y)
+  g.stroke()
+  g.lineWidth = Math.max(1, 0.12 * s)
+  g.beginPath()
+  g.arc(cx, cyy, r * 1.12, Math.PI + 0.25, TAU - 0.25)
+  g.stroke()
+}
+const SPANS = { torii, lancet, horseshoe }
 
 // ---- skies, one per theme; c = { W, H, k, hy (horizon), ground, scroll(par) px, at(b) | null, from, to } ----
 const SKIES = {
@@ -401,6 +437,28 @@ const SKIES = {
     g.beginPath()
     g.ellipse(px, py, r * 2.1, r * 0.5, -0.3, 0, Math.PI)
     g.stroke()
+  },
+
+  // a desert night: stars, a crescent, a medina on the horizon, dunes in two layers, lanterns on the beats
+  desert(g, c, m) {
+    const { W, H, k, hy } = c, R = Math.min(W, H)
+    for (let i = 0; i < 90; i++) {
+      const x = fr(hsh(i * 3.3) - c.scroll(0.004) / W) * W, y = hy * 0.92 * hsh(i * 7.7) ** 1.4
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(m.x * (0.6 + hsh(i)) + i))
+      g.fillStyle = rgba(m.S, 0.25 + 0.5 * tw * hsh(i * 1.9))
+      g.fillRect(x, y, 1.3 * k, 1.3 * k)
+    }
+    const mx = W * 0.78, my = hy * 0.3, mr = R * 0.05
+    moon(g, mx, my, mr, '255,236,190', 0.9)
+    g.fillStyle = hsla(m.hue, 40, 6)
+    g.beginPath()
+    g.arc(mx + mr * 0.42, my - mr * 0.18, mr * 0.92, 0, TAU)
+    g.fill()
+    halo(g, W * 0.5, hy, W * 0.55, m.A, 0.06 + 0.05 * m.energy)
+    medina(g, c, m, { par: 0.06, slot: 40, seed: 3, base: hy + 4 * k, lo: hy * 0.05, hi: hy * 0.16, fill: hsla(m.hue, 30, 7), win: '255,200,120', winA: 0.45 })
+    ridge(g, c, { par: 0.14, y: hy + (c.ground - hy) * 0.45, amp: (c.ground - hy) * 0.5, scale: 220, seed: 9, oct: 2, fill: hsla(m.hue + 6, 45, 11) })
+    ridge(g, c, { par: 0.3, y: c.ground + 2 * k, amp: (c.ground - hy) * 0.4, scale: 300, seed: 13, oct: 2, fill: hsla(m.hue + 10, 50, 15) })
+    onBeats(c, 4, (x, b) => lantern(g, x, c.ground, H * 0.04, m, 1, '255,190,100'))
   },
 
   lofi(g, c, m) {
@@ -908,6 +966,42 @@ function floorGrid(g, c, m, rgb, a, fan) {
   g.globalAlpha = 1
 }
 
+// a medina against the sky: cubes with domes, minarets with a balcony and a little dome, arched windows lit at random
+function medina(g, c, m, { par, slot, seed, base, lo, hi, fill, win, winA }) {
+  slots(c, par, slot, (x, i, st) => {
+    const h = lo + (hi - lo) * hsh(i * 3.7 + seed), w = st * (0.55 + 0.35 * hsh(i * 1.3 + seed))
+    g.fillStyle = fill
+    g.fillRect(x, base - h, w, h)
+    if (hsh(i * 5.1 + seed) < 0.5) {
+      g.beginPath()
+      g.ellipse(x + w / 2, base - h, w * 0.38, w * 0.42, 0, Math.PI, TAU)
+      g.fill()
+      g.fillRect(x + w / 2 - 0.6 * c.k, base - h - w * 0.62, 1.2 * c.k, w * 0.22)
+    }
+    if (hsh(i * 7.9 + seed) < 0.28) {
+      const mx = x + w + st * 0.12, mw = st * 0.12, mh = h * (1.6 + 0.5 * hsh(i + seed))
+      g.fillRect(mx, base - mh, mw, mh)
+      g.fillRect(mx - mw * 0.35, base - mh * 0.78, mw * 1.7, mw * 0.35)
+      g.beginPath()
+      g.ellipse(mx + mw / 2, base - mh, mw * 0.65, mw * 0.9, 0, Math.PI, TAU)
+      g.fill()
+      g.fillRect(mx + mw / 2 - 0.4 * c.k, base - mh - mw * 1.6, 0.8 * c.k, mw * 0.8)
+    }
+    for (let j = 0; j < 3; j++) {
+      if (hsh(i * 11 + j * 3.1 + seed + Math.floor(m.x / 8) * (j === 1 ? 0.37 : 0)) > 0.45) continue
+      const wx = x + w * (0.2 + 0.3 * j), wy = base - h * 0.55, ww = w * 0.1, wh = h * 0.22
+      g.fillStyle = rgba(win, winA)
+      g.beginPath()
+      g.moveTo(wx, wy + wh)
+      g.lineTo(wx, wy)
+      g.arc(wx + ww / 2, wy, ww / 2, Math.PI, TAU)
+      g.lineTo(wx + ww, wy + wh)
+      g.fill()
+      g.fillStyle = fill
+    }
+  })
+}
+
 // what stands along the 3D road, per theme: prop, how often (beats), its light; span = an arch over all lanes
 const ROAD = {
   void: { prop: 'rock', every: 4 },
@@ -924,6 +1018,7 @@ const ROAD = {
   ink: { prop: 'toro', every: 4, rgb: '255,190,120', span: 'torii', spanEvery: 16 },
   romantic: { prop: 'lamp', every: 8, rgb: '255,220,170' },
   jazz: { prop: 'lamp', every: 4, rgb: '255,200,120' },
+  desert: { prop: 'lantern', every: 4, rgb: '255,190,100', span: 'horseshoe', spanEvery: 16 },
 }
 
 // 2D: behind the curves. geo = { X (beat → screen x), from, to (beats on screen), px (pixels per beat), ground }

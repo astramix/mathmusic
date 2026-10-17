@@ -137,12 +137,18 @@ export function spell(n, key = { tonic: 0, mode: 'major' }, octave = true) {
 }
 
 // the key at beat x of a song that changes key (song.keys: [[beat, 'G'], …]) — else `home`
+// (an entry may name a mode: [beat, 'D', 'saba'] — modes.js lends keyWithMode for its spelling)
+let MODE_KEY = null
+export const setModeKey = f => (MODE_KEY = f)
 export function keyAt(song, x, home) {
   if (!song?.keys?.length) return home
-  let k = null
-  for (const [at, name] of song.keys) if (at <= x + 1e-6) k = name
-  const p = parseKey(k ?? song.keys[0][1])
-  return p && (p.tonic !== home?.tonic || p.mode !== home?.mode) ? p : home
+  let e = null
+  for (const k of song.keys) if (k[0] <= x + 1e-6) e = k
+  e ??= song.keys[0]
+  let p = parseKey(e[1])
+  if (p && e[2] && MODE_KEY) p = MODE_KEY(p, e[2])
+  const same = p && p.tonic === home?.tonic && p.mode === home?.mode && String(p.steps ?? '') === String(home?.steps ?? '')
+  return p && !same ? p : home
 }
 
 // Krumhansl–Kessler key profiles → the most likely key of a pitch-class histogram (weights ≥ 0)

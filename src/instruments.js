@@ -654,6 +654,84 @@ export function kakegoe({ size = 0.85, pitch = 165, seed = 41 } = {}) {
   }
 }
 
+// ---- the Middle East ------------------------------------------------------------------------------------------------
+// Oud: eleven gut strings in courses over a bowl of thin ribs, fretless (a note may slide in: from), plucked with a
+// risha — a warm string struck nearer the middle (pos 0.2), the bowl's air (≈ 110 Hz) and wood (≈ 250, 600 Hz), a soft
+// quill click. The string model is the exactly tuned one (a quarter tone is a quarter tone). o.hit(f, vel, { from, glide })
+export function oud({ sustain = 2.4, bright = 0.5, seed = 41 } = {}) {
+  const set = stringSet({ bright, sustain, sawari: 0, tension: 0.004, pos: 0.2, click: 0.003, thump: 0.25, thumpHz: 120 }, { mono: true, max: 3, seed })
+  const hp = filter('hp'), air = filter('bp'), w1 = filter('bp'), w2 = filter('bp'), lp = filter('lp'), ck = filter('hp')
+  const o = () => {
+    const [y, atk] = set(), x = hp(y, 60)
+    return 0.55 * lp(x, 4200) + 0.5 * air(x, 110, 1.6) + 0.6 * w1(x, 250, 1.8) + 0.35 * w2(x, 600, 2.2) + 0.25 * ck(atk, 2500)
+  }
+  o.hit = set.hit
+  o.mute = set.mute
+  return o
+}
+// Qanun: a trapezoid zither, 26 courses of three strings plucked with picks on both forefingers — bright, a fish-skin
+// bridge (≈ 400, 1500 Hz), every course three strings a few cents apart (a chorus); the mandal levers set each string
+// to its quarter tone. Polyphonic (octaves, tremolo): q.hit(f, vel)
+export function qanun({ sustain = 3, bright = 0.82, seed = 43 } = {}) {
+  const set = stringSet({ bright, sustain, sawari: 0, tension: 0.003, pos: 0.11, click: 0.0025 }, { max: 18, seed })
+  const lp = filter('lp'), b1 = filter('bp'), b2 = filter('bp'), ck = filter('hp')
+  const q = () => {
+    const [y, atk] = set()
+    return 0.65 * lp(y, 7000) + 0.55 * b1(y, 400, 1.6) + 0.4 * b2(y, 1500, 2.2) + 0.3 * ck(atk, 3000)
+  }
+  q.hit = (f, vel = 0.7, o = {}) => { for (const c of [-3, 0, 3]) set.hit(f * 2 ** (c / 1200), vel * 0.42, o) } // a course of three strings, ±3 ¢
+  q.mute = set.mute
+  return q
+}
+// Ney: the reed flute blown across the rim at an angle — far more breath than tone (noise around f and 2f), a soft
+// fundamental with a little 2nd and 3rd partial, notes entered with a breath push and a slight scoop, a slow vibrato
+// that comes late. n(f, on, { vib }) → sample; a new pitch while on = a legato slide.
+export function ney({ breath = 0.3, seed = 47 } = {}) {
+  const η = noise(seed), o1 = osc('sine'), o2 = osc('sine'), o3 = osc('sine'), bA = filter('bp'), bB = filter('bp'), hp = filter('hp')
+  const level = ar(90, 220), glide = smooth(45)
+  let t = 0, held = 0, cur = 0
+  return (f, on, { vib = 1 } = {}) => {
+    t += 1 / SR
+    if (on) cur = f // a new pitch while blowing: the finger slides (glide)
+    held = on ? held + 1 / SR : 0
+    const g = glide(cur || f) * 2 ** ((vib * 0.22 * smoothstep(0.4, 1.1, held) * sin(TAU * 5.2 * t) - 0.25 * (1 - smoothstep(0, 0.12, held))) / 12)
+    const a = level(on ? 1 : 0), n = η()
+    const tone = 0.55 * o1(g) + 0.12 * o2(2 * g) + 0.05 * o3(3 * g)
+    const air = breath * (bA(n, g, 2.5) + 0.6 * bB(n, 2 * g, 3)) + (on ? 0.25 * exp(-held / 0.06) : 0) * hp(n, 2000)
+    return a * (tanh(1.3 * tone) + air)
+  }
+}
+// Darbuka: the goblet drum. dum — the open centre: the skin's modes (1, 1.59, 2.14, 2.3) of ≈ 95 Hz sinking from a
+// semitone sharp, the goblet's air; tek — the rim with the ring finger: a bright ring (≈ 1.35, 2.2, 3.4 kHz) and a click;
+// ka — the other hand's softer rim. d(t s, stroke, on)
+export function darbukaDrum({ pitch = 95, seed = 53 } = {}) {
+  const η = noise(seed), hp = filter('hp'), bp = filter('bp'), lp = filter('lp')
+  return (t, stroke = 'dum', on = true) => {
+    const n = η(), c = hp(n, 2500), b = bp(n, 1.4 * pitch, 3)
+    if (!on || t > 1.2) return (lp(0, 5000), 0)
+    if (stroke === 'dum') {
+      const ph = TAU * pitch * (t + 0.06 * 0.04 * (1 - exp(-t / 0.04)))
+      const y = exp(-t / 0.22) * sin(ph) + 0.35 * exp(-t / 0.08) * sin(1.59 * ph) + 0.18 * exp(-t / 0.05) * sin(2.14 * ph) + 0.4 * exp(-t / 0.12) * b + 0.2 * exp(-t / 0.003) * c
+      return lp(tanh(1.4 * y), 5000)
+    }
+    const k = stroke === 'ka' ? 0.6 : 1, f = stroke === 'ka' ? 1250 : 1350
+    const y = k * (exp(-t / 0.045) * (0.6 * sin(TAU * f * t) + 0.35 * sin(TAU * 1.63 * f * t) + 0.2 * sin(TAU * 2.52 * f * t)) + 0.9 * exp(-t / 0.004) * c)
+    return lp(y, 9000)
+  }
+}
+// Riq: the small frame drum with five pairs of brass jingles — the skin (≈ 230 Hz) and the jingles' shimmer (a band
+// of noise around 7–9 kHz with a beating envelope as the cymbals clash and rebound). r(t s, stroke 'dum'|'tek'|'jingle', on)
+export function riqDrum({ seed = 59 } = {}) {
+  const η = noise(seed), j1 = filter('bp'), j2 = filter('bp'), hp = filter('hp')
+  return (t, stroke = 'jingle', on = true) => {
+    const n = η(), jing = 0.6 * j1(n, 7200, 6) + 0.5 * j2(n, 9100, 7) + 0.2 * hp(n, 11000)
+    if (!on || t > 0.6) return 0
+    const shimmer = exp(-t / (stroke === 'jingle' ? 0.09 : 0.13)) * (0.75 + 0.25 * sin(TAU * 38 * t))
+    const skin = stroke === 'dum' ? exp(-t / 0.09) * sin(TAU * 230 * t) : stroke === 'tek' ? 0.5 * exp(-t / 0.02) * sin(TAU * 900 * t) : 0
+    return 0.9 * shimmer * jing + 0.6 * skin
+  }
+}
+
 // ---- orchestra ---------------------------------------------------------------------------------------
 // Timpani: the kettle's modes 1, 1.5, 1.98, 2.44, 2.94 (the air in the kettle tunes them almost harmonic, so
 // the drum has a pitch) and an inharmonic 1.65; the head starts a little sharp; the felt mallet's thump.

@@ -14,7 +14,8 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (12 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule), retune (every song in two modes), theory, MIDI export, the song
+  the generator (13 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -47,7 +48,8 @@ export default {
   //   tools/score-export.mjs turns it into js/score-data/<name>.js (MP3 + a score per beat)
   // optional: theme: 'lofi' (visualiser colours, viz/app/themes.js); generated songs also carry
   // style and generator: { style, seed, seeds: { melody, arrangement, instruments }, length, key?, mode?, micro?, temperament? }
-  // optional: keys: [[0, 'D'], [80, 'F'], …] — a song that modulates: the score's signatures, note names by section
+  // optional: keys: [[0, 'D'], [80, 'F'], …] — a song that modulates: the score's signatures, note names by section;
+  //   [beat, 'D', 'saba'] names a mode too (theory.keyAt asks modes.js — setModeKey — for its spelling: G♭ in Saba)
   // optional: meter: '12/8' (x is then a dotted quarter), '2+2+3/8' (additive: its groups), '2+2+3/8 | 2+2+2+3/8' (bars in turn)
   //   | meters: [[0, '4/4'], [120, '7/8'], …] per section — for the score (plain '9/8' is compound 3+3+3)
   // optional: parts: ['violin', 'viola', 'cello'] — the score's staves (else guessParts); signature: 'home' — with `keys`: the
@@ -100,6 +102,9 @@ hardstyle: `hardKick({tail, drop, drive, bias, tone, sub, crush})` → k(t s, f 
 `reverseBass({drive, open, q})` → r(u ∈ [0,1) | null, f), `duck(t s, depth, release)` sidechain gain ·
 textures: `vinyl()`, `rain()` → [l, r] · effects: `chorus({rate, depth, mix})`, `tape({wow, flutter,
 drive, tone})` → (l, r) ⇒ [l, r].
+Middle East (the exactly tuned strings: a quarter tone is a quarter tone): `oud()` / `qanun()` → o() sample, o.hit(f, vel,
+{ from, glide }) (the qanun: a course of three strings ±3 ¢) · `ney()` → n(f, on, { vib }) (breath louder than tone, legato
+slides) · `darbukaDrum()` → d(t s, 'dum'|'tek'|'ka', on) · `riqDrum()` → r(t s, 'jingle'|'dum'|'tek', on).
 Japan (plucked strings are a Karplus–Strong loop with a moving, exactly tuned delay: pitch error < 2 cents):
 `shamisen({sawari})`, `koto()`, `biwa()` → s() sample, s.hit(f, vel, {from, glide, bend, bendAt, bendTime,
 back, at (samples), keep}) — from = slide in (suri), bend/back = oshide pressed and let go, sawari = buzz;
@@ -182,6 +187,14 @@ a 4-beat window of the subject or CS — moved a step down per bar, bass on the 
 → stretto (the subject against itself δ beats later, checked) or a last entry → coda iv–V–I (♭II–I in Phrygian, Picardy).
 Entries after a leap move the note before by an octave or take a breath. Up to 8 attempts; the first with no fault wins.
 
+## maqam.js (the maqam style, tests — not imported by songs)
+`MAQAMAT` (rast bayati saba sikah huzam hijazRast suznak iraq: ghammaz degree, pillars, modulations [mode, tonic shift],
+descending alterations — Rast's B𝄳 → B♭), `IQA` (maqsum baladi saidi malfuf on 16 sixteenths), `degreePitch(mode, tonic, d,
+down)`, `maqamPcs`. `composeMaqam({ mode, tonic, r, length })` → { sections, melody, taqsims, drone, iqa, keys }: taqsim (free,
+the sayr low → ghammaz → high → down → qafla, phrases walking by step to resting notes, breaths) → dulab → lower jins →
+ghammaz → tahwil (a related maqam) → taqsim II → lower jins → qafla; sections AA′BA in two-bar phrases (beam search over
+degrees: steps, pillars on the strong beats, the cadence from above).
+
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
 `kWeighting(sr)` — the editor's full check, A/B, mastering.
@@ -223,7 +236,7 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue — each: tempo/keys, forms
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -268,6 +281,11 @@ mixture + posaune 16′; harpsichord — lute stop, 8′ + 8′, 4′ and 16′)
 The song: SOPRANO/ALTO/BASS, HARMONY (the continuo's chords), PHASES canon/fugue/tutti, `keys` + `signature: 'home'`, `parts`.
 `length: short` drops the canon (6 tracks). A church mode → a modal fugue; other modes, `micro` and `meter` are ignored;
 `temperament` works (Werckmeister III, meantone… suit it). Its seeds are new, so the other styles' songs are untouched.
+**maqam** (🪘 Макам, 88–112 BPM, theme 'desert'): `generateMaqam` — composeMaqam on the melody seed; a takht in heterophony:
+the oud (TAQSIM_1, risha strokes on long notes), the qanun (tremolo every ⅛ beat, the lower octave), the ney (legato, the
+quickest notes left out), the violin, the cello (the melody an octave down on the beats; DRONE under the taqsims), darbuka +
+riq (`strokeAt`: the cycle, ka between, a tek fill every 4th bar). The second taqsim by the instrument seed (ney / qanun /
+violin). midi() is fractional (63.5); the song has `mode`, `keys` with the tahwil's maqam, `signature: 'home'`.
 **jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
 style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
@@ -306,7 +324,8 @@ IndexedDB (`where: 'pending'`) and moves in on connect; unique names, file names
 song moves to its new file; "write to songs/" asks before replacing; tabs synced via a localStorage ping) ·
 themes.js · scenery.js (Вид → «Тематический фон», `app.view.scenery`, on by default, also in videos: a landscape per theme —
 space, rainy city, 8-bit hills, sunset sea, sakura, baroque hall, rose window + pointed arcade, outrun sun + grid, neon tunnel,
-drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club; classic: `scenery2d` behind the curves (silhouettes
+drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club, desert night (crescent, medina, dunes, fanous lanterns,
+horseshoe arches in 3D); classic: `scenery2d` behind the curves (silhouettes
 on world-fixed grids, the nearest layer on bar lines via X(b)); space: `sceneryBack` at the horizon + `sceneryRoad` props
 every N beats beside the lanes, crossing the playhead plane on their beat, torii/lancet arches over all lanes. Driven by
 `musicOf(scene)`: beat phase, downbeat, kick (drum tracks' onsets), energy, progress, section flash — never Math.random) ·
@@ -373,4 +392,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | oni-matsuri | jbattle: festival fight | 136 | D (yo)→Bm→E | 2 min, yo scale + sus chords, Euclidean taiko E(5,16)/E(7,16)/E(11,16) and E(5,12) (3:4), kane, hyoshigi, kotsuzumi + shouts, timpani bass |
 | shogun-requiem | jbattle: epic, half time ↔ full | 168 | Cm→Dm→D | 2 min, in-scale + ♭II, male chant choir, biwa, 7/4 koto stretto K₂ = K₁(x − 3/2) − 12, chorale, boom kick, Picardy end |
 | fughetta-serena | generated fugue (seed 1) | 66 | Cm | canon at the octave (flute/oboe/bassoon), 3-voice fugue: tonal answer, invertible CS, sequences, stretto, Picardy coda |
+| bahr-al-layl | generated maqam (seed 2, bayati) | 101 | D bayati | quarter tones (E𝄳), taqsims of oud and ney, tahwil to Hijaz, takht heterophony, maqsum |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

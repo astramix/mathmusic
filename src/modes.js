@@ -7,7 +7,7 @@
 //   iv: semitones above the tonic, fractional for microtones (3.5 = a neutral third, E𝄳 above C);  system: how its
 //   notes are spelt ('aeu' Turkish commas, 'persian' koron/sori, 'cents' a measured scale: nearest note ± cents);
 //   home: the tonic it is usually written on;  short: one line for the menu;  text: what it is and where it lives.
-import { spellParts, parseKey } from './theory.js'
+import { spellParts, parseKey, setModeKey } from './theory.js'
 
 const commas = ks => ks.map(k => Math.round((k * 120000) / 53) / 10000) // Turkish degrees: commas of 53-EDO → semitones
 const centsIv = cs => cs.map(c => c / 100)
@@ -271,6 +271,7 @@ export function keyWithMode(key, id) {
   const m = id && MODES[id]
   return m && isMicro(m) && key ? { ...key, steps: m.iv, system: m.system ?? null } : key
 }
+setModeKey(keyWithMode)
 
 const near = (a, b, e = 0.02) => Math.abs(a - b) < e
 const frac = { 0.25: '⅛', 0.5: '¼', 0.75: '⅜', 1.5: '¾', 2.5: '1¼', 3.5: '1¾', 4.5: '2¼' }

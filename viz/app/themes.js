@@ -16,12 +16,13 @@ export const THEMES = {
   meow: { label: 'Котики', hue: 335, sat: 40, light: 9, star: '255,215,235', accent: '#ffa8d6', accent2: '#fff09f', deco: 'stars' },
   ink: { label: 'Тушь и киноварь', hue: 355, sat: 38, light: 5, star: '255,200,190', accent: '#ff4d5a', accent2: '#ffd9a0', deco: 'grain' },
   romantic: { label: 'Романтизм', hue: 345, sat: 32, light: 6, star: '255,225,215', accent: '#e8a0b4', accent2: '#f6d58e', deco: 'gold' },
+  desert: { label: 'Ночь в пустыне', hue: 32, sat: 45, light: 6, star: '255,240,210', accent: '#f0b860', accent2: '#5fd0c0', deco: 'stars' },
   jazz: { label: 'Джаз-клуб', hue: 220, sat: 40, light: 6, star: '200,220,255', accent: '#7fb0ff', accent2: '#ffc56b', deco: 'grain' },
 }
 const BY_NAME = {
   voidchip: 'void', lofi: 'lofi', chiptune: 'chip', bossa: 'bossa', kawaii: 'kawaii', classical: 'classical',
   gothic: 'gothic', synthwave: 'synth', dnb: 'dnb', phonk: 'phonk', meow: 'meow', hardstyle: 'phonk', example: 'void',
-  jbattle: 'ink', romantic: 'romantic',
+  jbattle: 'ink', romantic: 'romantic', maqam: 'desert', fugue: 'classical',
 }
 export function themeFor(song) {
   const id = song?.theme ?? BY_NAME[song?.style] ?? BY_NAME[song?.name] ?? 'void'
