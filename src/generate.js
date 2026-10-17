@@ -682,6 +682,9 @@ export function generate(opts = {}) {
     RUN = { notes: [...head, ...run, ...trill], chords, per: 4, length: 16 }
   }
 
+  // a melody of your own longer than its theme's section: the section grows to hold it whole (a theme plays only whole)
+  if (userMel) for (const f of form) if ((f.role === 'theme' || f.role === 'final') && f.bars * 4 < A.length) f.bars = Math.ceil(A.length / 4)
+
   // instruments
   const inst = {
     lead: pick(RI, S.lead), lead2: pick(RI, S.lead2), chords: pick(RI, S.chords), bass: pick(RI, S.bass),

@@ -18,7 +18,8 @@ Open a source file only to change it or when something here is unclear.
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
-  jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours),
+  projects (test/project.test.js: every instrument plays, the block round-trips, a song becomes a project, notes back from
+  midi(), arrangements under a melody), jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours),
   celtic (test/celtic.test.js: its own modes and meters, cuts and rolls, the drone), ambient (test/ambient.test.js: the loops' LCM, the
   harmonic series' cents), harmonize (test/harmonize.test.js: key, chord tones, cadence; a song on your melody keeps it as written), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
@@ -237,6 +238,21 @@ borrowed chords dearer) — the note at each step's start a chord tone, passing 
 secondary dominant resolving, I first, V – I at the end; without a key, the likeliest six keys are tried and the best fit kept.
 Two chords a bar (one when the melody only holds). `userMelody(notes)` → a MELODIES entry (id 'user').
 
+## project.js (projects: songs of note tracks — the app's multitrack editor, tests; not imported by songs)
+A block in the song file between `// ==== MathMusic project` and `// ==== end of the project`: `PROJECT = { song?: { bpm, key,
+mode, length, sections }, removed?: [code track keys], tracks: [{ id, name, inst, vol, pan, fx?, notes: [[beat, MIDI, length,
+vel]], gen?: { style, seed, kind, part?, ref? } }] }` (plain JSON, a bar of notes per line), the instruments used, and
+`__project(song)` — `export default __project({ … })` adds a track per PROJECT track (key = its name, made unique), drops the
+`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (53, in `GROUPS`: keys,
+mallets, plucked (KS koto/oud/qanun/sitar…), bowed, winds, voices, synths, bass, gamelan, drums): { id, label, group, kind poly |
+mono | chord | drums, role lead | keys | pad | bass | drums, range, fx, color, program (GM, −1 drums), level (evened out by
+measured rms), formula }. Drum kits take General MIDI numbers (36 kick, 38 snare, 42 hat…; tabla by pitch class). A track object
+carries `program` — midi.js / musicxml.js use it before guessing by name. `newProjectSource`, `readProject`, `writeProject(src, p,
+{ parse })` (a song that isn't one yet: the block before `export default`, its value wrapped), `trackKeys`, `readTrackNotes(midi,
+length)` (notes back from midi(): gated lengths restored), `instrumentFor(name, style)`, `roleOf`, `alignedParts(parts, melody,
+len)` (where theme A sounds as written in a song made on that melody → the other parts cut to it). A user theme longer than its
+section makes the theme/final sections grow (generate.js), so it plays whole.
+
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
 `kWeighting(sr)` — the editor's full check, A/B, mastering.
@@ -361,7 +377,8 @@ five Japanese songs (`only: 'jbattle'`); the solo is an improvised koto/shamisen
 ## The app (viz/: build.js inlines everything into MathMusic Live.html)
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
 melodies, midi are importable the same way (embedded sources get `\n` line ends: CodeMirror's). main.js (menus Песня/Редактор/🎲/Экспорт/Вид, transport, legend,
-inspector, live formulas) · player.js (worker pool renders tracks in parallel → page mixes stems → cache
+inspector, live formulas) · player.js (pause holds the worklet ({type:'run'}), the AudioContext keeps running — the piano roll's sounds never wake a
+paused song; worker pool renders tracks in parallel → page mixes stems → cache
 → AudioWorklet output; instant seek-back and mute, live code updates cross-fade in; the loop: the worklet plays a
 continuous virtual stream, `vmap`/`songAt` map it onto the song, round [a, b) with the start blended over what follows
 the end (LOOP_XF 1024); `switchTo` = A/B at the same beat from the other version's kept audio (KEEP 2), `trim` = loudness
@@ -374,7 +391,12 @@ LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code; row
 the notes / the song's mode; «🎹 играть»: Web MIDI input — pitch bend ±2 st gives ¼/⅛ tones on those grids — and the computer's
 keys A W S E D F T G Y H U J K O L P (Z/X octave, Shift +one pitch-grid step), a monitor tone; «⏺ запись»: notes on the song's
 beats while it plays (snapped to the grid), step input from a green cursor when paused (chords: keys together);
-«✨ песня» + a style: genui `fromMelody(notes, style)` → a whole song on the melody) · genui.js (dialog: Строй, Микротоны ¼/⅛) · export.js (MP3
+«✨ песня» + a style: genui `fromMelody(notes, style)` → a whole song on the melody; on the left the track list of
+projectui.js: every song's tracks — the project's (edited here: absolute MIDI, the others faint behind, drum rows named), the
+code's (read only, ❄ = into notes, 🗑 = `removed`, ↶) — M/S, instrument, volume, pan, room, ⋯ menu; ＋ a track (empty, a melody in a
+style, a part under another track's melody), 🎼 arrangement (the generator on the melody as userTheme, `alignedParts`, the bass on
+the style's bass instrument; 'all' adds/overwrites tracks, or one track gets the part of its role), 🔁 rewrite (its gen with a new
+seed); «Песня → Новый проект…» (name, tempo, tonic, any of the 100 modes, bars, first instrument, a melody in a style)) · genui.js (dialog: Строй, Микротоны ¼/⅛) · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
 ch. 10 / MIDI MPE: microtones and tunings as per-note pitch bends — lower zone, members ch. 2–9, ±48 st, MCM + RPN 0 /
 the tuning as .scl .kbm .ascl in a ZIP / stems ZIP) · scoreview.js («Ноты», S: the score as SVG in Bravura — viz/vendor/bravura, SIL OFL, embedded by build.js as a font-face;

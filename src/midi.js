@@ -85,7 +85,7 @@ export function midiFile(song, { ppq = PPQ, muted = new Set(), mpe = false } = {
   let ch = 0
   for (const [key, t] of Object.entries(song.tracks)) {
     if (!t || typeof t.midi !== 'function' || muted.has(key)) continue
-    const prog = gmProgram(key), drums = prog === -1
+    const prog = Number.isInteger(t.program) ? t.program : gmProgram(key), drums = prog === -1 // a project's track says its program
     if (mpe && !drums) {
       const body = [...meta(0x03, txt(key)), ...mpeSetup(prog)]
       const free = [...MPE_MEMBERS], held = new Map() // note → channel

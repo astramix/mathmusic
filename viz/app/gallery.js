@@ -17,7 +17,7 @@ const covers = []
 // the generator's styles, then the ones only the original songs have
 const STYLE_INFO = Object.fromEntries([
   ...STYLE_LIST.map(s => [s.id, s]),
-  ...[['dnb', 'Драм-н-бейс', '🥁'], ['hardstyle', 'Хардстайл', '🔨'], ['phonk', 'Фонк', '🚗'], ['gothic', 'Готика', '🦇'], ['minimal', 'Минимал', '✏️']].map(([id, label, emoji]) => [id, { id, label, emoji }]),
+  ...[['project', 'Проекты', '🎛'], ['dnb', 'Драм-н-бейс', '🥁'], ['hardstyle', 'Хардстайл', '🔨'], ['phonk', 'Фонк', '🚗'], ['gothic', 'Готика', '🦇'], ['minimal', 'Минимал', '✏️']].map(([id, label, emoji]) => [id, { id, label, emoji }]),
   ['other', { id: 'other', label: 'Без стиля', emoji: '·' }],
 ])
 const styleOf = e => (STYLE_INFO[styleIn(e.source)] ? styleIn(e.source) : 'other')

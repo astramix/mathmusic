@@ -361,7 +361,7 @@ export function buildScore(song, { parts = null, key, mode = null, source = null
     } else writePart(k, k, CLEF(ns), graced)
   }
   function writePart(k, name, clef, graced) {
-    const part = { key: k, name, clef, bars: [] }
+    const part = { key: k, name, clef, bars: [], ...(Number.isInteger(song.tracks[k]?.program) ? { program: song.tracks[k].program } : {}) }
     out.parts.push(part)
     for (const b of bars) {
       const m = b.meter, T = m.barTicks, xt = m.xTicks, evs = []

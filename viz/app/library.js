@@ -29,8 +29,8 @@ const tx = (db, store, mode, f) => new Promise((resolve, reject) => {
 
 // ---- names ---------------------------------------------------------------------------------------------
 // The song's own object: from `export default {` on (a `name:` before it belongs to something else); a copy in
-// another mode is `export default __retuneSong({ … })` (src/retune.js)
-const songPart = source => Math.max(0, source.search(/export\s+default\s*(?:__retuneSong\(\s*)?\{/))
+// another mode is `export default __retuneSong({ … })` (src/retune.js), a project `export default __project({ … })` (src/project.js)
+const songPart = source => Math.max(0, source.search(/export\s+default\s*(?:__(?:retuneSong|project)\(\s*)*\{/))
 const NAME = /\bname\s*:\s*(['"`])([^'"`\n]*)\1/
 
 // a song's display name from its source (export default { name: '…' }), or fallback

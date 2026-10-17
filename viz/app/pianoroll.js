@@ -13,6 +13,9 @@
 // names follow the song's key and mode (Stein–Zimmermann–Gould accidentals, Turkish commas, cents).
 // n counts semitones from a base note: read from the comment near the array ("n from F4"),
 // changeable in the header. Rows of the song's scale are lighter; names follow the key.
+// On the left, the song's tracks (projectui.js): a project's tracks of notes (absolute MIDI, n from C−1 = 0) are drawn
+// and written here like the melodies of the code, the code's own tracks shown as the notes they play (read only: ❄ makes
+// one editable); the other project tracks show faintly behind the one being edited.
 import { app } from './app.js'
 import { h, toast } from './ui.js'
 import * as acorn from './acorn.js'
@@ -20,6 +23,11 @@ import { spell, pc, freq, SCALES, parseKey } from './theory.js'
 import { MODES } from './modes.js'
 import { STYLE_LIST } from './generate.js'
 import { fromMelody } from './genui.js'
+import { createTrackList, projectOf, setProject, codeNotes, trackInfo } from './projectui.js'
+import { INSTRUMENT } from './project.js'
+
+// General MIDI drum names for the rows of a drum track
+const DRUM_NAMES = { 35: 'бочка 2', 36: 'бочка', 37: 'римшот', 38: 'малый', 39: 'хлопок', 40: 'малый 2', 41: 'том 1', 42: 'хэт', 43: 'том 2', 44: 'хэт педаль', 45: 'том 3', 46: 'откр. хэт', 47: 'том 4', 48: 'том 5', 49: 'тарелка', 50: 'том 6', 51: 'райд', 52: 'китайская', 53: 'колокол райда', 54: 'бубен', 55: 'сплэш', 56: 'ковбелл', 57: 'тарелка 2', 59: 'райд 2', 69: 'кабаса', 70: 'шейкер', 75: 'клавес', 76: 'вудблок', 77: 'вудблок 2' }
 
 const NOTE_RE = /\b(?:n|semitones|notes?)?\s*(?:from|от)\s+([A-G](?:#|♯|b|♭)?-?\d)\b/i
 const midiOf = name => {
@@ -95,12 +103,14 @@ export function createPianoRoll(root) {
     h('button', { title: 'новая мелодия в коде', onclick: () => newMelody() }, '＋ новая'), kbBtn, recBtn, styleSel, songBtn, info, h('span', { class: 'sp' }),
     h('span', { class: 'dim' }, 'клик — нота · тяни — сдвиг/длина · ПКМ — удалить · ↑↓←→ · ¼ и ⅛ тона — шаг по высоте'),
     h('button', { onclick: () => app.togglePianoRoll(false), title: 'закрыть (P)' }, '✕')))
-  const body = h('div', { class: 'pr-body', tabindex: 0 }), cv = h('canvas')
+  const body = h('div', { class: 'pr-body', tabindex: 0 }), cv = h('canvas'), side = h('div', { class: 'pr-tracks' })
   body.append(cv)
-  root.append(body)
+  root.append(h('div', { class: 'pr-main' }, side, body))
   const g = cv.getContext('2d')
   let W = 0, H = 0, mels = [], cur = null, notes = [], base = 69, px = 48, row = 14, scrollX = 0, top = 84, selIdx = new Set(), lastDur = 0.5, res = 1
-  let drag = null, hover = null, playing = null
+  let drag = null, hover = null, playing = null, ghosts = [], wanted = null
+  const tl = createTrackList(side, { current: () => cur, want: v => want(v) })
+  const drumsNow = () => cur?.kind === 'project' && INSTRUMENT[cur.inst]?.kind === 'drums'
 
   function resize() {
     const r = body.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1)
@@ -114,26 +124,69 @@ export function createPianoRoll(root) {
   new ResizeObserver(resize).observe(body)
   const source = () => (app.current ? app.sourceOf(app.current) : '')
 
+  // everything that can be edited or looked at: the project's tracks, the code's melodies, the code's tracks (read only)
+  const valueOf = e => (e.kind === 'project' ? 'p:' + e.id : e.kind === 'view' ? 'v:' + e.key : 'm:' + e.name)
   function load(c, keep = true) {
-    const src = source(), prev = cur?.name
-    mels = findMelodies(src)
+    const src = source(), prev = cur ? valueOf(cur) : null
+    let info0 = { project: [], code: [] }
+    try { if (app.current?.song) info0 = trackInfo() } catch {}
+    const proj = info0.project.map(({ t, key }) => ({ kind: 'project', id: t.id, name: t.name, key, inst: t.inst, notes: t.notes.map(e => [...e]) }))
+    const code = findMelodies(src).map(m => ({ ...m, kind: 'code' }))
+    const views = info0.code.map(key => ({ kind: 'view', key, name: key, get notes() { return codeNotes(key) } }))
+    mels = [...proj, ...code, ...views]
+    ghosts = proj
     sel.innerHTML = ''
-    for (const m of mels) sel.append(new Option(`${m.name} · ${m.notes.length} нот`, m.name))
+    const group = (label, list) => {
+      if (!list.length) return
+      const og = h('optgroup', { label })
+      for (const m of list) og.append(new Option(m.kind === 'project' ? `🎛 ${m.name} · ${m.notes.length} нот` : m.kind === 'view' ? `ƒ ${m.key}` : `${m.name} · ${m.notes.length} нот`, valueOf(m)))
+      sel.append(og)
+    }
+    group('Дорожки проекта', proj)
+    group('Мелодии в коде [[доля, n, длина]]', code)
+    group('Дорожки из кода (просмотр)', views)
     if (!mels.length) {
-      sel.append(new Option('в коде нет мелодий [[доля, n, длина], …]', ''))
+      sel.append(new Option('нет дорожек — «＋» слева добавит инструмент', ''))
       cur = null
       notes = []
       info.textContent = ''
+      tl.render()
       draw()
       return
     }
-    const pick = (keep && mels.find(m => m.name === prev)) || mels[0]
-    sel.value = pick.name
-    select(pick, keep && pick.name === prev)
+    const w = wanted && mels.find(m => valueOf(m) === wanted)
+    if (w) wanted = null
+    const pick = w || (keep && mels.find(m => valueOf(m) === prev)) || proj[0] || code[0] || mels[0]
+    sel.value = valueOf(pick)
+    select(pick, !w && keep && valueOf(pick) === prev)
+  }
+  // select a track by its value ('p:t3', 'v:bass', 'm:MELODY') — now, or when the next load brings it
+  function want(v) {
+    const m = mels.find(m => valueOf(m) === v)
+    if (!m) { wanted = v; return }
+    sel.value = v
+    select(m, false)
+    body.focus()
   }
   function select(m, keepView) {
     cur = m
     notes = m.notes.map(e => [...e])
+    baseSel.style.display = m.kind === 'code' ? '' : 'none'
+    if (m.kind !== 'code') {
+      base = 0
+      if (!keepView) {
+        const d = INSTRUMENT[m.inst], ns = notes.map(e => e[1])
+        top = (ns.length ? Math.max(...ns) : d ? Math.round((d.range[0] + d.range[1]) / 2) + 6 : 72) + 6
+        scrollX = notes.length ? Math.max(0, Math.floor(Math.min(...notes.map(e => e[0])) / 4) * 4) : 0 // from its first note
+        selIdx.clear()
+        setRes(fineness(ns))
+        if (drumsNow()) lastDur = 0.25
+      }
+      info.textContent = m.kind === 'project' ? `${INSTRUMENT[m.inst]?.label ?? m.inst} · ${notes.length} нот` : 'дорожка из кода — только просмотр: ⋯ → ❄ «в ноты», чтобы править'
+      tl.render()
+      draw()
+      return
+    }
     if (!keepView) {
       base = midiOf(m.base ?? '') ?? guessBase(m)
       baseSel.value = base
@@ -144,6 +197,7 @@ export function createPianoRoll(root) {
     }
     info.textContent = m.base ? `n от ${m.base}` : 'база не указана в коде — выбери'
     if (!keepView) setRes(fineness(notes.map(e => e[1])))
+    tl.render()
     draw()
   }
   // no "n from X" comment: assume the song's tonic in octave 4 or 5
@@ -170,7 +224,7 @@ export function createPianoRoll(root) {
     top = Math.round(c / r) * r
   }
   resSel.onchange = () => { setRes(+resSel.value); draw() }
-  sel.onchange = () => select(mels.find(m => m.name === sel.value), false)
+  sel.onchange = () => want(sel.value)
   baseSel.onchange = () => { base = +baseSel.value; draw() }
 
   // ---- geometry ----
@@ -213,17 +267,28 @@ export function createPianoRoll(root) {
         g.fillText(String(Math.round(b) / 4 + 1), X(b) + 3, 10)
       }
     }
+    // the other project tracks, faintly
+    if (cur?.kind !== 'code') for (const gt of ghosts) {
+      if (cur?.kind === 'project' && gt.id === cur.id) continue
+      g.fillStyle = (INSTRUMENT[gt.inst]?.color ?? '#ffffff') + '30'
+      for (const [b, n, d] of gt.notes) {
+        const x0 = X(b)
+        if (x0 > W || X(b + d) < KEYS) continue
+        g.fillRect(x0, Yr(n) + 3, Math.max(2, d * px - 1), row - 6)
+      }
+    }
     // notes
+    const ro = cur?.kind === 'view'
     notes.forEach(([b, n, d], i) => {
       const x0 = X(b), y0 = Yr(base + n), w = Math.max(3, d * px - 1), s = selIdx.has(i)
-      g.fillStyle = s ? '#ffd479' : hover?.i === i ? '#d9c9ff' : '#b9a2ff'
+      g.fillStyle = ro ? '#8a86a8' : s ? '#ffd479' : hover?.i === i ? '#d9c9ff' : cur?.kind === 'project' ? INSTRUMENT[cur.inst]?.color ?? '#b9a2ff' : '#b9a2ff'
       g.fillRect(x0, y0 + 1, w, row - 2)
       g.fillStyle = '#ffffff55'
       g.fillRect(x0 + w - 3, y0 + 2, 2, row - 4)
       if (w > 26 && row >= 12) {
         g.fillStyle = '#1b1238'
         g.font = '10px system-ui'
-        g.fillText(spell(base + n, key, true), x0 + 3, y0 + row - 4)
+        g.fillText(drumsNow() ? DRUM_NAMES[Math.round(n)] ?? String(n) : spell(base + n, key, true), x0 + 3, y0 + row - 4)
       }
     })
     // the step-input cursor
@@ -247,13 +312,13 @@ export function createPianoRoll(root) {
       if (pc(m) === 0 && on12 || tonic || row >= 13 || (!on12 && row >= 9 && isIn(m))) {
         g.fillStyle = black || !on12 ? '#e4e0f2' : '#2b2840'
         g.font = `${tonic ? 'bold ' : ''}${row >= 12 ? 10 : 8}px system-ui`
-        g.fillText(spell(m, key).replace(/[+−]\d+¢$/, ''), on12 ? 4 : 12, y + row - 2)
+        g.fillText(drumsNow() ? (DRUM_NAMES[m] ?? spell(m, key)).slice(0, 8) : spell(m, key).replace(/[+−]\d+¢$/, ''), on12 ? 4 : 12, y + row - 2)
       }
     }
     if (!cur) {
       g.fillStyle = '#ffffff99'
       g.font = '14px system-ui'
-      g.fillText('В коде нет массивов мелодий. «＋ новая» создаст const MELODY = [[доля, n, длина], …]', KEYS + 20, 40)
+      g.fillText('Нет дорожек: «＋» слева — инструмент (ноты пишутся здесь), «＋ новая» — мелодия в коде', KEYS + 20, 40)
     }
   }
 
@@ -305,7 +370,15 @@ export function createPianoRoll(root) {
   // ---- write back ----
   let writeTimer = null
   function commit() {
-    if (!cur) return
+    if (!cur || cur.kind === 'view') return
+    if (cur.kind === 'project') {
+      const p = projectOf(), t = p.tracks.find(t => t.id === cur.id)
+      if (!t) return toast('дорожка пропала из проекта — обнови', { kind: 'err' })
+      t.notes = notes.map(e => [e[0], e[1], e[2], e[3] ?? 0.8]).sort((a, b) => a[0] - b[0] || a[1] - b[1])
+      setProject(p)
+      info.textContent = `${INSTRUMENT[cur.inst]?.label ?? cur.inst} · ${notes.length} нот`
+      return
+    }
     const src = source()
     const now = findMelodies(src).find(m => m.name === cur.name)
     if (!now) return toast('мелодия пропала из кода — обнови', { kind: 'err' })
@@ -318,8 +391,8 @@ export function createPianoRoll(root) {
       clearTimeout(writeTimer)
       writeTimer = setTimeout(() => app.apply(next, { of: song }), 200)
     }
-    cur = { ...now, notes: notes.map(e => [...e]) }
-    const o = [...sel.options].find(o => o.value === cur.name)
+    cur = { ...now, kind: 'code', notes: notes.map(e => [...e]) }
+    const o = [...sel.options].find(o => o.value === 'm:' + cur.name)
     if (o) o.text = `${cur.name} · ${notes.length} нот`
   }
   function newMelody() {
@@ -338,8 +411,7 @@ export function createPianoRoll(root) {
     }
     setTimeout(() => {
       load(app.current, false)
-      const m = mels.find(m => m.name === name)
-      if (m) { sel.value = name; select(m, false) }
+      want('m:' + name)
       toast(`＋ ${name} — теперь используй её в дорожке: notesAt(${name}, …)`, { ms: 6000 })
     }, 600)
   }
@@ -348,15 +420,16 @@ export function createPianoRoll(root) {
   cv.addEventListener('contextmenu', e => {
     e.preventDefault()
     const r = cv.getBoundingClientRect(), hit = noteAt(e.clientX - r.left, e.clientY - r.top)
-    if (hit) { notes.splice(hit.i, 1); selIdx.clear(); commit(); draw() }
+    if (hit && cur?.kind !== 'view') { notes.splice(hit.i, 1); selIdx.clear(); commit(); draw() }
   })
   cv.addEventListener('dblclick', e => {
     const r = cv.getBoundingClientRect(), hit = noteAt(e.clientX - r.left, e.clientY - r.top)
-    if (hit) { notes.splice(hit.i, 1); selIdx.clear(); commit(); draw() }
+    if (hit && cur?.kind !== 'view') { notes.splice(hit.i, 1); selIdx.clear(); commit(); draw() }
   })
   cv.addEventListener('mousedown', e => {
     if (e.button !== 0 || !cur) return
     body.focus()
+    if (cur.kind === 'view') { const r0 = cv.getBoundingClientRect(); if (e.clientX - r0.left < KEYS) beep(M(e.clientY - r0.top)); else toast('это дорожка из кода — ⋯ слева → ❄ «в ноты», и её можно править', { ms: 3000 }); return }
     const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top
     if (sx < KEYS) { beep(M(sy)); return }
     let hit = noteAt(sx, sy)
@@ -462,7 +535,7 @@ export function createPianoRoll(root) {
     midi = quant(midi)
     const v = voiceOn(midi, vel)
     let rec = null
-    if (recording && cur) {
+    if (recording && cur && cur.kind !== 'view') {
       const live = app.player.playing, now = performance.now()
       const b = live ? Math.max(0, Math.round(app.player.x / grid()) * grid()) : (now - lastOnAt < 60 ? held.size ? [...held.values()].find(h => h.rec)?.rec.b ?? stepAt : stepAt : stepAt)
       lastOnAt = now
@@ -551,6 +624,8 @@ export function createPianoRoll(root) {
   const pr = {
     visible: true,
     load: c => load(c, true),
+    want,
+    current: () => cur,
     resize,
   }
   setTimeout(resize, 0)

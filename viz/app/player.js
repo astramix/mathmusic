@@ -359,8 +359,9 @@ export class Player extends EventTarget {
   get vpos() {
     if (!this.actx) return this.rep.pos
     const r = this.rep, lat = (this.actx.outputLatency || 0) + (this.actx.baseLatency || 0)
-    const live = r.stalled || this.actx.state !== 'running' ? r.pos : r.pos + (this.actx.currentTime - r.t) * SR
-    return Math.max(0, Math.min(this.fed ?? live, live) - lat * SR * (this.actx.state === 'running' ? 1 : 0))
+    const on = this.playing && this.actx.state === 'running'
+    const live = r.stalled || !on ? r.pos : r.pos + (this.actx.currentTime - r.t) * SR
+    return Math.max(0, Math.min(this.fed ?? live, live) - lat * SR * (on ? 1 : 0))
   }
   // …and in the song
   get pos() {
@@ -384,15 +385,18 @@ export class Player extends EventTarget {
     this.ensureRendering()
     this.pump()
   }
+  // play / pause: the output stage runs or holds (the AudioContext stays running — other sounds of the page, the piano
+  // roll's notes, the MIDI monitor, never wake a paused song)
   async play() {
     await this.ensureAudio()
     this.playing = true
+    this.node.port.postMessage({ type: 'run', on: true })
     await this.actx.resume()
     this.emit('state', {})
   }
   async pause() {
     this.playing = false
-    await this.actx?.suspend()
+    this.node?.port.postMessage({ type: 'run', on: false })
     this.emit('state', {})
   }
   // mute/solo: re-mix what is kept, cross-fade it in right away, render the rest anew

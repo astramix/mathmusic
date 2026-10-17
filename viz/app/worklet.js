@@ -4,7 +4,9 @@
 //
 // page → here  {type:'seek', pos} · {type:'data', start, L, R} · {type:'cut', at} (data from `at` on
 //              will be replaced: the old samples cross-fade into the new ones) · {type:'gain', value} ·
-//              {type:'master', params | null} (the master bus of src/master.js, put in front of this file)
+//              {type:'master', params | null} (the master bus of src/master.js, put in front of this file) ·
+//              {type:'run', on} — play or hold: paused, the stage fades out over FADE samples and keeps its position (the
+//              AudioContext itself keeps running, so the piano roll's notes and monitor still sound while the song waits)
 // here → page  {type:'pos', pos, t, stalled, meter?: {M, S, I, tp, gr, comp}}
 const XF = 1024 // cross-fade length, samples (23 ms)
 const FADE = 256
@@ -21,6 +23,8 @@ class MathMusicOut extends AudioWorkletProcessor {
     this.tl = 0
     this.tr = 0
     this.stalled = true
+    this.running = false
+    this.fadeOut = 0
     this.tick = 0
     this.master = null
     this.meter = typeof loudnessMeter === 'function' ? loudnessMeter(sampleRate) : null
@@ -55,6 +59,10 @@ class MathMusicOut extends AudioWorkletProcessor {
       }
       this.q = kept
       this.xf = have >= XF ? { at, L: oldL, R: oldR } : null
+    } else if (d.type === 'run') {
+      if (d.on && !this.running) this.fadeIn = 0
+      if (!d.on && this.running) this.fadeOut = FADE
+      this.running = !!d.on
     } else if (d.type === 'gain') this.gain = d.value
     else if (d.type === 'master') {
       if (!d.params) this.master = null
@@ -67,6 +75,13 @@ class MathMusicOut extends AudioWorkletProcessor {
     const out = outputs[0], L = out[0], R = out[1] ?? out[0], q = this.q
     let stalled = false
     for (let i = 0; i < L.length; i++) {
+      // paused: once the fade-out is over, silence at the same position
+      if (!this.running && this.fadeOut <= 0) {
+        L[i] = R[i] = 0
+        this.tl = this.tr = 0
+        stalled = true
+        continue
+      }
       while (q.length && q[0].start + q[0].L.length <= this.pos) q.shift()
       const s = q[0]
       if (!s || s.start > this.pos) {
@@ -100,6 +115,12 @@ class MathMusicOut extends AudioWorkletProcessor {
         this.tr *= 0.97
         l = l * a + this.tl * (1 - a)
         r = r * a + this.tr * (1 - a)
+      }
+      if (!this.running) {
+        // pausing: the sound fades out over FADE samples
+        const a = --this.fadeOut / FADE
+        l *= a
+        r *= a
       }
       if (this.master) [l, r] = this.master.process(l, r)
       l = l > 1 ? 1 : l < -1 ? -1 : l

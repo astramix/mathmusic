@@ -285,12 +285,15 @@ $('vol').oninput = () => { V.volume = +$('vol').value; player.setVolume(V.volume
 $('zoom').oninput = () => { V.zoom = +$('zoom').value; saveView() }
 
 const typing = e => e.target.closest?.('.CodeMirror, input, textarea, select, [contenteditable]')
+// a button clicked with the mouse gives the focus back: Space then plays / pauses, it doesn't press that button again
+addEventListener('click', e => { const b = e.target.closest?.('button'); if (b && e.detail > 0) b.blur() }, true)
+addEventListener('keyup', e => { if (e.code === 'Space' && e.target.closest?.('button') && !typing(e)) e.preventDefault() }, true)
 addEventListener('keydown', e => {
   if ((e.altKey && e.code === 'Enter') || e.code === 'F11') { e.preventDefault(); return toggleFullscreen() }
   if (e.ctrlKey && e.code === 'KeyS') { e.preventDefault(); return saveCurrent() }
   if (e.ctrlKey && e.code === 'KeyE' && !typing(e)) { e.preventDefault(); return exportAudio('mp3') }
   if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return
-  if (e.code === 'Space') { e.preventDefault(); togglePlay() }
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay() }
   else if (e.code === 'ArrowLeft') $('back').onclick()
   else if (e.code === 'ArrowRight') $('fwd').onclick()
   else if (e.code === 'Home') seek(0)
@@ -653,7 +656,11 @@ menubar($('menus'), [
       { icon: '🖼', label: 'Все песни — галерея', kbd: 'G', action: openGallery },
       { icon: '📜', label: 'Открыть', items: () => app.lib.list().map(e => ({ icon: e.kind === 'builtin' ? '♪' : e.kind === 'generated' ? '🎲' : '✎', label: e.name, action: () => open(e.id), checked: app.current?.id === e.id ? true : undefined })) },
       '-',
-      { icon: '✚', label: 'Новая песня из шаблона', action: newSong },
+      { icon: '🎛', label: 'Новый проект…', action: () => lazy('projectui.js').then(m => m.newProjectDialog()), note: 'дорожки нот: до 32 инструментов, любой лад, свои ноты или сочинённые стилем' },
+      { icon: '🎵', label: 'Мелодия на новом инструменте…', disabled: () => !app.current?.song, action: () => togglePianoRoll(true).then(() => lazy('projectui.js')).then(m => m.addTrackDialog({ compose: true })), note: 'в любом стиле — в эту песню или проект' },
+      { icon: '🔁', label: 'Переписать мелодию', disabled: () => app.pianoroll?.current?.()?.kind !== 'project', action: () => lazy('projectui.js').then(m => m.rewrite(app.pianoroll.current().id)), note: 'выбранная дорожка пианоролла — заново в её стиле' },
+      { icon: '🎼', label: 'Аранжировка под мелодию…', disabled: () => !app.current?.song, action: () => togglePianoRoll(true).then(() => lazy('projectui.js')).then(m => m.arrangeDialog()), note: 'все партии стиля или одна дорожка — под мелодию другой' },
+      { icon: '✚', label: 'Новая песня из шаблона (код)', action: newSong },
       { icon: '📂', label: 'Открыть файл .js…', action: openFile },
       { icon: '💾', label: 'Сохранить в my_songs', kbd: 'Ctrl+S', action: saveCurrent },
       { icon: '⧉', label: 'Дублировать', action: () => duplicateSong(), disabled: () => !app.current, note: 'копия под новым именем — с правками, как сейчас в коде' },
@@ -674,7 +681,7 @@ menubar($('menus'), [
     label: 'Редактор',
     items: () => [
       { icon: '⌨', label: 'Код песни', kbd: 'E', checked: () => $('side').style.display !== 'none', action: () => toggleEditor() },
-      { icon: '🎹', label: 'Пианоролл — рисовать мелодию', kbd: 'P', checked: () => $('bottom').style.display !== 'none', action: () => togglePianoRoll() },
+      { icon: '🎹', label: 'Пианоролл и дорожки — ноты любого инструмента', kbd: 'P', checked: () => $('bottom').style.display !== 'none', action: () => togglePianoRoll() },
       { icon: '📜', label: 'Ноты — партитура на нотном стане', kbd: 'S', checked: () => $('scorepane').style.display !== 'none', action: () => toggleScore(), note: 'по тональности и ладу, микротоны, аккорды; клик по такту — оттуда играть' },
       '-',
       { icon: '✔', label: 'Проверить песню целиком', action: () => lazy('editor.js').then(m => m.fullCheck()) },
@@ -751,8 +758,8 @@ function buildLegend() {
     const row = h('div', { class: 't' + (t.muted ? ' muted' : '') }, h('span', { class: 'dot', style: `background:${t.color}` }), h('span', {}, t.key), h('span', { class: 'm' }, h('i', { style: `background:${t.color}` })))
     t.row = row
     t.meter = row.querySelector('i')
-    row.onclick = e => { e.shiftKey ? solo(t) : (t.muted = !t.muted); applyMute() }
-    row.oncontextmenu = e => { e.preventDefault(); solo(t); applyMute() }
+    row.onclick = e => { e.shiftKey ? solo(t) : (t.muted = !t.muted); applyMute(); app.pianoroll?.load?.(app.current) }
+    row.oncontextmenu = e => { e.preventDefault(); solo(t); applyMute(); app.pianoroll?.load?.(app.current) }
     row.onmouseenter = () => (legendHover = t)
     row.onmouseleave = () => (legendHover = null)
     el.append(row)
@@ -766,9 +773,12 @@ function solo(t) {
 }
 function applyMute() {
   const tr = app.scene.tracks
-  tr.forEach(t => t.row.classList.toggle('muted', t.muted))
+  tr.forEach(t => t.row?.classList.toggle('muted', t.muted))
   player.setMuted(tr.filter(t => t.muted).map(t => t.key))
 }
+// the track list of the piano roll mutes and solos the same way as the legend
+app.muteTrack = key => { const t = app.scene?.tracks.find(t => t.key === key); if (t) { t.muted = !t.muted; applyMute() } }
+app.soloTrack = key => { const t = app.scene?.tracks.find(t => t.key === key); if (t) { solo(t); applyMute() } }
 
 // ---- mouse: hover a curve → inspector; click → pin; timeline → seek; wheel → zoom ----------------------------------
 let mouse = null, pin = null, idle = 0, geo = null, hover = null

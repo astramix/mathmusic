@@ -64,7 +64,7 @@ export function musicXml(score, { date = new Date().toISOString().slice(0, 10) }
 <identification><creator type="composer">MathMusic</creator><encoding><software>MathMusic</software><encoding-date>${date}</encoding-date><supports element="accidental" type="yes"/><supports element="beam" type="yes"/></encoding></identification>
 <part-list>
 ${score.parts.map((p, i) => {
-  const prog = gmProgram(p.key)
+  const prog = Number.isInteger(p.program) ? p.program : gmProgram(p.key)
   return `<score-part id="P${i + 1}"><part-name>${esc(p.name)}</part-name><score-instrument id="P${i + 1}-I1"><instrument-name>${esc(p.name)}</instrument-name></score-instrument><midi-instrument id="P${i + 1}-I1"><midi-channel>${i >= 9 ? i + 2 : i + 1}</midi-channel>${prog >= 0 ? `<midi-program>${prog + 1}</midi-program>` : ''}</midi-instrument></score-part>`
 }).join('\n')}
 </part-list>
