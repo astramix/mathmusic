@@ -341,7 +341,22 @@ function lantern(g, x, y, s, m, side, rgb) {
   g.fillStyle = 'rgba(30,18,8,0.7)'
   for (let j = 0; j < 3; j++) g.fillRect(lx - 0.24 * s + j * 0.18 * s, top + 0.6 * s, 0.08 * s, 0.5 * s)
 }
-const PROPS = { lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern }
+// a diya: a little clay oil lamp, its flame flickering on the beat
+function diya(g, x, y, s, m, side, rgb, b = 0) {
+  const fl = 0.75 + 0.25 * Math.sin(m.x * 11 + b * 3) + 0.2 * m.kick
+  halo(g, x, y - 0.6 * s, 1.6 * s * fl, rgb, 0.3)
+  g.fillStyle = 'rgba(40,20,12,0.95)'
+  g.beginPath()
+  g.ellipse(x, y - 0.18 * s, 0.6 * s, 0.22 * s, 0, 0, Math.PI)
+  g.fill()
+  g.fillStyle = rgba(rgb, 0.9)
+  g.beginPath()
+  g.moveTo(x + 0.25 * s, y - 0.25 * s)
+  g.quadraticCurveTo(x + 0.4 * s, y - (0.6 + 0.3 * fl) * s, x + 0.3 * s, y - (0.85 + 0.35 * fl) * s)
+  g.quadraticCurveTo(x + 0.12 * s, y - 0.55 * s, x + 0.25 * s, y - 0.25 * s)
+  g.fill()
+}
+const PROPS = { lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya }
 
 function torii(g, cx, y, s, half, rgb, a) {
   g.fillStyle = rgba(rgb, a)
@@ -385,7 +400,24 @@ function horseshoe(g, cx, y, s, half, rgb, a) {
   g.arc(cx, cyy, r * 1.12, Math.PI + 0.25, TAU - 0.25)
   g.stroke()
 }
-const SPANS = { torii, lancet, horseshoe }
+// a torana: the temple gateway — two pillars and three curved lintels
+function torana(g, cx, y, s, half, rgb, a) {
+  g.strokeStyle = rgba(rgb, a)
+  g.lineWidth = Math.max(1.5, 0.3 * s)
+  const top = y - 6.5 * s
+  g.beginPath()
+  g.moveTo(cx - half, y)
+  g.lineTo(cx - half, top)
+  g.moveTo(cx + half, y)
+  g.lineTo(cx + half, top)
+  for (let j = 0; j < 3; j++) {
+    const yy = top + j * 0.9 * s, ov = (1.6 - 0.3 * j) * s
+    g.moveTo(cx - half - ov, yy + 0.4 * s)
+    g.quadraticCurveTo(cx, yy - 0.8 * s, cx + half + ov, yy + 0.4 * s)
+  }
+  g.stroke()
+}
+const SPANS = { torii, lancet, horseshoe, torana }
 
 // ---- skies, one per theme; c = { W, H, k, hy (horizon), ground, scroll(par) px, at(b) | null, from, to } ----
 const SKIES = {
@@ -459,6 +491,43 @@ const SKIES = {
     ridge(g, c, { par: 0.14, y: hy + (c.ground - hy) * 0.45, amp: (c.ground - hy) * 0.5, scale: 220, seed: 9, oct: 2, fill: hsla(m.hue + 6, 45, 11) })
     ridge(g, c, { par: 0.3, y: c.ground + 2 * k, amp: (c.ground - hy) * 0.4, scale: 300, seed: 13, oct: 2, fill: hsla(m.hue + 10, 50, 15) })
     onBeats(c, 4, (x, b) => lantern(g, x, c.ground, H * 0.04, m, 1, '255,190,100'))
+  },
+
+  // a temple night by the river: stars, a low full moon, shikharas on the far bank, the river with the moon's path and
+  // floating lotuses, diyas along the near steps on the beats
+  india(g, c, m) {
+    const { W, H, k, hy } = c, R = Math.min(W, H)
+    for (let i = 0; i < 70; i++) {
+      const x = fr(hsh(i * 5.1) - c.scroll(0.004) / W) * W, y = hy * 0.85 * hsh(i * 9.3) ** 1.3
+      g.fillStyle = rgba(m.S, 0.2 + 0.5 * hsh(i * 2.2) * (0.5 + 0.5 * Math.sin(m.x * 0.8 + i)))
+      g.fillRect(x, y, 1.2 * k, 1.2 * k)
+    }
+    const mx = W * 0.3, my = hy * 0.45, mr = R * 0.06
+    moon(g, mx, my, mr, '255,214,160', 1.2)
+    halo(g, W * 0.5, hy, W * 0.6, m.A, 0.07 + 0.05 * m.energy)
+    shikharas(g, c, m, { par: 0.06, slot: 60, seed: 4, base: hy + 3 * k, lo: hy * 0.12, hi: hy * 0.3, fill: hsla(m.hue, 30, 8) })
+    const river = g.createLinearGradient(0, hy, 0, H)
+    river.addColorStop(0, hsla(225, 35, 12))
+    river.addColorStop(1, hsla(235, 40, 4))
+    g.fillStyle = river
+    g.fillRect(0, hy + 3 * k, W, H - hy)
+    for (let j = 0; j < 22; j++) {
+      const t = j / 22, y = hy + 4 * k + (c.ground - hy) * Math.pow(t, 1.4), w = mr * (0.6 + 1.6 * hsh(j * 5 + Math.floor(m.x * 2) * 2.3)) * (0.5 + t)
+      g.fillStyle = rgba('255,214,160', 0.45 * (1 - t))
+      g.fillRect(mx - w / 2, y, w, (1 + 2 * t) * k)
+    }
+    // lotuses drifting by
+    slots(c, 0.2, 90, (x, i) => {
+      if (hsh(i * 7.7) < 0.5) return
+      const y = hy + (c.ground - hy) * (0.3 + 0.5 * hsh(i * 3.1)), s = 5 * k * (0.7 + 0.6 * hsh(i))
+      g.fillStyle = rgba('255,170,200', 0.75)
+      for (let p = -2; p <= 2; p++) { g.beginPath(); g.ellipse(x + p * 0.5 * s, y - Math.abs(p) * -0.2 * s, 0.35 * s, 0.9 * s, p * 0.45, 0, TAU); g.fill() }
+      g.fillStyle = 'rgba(30,70,40,0.8)'
+      g.beginPath(); g.ellipse(x, y + 0.6 * s, 1.8 * s, 0.4 * s, 0, 0, TAU); g.fill()
+    })
+    g.fillStyle = 'rgba(30,18,14,0.95)'
+    g.fillRect(0, c.ground - 2 * k, W, H - c.ground + 2 * k)
+    onBeats(c, 2, (x, b) => diya(g, x, c.ground, H * 0.03, m, 1, '255,170,70', b))
   },
 
   lofi(g, c, m) {
@@ -1002,6 +1071,25 @@ function medina(g, c, m, { par, slot, seed, base, lo, hi, fill, win, winA }) {
   })
 }
 
+// temples on the far bank: shikharas — a tall curved tower ribbed upward, a ribbed disc (amalaka) and a finial (kalasha)
+function shikharas(g, c, m, { par, slot, seed, base, lo, hi, fill }) {
+  slots(c, par, slot, (x, i, st) => {
+    if (hsh(i * 2.1 + seed) < 0.35) return
+    const h = lo + (hi - lo) * hsh(i * 3.3 + seed), w = st * (0.35 + 0.2 * hsh(i * 1.7 + seed)), cx = x + st / 2
+    g.fillStyle = fill
+    g.fillRect(cx - w * 0.75, base - h * 0.28, w * 1.5, h * 0.28)
+    g.beginPath()
+    g.moveTo(cx - w / 2, base - h * 0.28)
+    g.bezierCurveTo(cx - w * 0.52, base - h * 0.7, cx - w * 0.3, base - h * 0.95, cx, base - h)
+    g.bezierCurveTo(cx + w * 0.3, base - h * 0.95, cx + w * 0.52, base - h * 0.7, cx + w / 2, base - h * 0.28)
+    g.fill()
+    g.beginPath()
+    g.ellipse(cx, base - h, w * 0.22, w * 0.08, 0, 0, TAU)
+    g.fill()
+    g.fillRect(cx - 0.6 * c.k, base - h - w * 0.35, 1.2 * c.k, w * 0.3)
+  })
+}
+
 // what stands along the 3D road, per theme: prop, how often (beats), its light; span = an arch over all lanes
 const ROAD = {
   void: { prop: 'rock', every: 4 },
@@ -1019,6 +1107,7 @@ const ROAD = {
   romantic: { prop: 'lamp', every: 8, rgb: '255,220,170' },
   jazz: { prop: 'lamp', every: 4, rgb: '255,200,120' },
   desert: { prop: 'lantern', every: 4, rgb: '255,190,100', span: 'horseshoe', spanEvery: 16 },
+  india: { prop: 'diya', every: 2, rgb: '255,170,70', out: 1.6, span: 'torana', spanEvery: 16 },
 }
 
 // 2D: behind the curves. geo = { X (beat → screen x), from, to (beats on screen), px (pixels per beat), ground }

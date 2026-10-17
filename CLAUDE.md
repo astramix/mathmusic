@@ -14,8 +14,9 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (13 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
-  maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone), retune (every song in two modes), theory, MIDI export, the song
+  the generator (14 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
+  raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -105,6 +106,9 @@ drive, tone})` → (l, r) ⇒ [l, r].
 Middle East (the exactly tuned strings: a quarter tone is a quarter tone): `oud()` / `qanun()` → o() sample, o.hit(f, vel,
 { from, glide }) (the qanun: a course of three strings ±3 ¢) · `ney()` → n(f, on, { vib }) (breath louder than tone, legato
 slides) · `darbukaDrum()` → d(t s, 'dum'|'tek'|'ka', on) · `riqDrum()` → r(t s, 'jingle'|'dum'|'tek', on).
+India: `sitar({ tarab: [Hz…], sawari })` → s() sample, s.hit(f, vel, { from (meend), bend, bendAt, bendTime, back })
+(jawari buzz, the tarab strings as resonators at the raga's notes) · `tanpura()` → tp([f×4], period s, on) (plucks round and
+round, heavy jawari) · `tablaDrum({ f: Sa })` → d(t s, bol, on): na/ta, tin, te, ge (the bayan's pitch rising), ke, dha, dhin.
 Japan (plucked strings are a Karplus–Strong loop with a moving, exactly tuned delay: pitch error < 2 cents):
 `shamisen({sawari})`, `koto()`, `biwa()` → s() sample, s.hit(f, vel, {from, glide, bend, bendAt, bendTime,
 back, at (samples), keep}) — from = slide in (suri), bend/back = oshide pressed and let go, sawari = buzz;
@@ -195,6 +199,14 @@ the sayr low → ghammaz → high → down → qafla, phrases walking by step to
 ghammaz → tahwil (a related maqam) → taqsim II → lower jins → qafla; sections AA′BA in two-bar phrases (beam search over
 degrees: steps, pillars on the strong beats, the cadence from above).
 
+## raga.js (the raga style, tests — not imported by songs)
+`RAGAS` (yaman bhairav bhupali bhimpalasi darbari malkauns: swaras, aroha, avaroha as a sequence — Darbari's zigzag —,
+vadi, samvadi, nyas, pakad, andolan, drone, shruti ratios), `shrutiCents(raga)` (5-limit just, the raga's own: 45/32, 256/243,
+32/27…), `THEKA` (teentaal), `tihai(phrase, C, gap)` (s₁ = C − e − 2(p + g)). `composeRaga({ raga, r, length })` → { sections, sitar,
+bansuri, tabla, swar, manjira, gatStart }: alap (stages low → middle → high → home, `line`: exactly n notes along the ways with a
+detour, meend and andolan marks), jor (a note a beat + chikari), gat and antara (4-beat phrases to nyas notes, the last to the
+sam), taans (runs and alankars, sitar/bansuri sawal-jawab, a tihai), jhala (note + 3 chikari, a tihai to the end).
+
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
 `kWeighting(sr)` — the editor's full check, A/B, mastering.
@@ -236,7 +248,7 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam — each: tempo/keys, forms
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -286,6 +298,10 @@ the oud (TAQSIM_1, risha strokes on long notes), the qanun (tremolo every ⅛ be
 quickest notes left out), the violin, the cello (the melody an octave down on the beats; DRONE under the taqsims), darbuka +
 riq (`strokeAt`: the cycle, ka between, a tek fill every 4th bar). The second taqsim by the instrument seed (ney / qanun /
 violin). midi() is fractional (63.5); the song has `mode`, `keys` with the tahwil's maqam, `signature: 'home'`.
+**raga** (🪷 Рага, 72–92 BPM, theme 'india'): `generateRaga` (opts.raga, or a thaat as opts.mode: kalyan → yaman, bhairav,
+kafi → bhimpalasi, bhairavi → malkauns, aeolian → darbari) — Sa C3 or D3; SITAR with ORN (meend, andolan = a bend down and back),
+CHIKARI, BANSURI, TABLA bols, MANJIRA (sam, tali, khali), SWAR strums; everything through `tuneHz` with the raga's TEMPER (the
+song's `tuning: { id: 'shruti' }`).
 **jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
 style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
@@ -325,7 +341,7 @@ song moves to its new file; "write to songs/" asks before replacing; tabs synced
 themes.js · scenery.js (Вид → «Тематический фон», `app.view.scenery`, on by default, also in videos: a landscape per theme —
 space, rainy city, 8-bit hills, sunset sea, sakura, baroque hall, rose window + pointed arcade, outrun sun + grid, neon tunnel,
 drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club, desert night (crescent, medina, dunes, fanous lanterns,
-horseshoe arches in 3D); classic: `scenery2d` behind the curves (silhouettes
+horseshoe arches in 3D), temple night (shikharas, the river with lotuses, diyas on the beats, toranas in 3D); classic: `scenery2d` behind the curves (silhouettes
 on world-fixed grids, the nearest layer on bar lines via X(b)); space: `sceneryBack` at the horizon + `sceneryRoad` props
 every N beats beside the lanes, crossing the playhead plane on their beat, torii/lancet arches over all lanes. Driven by
 `musicOf(scene)`: beat phase, downbeat, kick (drum tracks' onsets), energy, progress, section flash — never Math.random) ·
@@ -393,4 +409,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | shogun-requiem | jbattle: epic, half time ↔ full | 168 | Cm→Dm→D | 2 min, in-scale + ♭II, male chant choir, biwa, 7/4 koto stretto K₂ = K₁(x − 3/2) − 12, chorale, boom kick, Picardy end |
 | fughetta-serena | generated fugue (seed 1) | 66 | Cm | canon at the octave (flute/oboe/bassoon), 3-voice fugue: tonal answer, invertible CS, sequences, stretto, Picardy coda |
 | bahr-al-layl | generated maqam (seed 2, bayati) | 101 | D bayati | quarter tones (E𝄳), taqsims of oud and ney, tahwil to Hijaz, takht heterophony, maqsum |
+| nadi-swar | generated raga (seed 1) | 88 | D (Sa) bhairav | alap → jor → gat → antara → taans → jhala, shrutis 256/243 & 128/81, andolan, tihais |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

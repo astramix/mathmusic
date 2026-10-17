@@ -34,7 +34,8 @@ test('songs declare the right key or it is detected', async () => {
   let ok = 0, n = 0
   for (const f of fs.readdirSync('songs').filter(f => f.endsWith('.js'))) {
     const song = (await import(pathToFileURL('songs/' + f).href)).default
-    if (!song.key) continue
+    // (a song in a mode of its own — a maqam, a raga's thaat — is not a major or minor key to detect)
+    if (!song.key || song.mode) continue
     n++
     const d = songKey({ ...song, key: undefined }), k = K(song.key)
     if (d.tonic === k.tonic && d.mode === k.mode) ok++

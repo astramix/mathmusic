@@ -732,6 +732,72 @@ export function riqDrum({ seed = 59 } = {}) {
   }
 }
 
+// ---- India ------------------------------------------------------------------------------------------------------------
+// Sitar: a steel melody string over a wide flat bridge — the jawari makes it buzz (sawari, strong), struck with a wire
+// mizrab (a bright click); the meend is the string pulled across the fret (hit(f, vel, { from }) slides in, { bend,
+// bendAt, bendTime, back } pulls and lets go); under it a dozen sympathetic tarab strings tuned to the raga's notes ring
+// when the melody touches them (resonators at those pitches, fed by the string). s.hit(f, vel, o), s() → sample
+export function sitar({ tarab = [], sawari = 0.03, sustain = 3, bright = 0.8, seed = 61 } = {}) {
+  const set = stringSet({ bright, sustain, sawari, tension: 0.006, pos: 0.1, click: 0.002, thump: 0.15, thumpHz: 300 }, { mono: true, max: 3, seed })
+  const hp = filter('hp'), gourd = filter('bp'), neck = filter('bp'), ck = filter('hp'), res = tarab.map(() => filter('bp'))
+  const s = () => {
+    const [y, atk] = set(), x = hp(y, 90)
+    let t = 0
+    for (let i = 0; i < res.length; i++) t += res[i](x, tarab[i], 60)
+    return 0.55 * x + 0.6 * gourd(x, 180, 1.4) + 0.35 * neck(x, 2400, 2) + 0.25 * ck(atk, 3500) + (res.length ? (0.9 / Math.sqrt(res.length)) * t : 0)
+  }
+  s.hit = set.hit
+  s.mute = set.mute
+  return s
+}
+// Tanpura: four strings plucked one after another, round and round (Pa or Ma or Ni — Sa — Sa — the low Sa), never
+// damped; the jawari's buzz is the whole sound (a cloud of overtones blooming after each pluck). tp(f[4], period s)
+export function tanpura({ seed = 67 } = {}) {
+  const set = stringSet({ bright: 0.55, sustain: 7, sawari: 0.045, tension: 0.002, pos: 0.07, click: 0.006 }, { max: 8, seed })
+  const lp = filter('lp'), body = filter('bp')
+  let t = 0, k = -1
+  return (freqs, period = 1.1, on = true) => {
+    t += 1 / SR
+    const j = floor(t / period)
+    if (on && freqs.length && j !== k) { k = j; set.hit(freqs[j % freqs.length], j % 4 === 3 ? 0.55 : 0.45, { bright: 0.5 + 0.1 * (j % 2) }) }
+    const [y] = set()
+    return 0.6 * lp(y, 5000) + 0.4 * body(y, 150, 1.2)
+  }
+}
+// Tabla. The dayan (right, wood) is tuned to Sa: its black syahi makes the head's modes harmonic — 1, 2, 3, 4, 5 × f —
+// na: struck at the rim (the partials ring a moment), tin: in the middle (the fundamental sings), te: a closed slap. The
+// bayan (left, metal) is the bass: ge — open, the wrist presses the head and the pitch rises (≈ 85 → 110 Hz), ke — a
+// flat slap. dha = na + ge, dhin = tin + ge. d(t s, bol, on); f = the dayan's Sa
+export function tablaDrum({ f = 277.18, seed = 71 } = {}) {
+  const η = noise(seed), hp = filter('hp'), bp = filter('bp')
+  const dayan = (t, kind) => {
+    const A = kind === 'tin' ? [1, 0.35, 0.18, 0.1, 0.05] : [0.7, 0.55, 0.45, 0.32, 0.22], T = kind === 'tin' ? [0.45, 0.25, 0.15, 0.1, 0.08] : [0.2, 0.16, 0.12, 0.09, 0.07]
+    let y = 0
+    for (let h = 0; h < 5; h++) y += A[h] * exp(-t / T[h]) * sin(TAU * (h + 1) * f * t * (1 + 0.004 * h * h))
+    return y
+  }
+  const bayan = (t, open) => {
+    if (!open) return 0.7 * exp(-t / 0.03) * sin(TAU * 140 * t)
+    const ph = TAU * (85 * t + 25 * (t - 0.12 * (1 - exp(-t / 0.12))))
+    return exp(-t / 0.5) * (sin(ph) + 0.25 * sin(2 * ph))
+  }
+  return (t, bol = 'na', on = true) => {
+    const n = η(), c = hp(n, 3000), slap = bp(n, 900, 1.2)
+    if (!on || t > 2) return 0
+    const click = 0.3 * exp(-t / 0.002) * c
+    switch (bol) {
+      case 'na': case 'ta': return dayan(t, 'na') + click
+      case 'tin': case 'tun': return dayan(t, 'tin') + 0.6 * click
+      case 'te': case 'ti': case 'ra': return 0.8 * exp(-t / 0.025) * slap + click
+      case 'ge': return bayan(t, true)
+      case 'ke': case 'ka': return bayan(t, false) + 0.3 * exp(-t / 0.01) * slap
+      case 'dha': return 0.85 * dayan(t, 'na') + 0.9 * bayan(t, true) + click
+      case 'dhin': return 0.85 * dayan(t, 'tin') + 0.9 * bayan(t, true) + 0.6 * click
+      default: return 0
+    }
+  }
+}
+
 // ---- orchestra ---------------------------------------------------------------------------------------
 // Timpani: the kettle's modes 1, 1.5, 1.98, 2.44, 2.94 (the air in the kettle tunes them almost harmonic, so
 // the drum has a pitch) and an inharmonic 1.65; the head starts a little sharp; the felt mallet's thump.

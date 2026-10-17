@@ -33,6 +33,7 @@ import { parseKey, roman, voiceLead, spell, keyName, keyLabel, SCALES, pc, chord
 import { composeFugue, fugueMode } from './fugue.js'
 import { at as pitchAt } from './counterpoint.js'
 import { composeMaqam, MAQAMAT, IQA } from './maqam.js'
+import { composeRaga, RAGAS, shrutiCents, THEKA } from './raga.js'
 import { modeOf, parentMode, keyWithMode, MODES } from './modes.js'
 import { temperOf, temperOffsets } from './tuning.js'
 
@@ -185,6 +186,14 @@ export const STYLES = {
     keys: ['D', 'C', 'G'], moods: ['world'],
     about: 'арабский макам в четвертитонах: баяти, раст, саба, хиджаз, сика, хузам, сузнак, ирак — сайр (нижний джинс → гаммаз → верх → кафла), тахвиль в родственный макам, таксимы уда и ная, гетерофония такхта, икаа на дарбуке и рике',
     lead: ['oud', 'qanun', 'ney', 'violin'], chords: ['—'], bass: ['cello'], kit: 'darbuka, riq', forms: [], drums: {}, themes: {},
+  },
+  // A Hindustani raga (src/raga.js): alap, jor, gat and antara in teentaal, taans with sawal-jawab and tihais, jhala — sitar
+  // with tarab strings and chikari, bansuri, tanpura, tabla, swarmandal, manjira, in the raga's shrutis (generateRaga)
+  raga: {
+    label: 'Рага', emoji: '🪷', theme: 'india', bpm: [72, 92], swing: 0.5,
+    keys: ['D', 'C'], moods: ['world'],
+    about: 'хиндустани: Яман, Бхайрав, Бхупали, Бхимпаласи, Дарбари, Малкаунс — алап, джор, гат в тинтале, таны с ответами бансури, тихаи на сам, джхала; ситар с тарабом, танпура, табла; строй — шрути раги (чистые интервалы, ати-комал у Дарбари)',
+    lead: ['sitar', 'bansuri'], chords: ['tanpura'], bass: ['—'], kit: 'tabla, manjira', forms: [], drums: {}, themes: {},
   },
   // the Romantic orchestra: Tchaikovsky, Grieg, Dvořák, Chopin — horn, oboe or a singing cello over a nocturne piano,
   // harp rolls, a brass choir, celesta, strings and a choir; timpani
@@ -448,6 +457,7 @@ const NAMES = {
   boss: [['crimson', 'final', 'iron', 'binary', 'fatal', 'glitch', 'overclocked', 'null'], ['algorithm', 'kernel', 'protocol', 'overlord', 'core', 'equation', 'warden', 'daemon']],
   romantic: [['autumn', 'white', 'northern', 'moonlit', 'tender', 'stormy', 'distant'], ['romance', 'nocturne', 'ballade', 'elegy', 'serenade', 'rhapsody', 'waltz']],
   maqam: [['layali', 'nasim', 'qamar', 'sahra', 'bahr', 'nur', 'warda', 'shams'], ['al-andalus', 'dimashq', 'al-qahira', 'halab', 'baghdad', 'tunis', 'al-layl', 'as-subh']],
+  raga: [['sandhya', 'prabhat', 'chandni', 'megh', 'nadi', 'deepak', 'basant', 'ratri'], ['ki-dhun', 'alap', 'vistar', 'jhala', 'tarang', 'bandish', 'swar', 'gat']],
   fugue: [['fuga', 'ricercar', 'contrapunctus', 'fughetta', 'canon-e-fuga'], ['dorica', 'notturna', 'aurea', 'di-vetro', 'serena', 'antica', 'stellata', 'd-inverno', 'del-lago']],
   jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
 }
@@ -463,6 +473,7 @@ export function generate(opts = {}) {
   // the fugue: its own composer (src/fugue.js) and writer
   if (styleId === 'fugue') return generateFugue(opts, S, seeds)
   if (styleId === 'maqam') return generateMaqam(opts, S, seeds)
+  if (styleId === 'raga') return generateRaga({ ...opts, raga: opts.raga ?? { kalyan: 'yaman', bhairav: 'bhairav', kafi: 'bhimpalasi', bhairavi: 'malkauns', aeolian: 'darbari' }[opts.mode] }, S, seeds)
   const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
 
   // key, tempo, form
@@ -3352,6 +3363,169 @@ const celloAt = x => {
   keys: ${JSON.stringify(keysField)}, // the maqam of each stretch (the tahwil) — for the note names
   signature: 'home',
   parts: ['oud', 'qanun', 'ney', 'violin', 'cello'],
+  sections: SECTIONS,
+  tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.name)}: track${i}`).join(', ')} },
+}
+`,
+  ]
+  return { source: out.join('\n'), meta }
+}
+
+// ---- the raga style: a Hindustani performance composed by the raga's grammar (src/raga.js) ----------------------------
+// Sitar (with its tarab strings tuned to the raga, the chikari on its own strings), bansuri, tanpura, tabla, swarmandal,
+// manjira; everything in the raga's shrutis (just intonation; Darbari's ati komal ga and dha lower still).
+const RAGA_THAAT_MODE = { kalyan: 'kalyan', bhairav: 'bhairav', kafi: 'kafi', asavari: 'aeolian', bhairavi: 'bhairavi' }
+function generateRaga(opts, S, seeds) {
+  const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
+  const raga = RAGAS[opts.raga] ? opts.raga : pick(RA, Object.keys(RAGAS))
+  const R = RAGAS[raga]
+  const keyIn = parseKey(opts.key ?? pick(RA, S.keys))
+  const saPc = Math.round(keyIn.tonic) % 12, Sa = 48 + saPc - (saPc > 6 ? 12 : 0) // the sitar's Sa: C3 or D3 (F♯2 … F♯3)
+  const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
+  const length = opts.length ?? 'normal'
+  const F = composeRaga({ raga, r: RM, length })
+  const cents = shrutiCents(raga) // by swara (semitones from Sa)
+  const TEMPER = Array.from({ length: 12 }, (_, pcAbs) => cents[(((pcAbs - saPc) % 12) + 12) % 12])
+  const names = NAMES.raga
+  const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
+  const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
+  const thaatMode = RAGA_THAAT_MODE[R.thaat]
+  const key = { tonic: saPc, mode: parentMode(modeOf(thaatMode).iv) }
+  const SARGAM = ['S', 'r', 'R', 'g', 'G', 'M', 'M′', 'P', 'd', 'D', 'n', 'N']
+  const sg = v => SARGAM[((v % 12) + 12) % 12]
+  const tarab = [...new Set(R.swaras)].map(v => Sa + 12 + v).concat([Sa + 24])
+  const meta = {
+    style: 'raga', seed: (opts.seed ?? 1) >>> 0, seeds, length, key: keyName(key), mode: thaatMode, modeName: modeOf(thaatMode).name, bpm, title, form: F.sections.map(s => s[1]),
+    fixedKey: opts.key ?? null, micro: null, temperament: 'shruti', meter: null, modulations: null,
+    themes: { A: { from: 'рага', title: `рага ${R.name}`, how: `${R.time}; ваади ${sg(R.vadi)}, самваади ${sg(R.samvadi)}` }, B: { from: 'рага', title: 'гат в тинтале', how: 'composed' }, bridge: { rhythmFrom: null } },
+    instruments: {}, raga,
+  }
+  const notes = list => fmtNotes(list.map(([b, n, d]) => [round(b), n, round(d)]))
+  const orn = list => JSON.stringify(list.map(([b, , , o], i) => [i, o]).filter(([, o]) => o && (o.meend || o.andolan)).map(([i, o]) => [i, o.meend ?? 0, o.andolan ? 1 : 0]))
+  const melodic = F.sitar.filter(e => !e[3]?.chikari), chik = F.sitar.filter(e => e[3]?.chikari)
+  const head = [
+    `// ${title} — рага ${R.name} (${raga}, thaat ${R.thaat}; ${R.time}), Sa = ${spell(Sa, key)}, ${bpm} BPM. Generated by MathMusic (style raga, seed ${meta.seed}):`,
+    `// ${F.sections.map(s => s[1]).join(' → ')}.`,
+    `// The raga: ${R.swaras.map(sg).join(' ')} — aroha ${R.aroha.map(v => sg(v) + (v < 0 ? '̣' : v >= 12 ? '̇' : '')).join(' ')}, avaroha ${R.avaroha.map(v => sg(v) + (v >= 12 ? '̇' : '')).join(' ')}; vadi ${sg(R.vadi)}, samvadi ${sg(R.samvadi)};`,
+    `// pakad ${R.pakad.map(p => p.map(sg).join(' ')).join(', ')}${R.andolan.length ? `; andolan (a slow swing below the note) on ${R.andolan.map(sg).join(', ')}` : ''}.`,
+    `// Shrutis — every swara in just intonation (cents from 12-TET): ${R.swaras.map(v => `${sg(v)} ${cents[v] >= 0 ? '+' : ''}${cents[v]}`).join(', ')}.`,
+    `// Alap in free time over the tanpura; jor (a pulse, chikari between); gat and antara in teentaal (X 2 0 3) with the tabla;`,
+    `// taans answered by the bansuri, a tihai — three times the phrase, its last note on the sam: s₁ = C − e − 2(p + g); jhala.`,
+    `// x is time in beats; n counts semitones from Sa (0 = the middle Sa, ${spell(Sa, key)}).`,
+  ]
+  const data = `
+const SECTIONS = ${JSON.stringify(F.sections)}
+const END = ${F.length}
+const SA = ${Sa} // the sitar's Sa (MIDI), ${spell(Sa, key)}
+const C4 = 440 * 2 ** (-9 / 12) // 261.63 Hz
+// ---- the shrutis: cents from 12-TET of C … B (Sa = ${spell(Sa, key, false)} keeps its pitch); every frequency goes through tuneHz
+const TEMPER = [${TEMPER.join(', ')}]
+const off = m => TEMPER[mod(m, 12)]
+const tuneHz = f => {
+  if (!(f > 0)) return f
+  const m = 69 + 12 * Math.log2(f / 440), a = Math.floor(m), u = m - a
+  const c = u <= 0.35 ? off(a) : u >= 0.65 ? off(a + 1) : off(a) + ((off(a + 1) - off(a)) * (u - 0.35)) / 0.3
+  return f * 2 ** (c / 1200)
+}
+const hz = (n, base) => tuneHz(hz12(n, base))
+const sw = n => hz(SA + n - 60, C4) // a swara (semitones from Sa) → Hz
+
+// ---- the sitar's line [beat, swara, length]; ORN: [index, meend from (semitones), andolan] -------------------------------
+const SITAR = ${notes(melodic)}
+const ORN = new Map(${orn(melodic)}.map(([i, m, a]) => [i, { meend: m, andolan: a }]))
+// the chikari strokes (the high drone strings) in the jor and the jhala
+const CHIKARI = ${JSON.stringify(chik.map(([b]) => [round(b)]))}
+// the bansuri: the antara a shadow of the sitar, the answers in the taans, the tihai an octave up
+const BANSURI = ${notes(F.bansuri)}
+// the tabla: [beat, bol, velocity] — teentaal's theka: ${THEKA.join(' ')}
+const TABLA = ${JSON.stringify(F.tabla.map(([b, bol, v]) => [round(b), bol, round(v)]))}
+const MANJIRA = ${JSON.stringify(F.manjira)}
+const SWAR = ${JSON.stringify(F.swar)} // swarmandal strums
+const SWARAS = ${JSON.stringify(R.swaras)}
+const GAT = ${F.gatStart}
+const sitarAt = x => notesAt(SITAR, x)
+const lastOf = (list, x) => { let lo = 0, hi = list.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (list[m][0] <= x) (k = m), (lo = m + 1); else hi = m - 1 } return k }
+`
+  const used = { engine: new Set(['floor', 'mod', 'hz as hz12', 'filter', 'reverb', 'exp']), instruments: new Set(['notesAt', 'hash', 'pan', 'trigger', 'sitar', 'tanpura', 'tablaDrum', 'flute', 'poly', 'harpTone', 'kaneDrum']) }
+  const T = (name, color, graph, midi, formula, init, body) => ({ name, code: `{
+  color: '${color}',
+  graph: x => { ${graph} },
+  midi: x => { ${midi} },
+  formula: ${JSON.stringify(formula)},
+  audio({ bpm }) {
+    const sec = 60 / bpm, ${init}
+    return x => {
+${body}
+    }
+  },
+}` })
+  const tracks = [
+    T('sitar', '#ffb060', `const m = sitarAt(x); return m ? 0.8 + (m.n + 12) * 0.06 : null`, `const m = sitarAt(x); return m && m.u < 0.9 ? [SA + m.n] : []`,
+      ['Si = 0.55x + 0.6\\BP_{180}x + 0.35\\BP_{2400}x + \\textstyle\\sum_j \\BP^{Q=60}_{f_j}x,\\quad x:\\ D(t) = \\big(\\tfrac{SR}{f} - \\varphi\\big)\\big(1 - 0.03\\max(0, y)\\big)', '\\text{джавари укорачивает струну на одной стороне колебания (жужжание); } f_j \\text{ — тараб: ноты раги; мінд — } f\\cdot 2^{\\,m(1 - s(t))/12}'],
+      `s = sitar({ tarab: ${JSON.stringify(tarab)}.map(m => hz(m - 60, C4)) }), fire = trigger(), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })`,
+      `      const k = lastOf(SITAR, x), m = k >= 0 && x < SITAR[k][0] + SITAR[k][2] + 2 ? SITAR[k] : null
+      if (m && fire(k)) {
+        const o = ORN.get(k), d = m[2] * sec
+        s.hit(sw(m[1]), 0.75 + 0.15 * hash(k, 3), o ? { from: o.meend, glide: 0.12, ...(o.andolan ? { bend: -0.3, bendAt: 0.25 * d, bendTime: 0.35 * d, back: 0.65 * d } : {}) } : {})
+      }
+      return verb(...pan(0.5 * s(), -0.1))`),
+    T('chikari', '#ffe0b0', `const k = lastOf(CHIKARI, x); return k >= 0 && x - CHIKARI[k][0] < 0.2 ? 3.6 : null`, `const k = lastOf(CHIKARI, x); return k >= 0 && x - CHIKARI[k][0] < 0.15 ? [SA + 24] : []`,
+      ['Ch = s(f_{\\dot S}) + s(f_{\\ddot S})\\quad\\text{— чикари: две высокие струны Са, ритм между нотами'],
+      `a = sitar({ sawari: 0.02, sustain: 1.2, seed: 73 }), b = sitar({ sawari: 0.02, sustain: 1, seed: 79 }), fire = trigger(), hp = filter('hp'), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })`,
+      `      const k = lastOf(CHIKARI, x)
+      if (k >= 0 && fire(k)) { a.hit(sw(12), 0.4); b.hit(sw(24), 0.3) }
+      return verb(...pan(1.5 * hp(a() + b(), 300), 0.2))`),
+    T('bansuri', '#d8f0ff', `const m = notesAt(BANSURI, x); return m ? 1.2 + m.n * 0.06 : null`, `const m = notesAt(BANSURI, x); return m && m.u < 0.9 ? [SA + 12 + m.n] : []`,
+      ['B = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.1\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бансури, октавой выше ситара'],
+      `fl = flute({ breath: 0.12 }), verb = reverb({ room: 0.86, damp: 0.35, wet: 0.38 })
+    let p = 0`,
+      `      const m = notesAt(BANSURI, x)
+      if (m) p = m.n
+      return verb(...pan(0.8 * fl(sw(p + 12), !!m && m.u < 0.93), 0.3))`),
+    T('tanpura', '#c0a0ff', `return x < END ? -2.9 : null`, `return []`,
+      ['Tp = \\sum_{k} s\\big(f_k\\big)\\ \\text{по кругу } (\\text{${sg(R.drone)}̣},\\ S,\\ S,\\ \\text{S̲}) \\text{ каждые 1.2 с; сильное джавари — облако обертонов'],
+      `tp = tanpura(), lp = filter('lp'), verb = reverb({ room: 0.9, damp: 0.4, wet: 0.35 })
+    const strings = [sw(${R.drone - 12}), sw(0), sw(0), sw(-12)]`,
+      `      const y = tp(strings, 1.2, x < END - 1)
+      return verb(...pan(1.6 * lp(y, 4000), -0.3))`),
+    T('tabla', '#d98b5f', `const k = lastOf(TABLA, x); return k >= 0 && x - TABLA[k][0] < 0.2 ? (/^(dha|dhin|ge)/.test(TABLA[k][1]) ? 2.6 : 3.4) : null`,
+      `const k = lastOf(TABLA, x); return k >= 0 && x - TABLA[k][0] < 0.1 ? [/^(dha|dhin|ge)/.test(TABLA[k][1]) ? 41 : 60] : []`,
+      ['Dayan = \\sum_{h=1}^{5} a_h e^{-t/T_h}\\sin 2\\pi h f_{Sa} t\\ \\text{(сьяхи делает моды гармоническими)};\\quad Bayan = e^{-t/0.5}\\sin 2\\pi\\big(85t + 25(t - 0.12(1 - e^{-t/0.12}))\\big)'],
+      `tb = tablaDrum({ f: sw(12) }), verb = reverb({ room: 0.7, damp: 0.5, wet: 0.18 })`,
+      `      const k = lastOf(TABLA, x)
+      const y = k >= 0 ? TABLA[k][2] * tb((x - TABLA[k][0]) * sec, TABLA[k][1]) : 0
+      return verb(...pan(0.42 * y, 0.05))`),
+    T('swarmandal', '#fff0c0', `const k = lastOf(SWAR, x); return k >= 0 && x - SWAR[k][0] < 1 ? 4 - (x - SWAR[k][0]) : null`, `return []`,
+      ['Sm = \\sum_{j} Hp(f_j, t - 0.04j)\\quad\\text{— сурмандал: глиссандо вверх по нотам раги, две октавы'],
+      `p = poly(harpTone, { release: 1.2, life: 6, max: 24 }), fire = trigger(), verb = reverb({ room: 0.9, wet: 0.45 })
+    const notes = [...SWARAS.map(v => v + 12), ...SWARAS.map(v => v + 24), 36]`,
+      `      const k = lastOf(SWAR, x)
+      if (k >= 0 && fire(k)) notes.forEach((v, j) => p.hit(sw(v), 0.35 * SWAR[k][1], 2.5, j * 0.045))
+      return verb(...pan(0.8 * p(), 0.4))`),
+    T('manjira', '#ffe8a0', `const k = lastOf(MANJIRA, x); return k >= 0 && x - MANJIRA[k][0] < 0.3 ? 4.3 : null`, `const k = lastOf(MANJIRA, x); return k >= 0 && x - MANJIRA[k][0] < 0.1 ? [80] : []`,
+      ['M = \\sum_k a_k e^{-t(1 + k)/d}\\sin 2\\pi r_k f t\\quad\\text{— манджира на сам и тали (1, 5, 13), приглушённая на кхали (9)'],
+      `k1 = kaneDrum({ f: 2650, decay: 1 }), verb = reverb({ room: 0.7, wet: 0.2 })`,
+      `      const k = lastOf(MANJIRA, x), e = k >= 0 ? MANJIRA[k] : null
+      return verb(...pan(e ? 0.6 * (e[1] === 'sam' ? 1 : 0.7) * k1((x - e[0]) * sec, true, e[1] === 'khali') : 0, -0.35))`),
+  ]
+  const imp = mod => [...used[mod]].sort((a, b) => a.replace(' as hz12', '').localeCompare(b.replace(' as hz12', '')))
+  const out = [
+    ...head,
+    `import { ${imp('engine').join(', ')} } from '../src/engine.js'`,
+    `import {\n  ${imp('instruments').join(', ')},\n} from '../src/instruments.js'`,
+    data,
+    ...tracks.map((t, i) => `// ---- ${t.name} ${'-'.repeat(Math.max(4, 90 - t.name.length))}\nconst track${i} = ${t.code}\n`),
+    `export default {
+  name: '${title}',
+  bpm: ${bpm},
+  key: '${keyName(key)}',
+  mode: '${thaatMode}', // thaat ${R.thaat}
+  tuning: { id: 'shruti', name: 'шрути раги ${R.name} (чистый строй)', offsets: TEMPER }, // cents of C … B from 12-TET
+  length: END,
+  theme: '${S.theme}',
+  style: 'raga',
+  generator: ${JSON.stringify({ style: 'raga', seed: meta.seed, seeds, length, raga, ...(opts.key ? { key: opts.key } : {}) })},
+  parts: ['sitar', 'bansuri'],
   sections: SECTIONS,
   tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.name)}: track${i}`).join(', ')} },
 }
