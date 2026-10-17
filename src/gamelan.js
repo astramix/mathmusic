@@ -83,7 +83,7 @@ export function composeGamelan({ pathet, r, form = 'ketawang', length = 'normal'
   const plan = length === 'short'
     ? [['buka', null, 1, 1], ['merong', A, 1, lad2 ? 1 : 2], ['irama II', B, 2, 1], ['suwuk', A, 1, 1]]
     : lad2
-      ? [['buka', null, 1, 1], ['merong', A, 1, 1], ['ngelik', B, 1, 1], ['irama II', A, 2, 1], ['suwuk', A, 1, 1]]
+      ? [['buka', null, 1, 1], ['merong', A, 1, 1], ['ngelik', B, 1, 1], ['irama II', A, 2, 1], ['ngampat', B, 1, 1], ['suwuk', A, 1, 1]]
       : [['buka', null, 1, 1], ['merong', A, 1, 2], ['ngelik', B, 1, 1], ['irama II', A, 2, 1], ['irama II · B', B, 2, 1], ['ngampat', A, 1, 1], ['suwuk', A, 1, 1]]
   const sections = [], bal = [], peking = [], bonang = [], panerus = [], colot = [], kendhang = [], suling = []
   let t = 0
