@@ -798,6 +798,29 @@ export function tablaDrum({ f = 277.18, seed = 71 } = {}) {
   }
 }
 
+// ---- gamelan (bronze, tuned by ear: the pitches come from the measured slendro and pelog) --------------------------------
+// Every instrument of a gamelan comes as a pair a few Hz apart (pengumbang and pengisep): together they beat — the ombak,
+// the "wave" that makes the bronze shimmer. Each tone here is that pair: f and f + ombak Hz.
+const pair = (f, ombak, fn) => 0.5 * (fn(f) + fn(f + ombak))
+// saron (and demung, peking): a thick bronze bar over a trough — partials 1, 2.71, 5.34 (a bar on two nodes), a hard
+// wooden mallet; the player damps the last bar with the other hand as he strikes the next (hit with a short life)
+export const saronTone = (f, t, vel = 0.7) => pair(f, 4.5, g => vel * (exp(-t / 1.6) * sin(TAU * g * t) + 0.35 * exp(-t / 0.5) * sin(TAU * 2.71 * g * t) + 0.12 * exp(-t / 0.18) * sin(TAU * 5.34 * g * t)) * Math.min(1, t / 0.0015))
+// bonang: a row of small kettle gongs with a knob — a clear fundamental, a strong partial near 2.4 f, a soft bell-like
+// 3.9 f, struck with padded sticks (a rounded attack)
+export const bonangTone = (f, t, vel = 0.7) => pair(f, 3.2, g => vel * (exp(-t / 1.1) * sin(TAU * g * t) + 0.3 * exp(-t / 0.4) * sin(TAU * 2.41 * g * t) + 0.12 * exp(-t / 0.2) * sin(TAU * 3.89 * g * t)) * Math.min(1, t / 0.004))
+// kenong: a big kettle gong lying on cords — sustained, warm, a slow ombak
+export const kenongTone = (f, t, vel = 0.7) => pair(f, 2.1, g => vel * (exp(-t / 3.2) * sin(TAU * g * t) + 0.2 * exp(-t / 1.1) * sin(TAU * 2.03 * g * t) + 0.08 * exp(-t / 0.5) * sin(TAU * 3.2 * g * t)) * Math.min(1, t / 0.006))
+// kempul: a hanging gong — a deep "pul", the pitch sagging a little after the stroke
+export const kempulTone = (f, t, vel = 0.7) => pair(f, 1.6, g => { const ph = TAU * g * (t + 0.004 * (1 - exp(-t / 0.08))); return vel * (exp(-t / 3.5) * sin(ph) + 0.3 * exp(-t / 1.4) * sin(2.12 * ph) + 0.1 * exp(-t / 0.6) * sin(3.4 * ph)) * Math.min(1, t / 0.008) })
+// kethuk: a small kettle damped at once — "tuk"
+export const kethukTone = (f, t, vel = 0.7) => vel * exp(-t / 0.09) * (sin(TAU * f * t) + 0.3 * sin(TAU * 2.4 * f * t)) * Math.min(1, t / 0.003)
+// gong ageng: the big gong that closes every cycle — ≈ 40–55 Hz, a long breathing decay (10 s), its low modes beating
+// (the ombak ≈ 3–5 Hz on the second mode), the "nguk" of the knob at the start
+export const gongTone = (f, t, vel = 0.9) => {
+  const a = Math.min(1, t / 0.012), ph = TAU * f * (t + 0.01 * (1 - exp(-t / 0.15)))
+  return vel * a * (exp(-t / 9) * sin(ph) + 0.55 * exp(-t / 5) * sin(2.01 * ph) * (0.6 + 0.4 * sin(TAU * 3.8 * t)) + 0.25 * exp(-t / 2.5) * sin(2.98 * ph) + 0.12 * exp(-t / 1.2) * sin(4.7 * ph) + 0.3 * exp(-t / 0.08) * sin(TAU * 2.2 * f * t))
+}
+
 // ---- orchestra ---------------------------------------------------------------------------------------
 // Timpani: the kettle's modes 1, 1.5, 1.98, 2.44, 2.94 (the air in the kettle tunes them almost harmonic, so
 // the drum has a pitch) and an inharmonic 1.65; the head starts a little sharp; the felt mallet's thump.

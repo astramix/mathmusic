@@ -530,6 +530,49 @@ const SKIES = {
     onBeats(c, 2, (x, b) => diya(g, x, c.ground, H * 0.03, m, 1, '255,170,70', b))
   },
 
+  // Java at night: a volcano breathing smoke, a row of bell stupas (Borobudur), rice terraces stepping down, lamps
+  java(g, c, m) {
+    const { W, H, k, hy } = c, R = Math.min(W, H)
+    for (let i = 0; i < 60; i++) {
+      const x = fr(hsh(i * 4.1) - c.scroll(0.004) / W) * W, y = hy * 0.8 * hsh(i * 6.7) ** 1.3
+      g.fillStyle = rgba(m.S, 0.2 + 0.45 * hsh(i * 2.9))
+      g.fillRect(x, y, 1.2 * k, 1.2 * k)
+    }
+    moon(g, W * 0.72, hy * 0.28, R * 0.04, '230,240,255', 0.8)
+    // the volcano: a cone with a glow in its crater on the gong cycles, smoke rising
+    const vx = W * 0.32 - (c.scroll(0.02) % (W * 2)), vy = hy, vh = hy * 0.55, vw = W * 0.28
+    for (const off of [0, W * 2]) {
+      const x0 = vx + off
+      g.fillStyle = hsla(m.hue, 25, 7)
+      g.beginPath()
+      g.moveTo(x0 - vw, vy)
+      g.quadraticCurveTo(x0 - vw * 0.25, vy - vh * 0.6, x0 - vw * 0.08, vy - vh)
+      g.lineTo(x0 + vw * 0.08, vy - vh)
+      g.quadraticCurveTo(x0 + vw * 0.25, vy - vh * 0.6, x0 + vw, vy)
+      g.fill()
+      halo(g, x0, vy - vh, vw * 0.25, '255,120,60', 0.12 + 0.12 * m.down)
+      for (let j = 0; j < 6; j++) {
+        const u = fr(m.x / 16 + j / 6), sx = x0 + Math.sin(u * 3 + j) * vw * 0.12 * u, sy = vy - vh - u * hy * 0.35
+        halo(g, sx, sy, vw * (0.05 + 0.12 * u), '200,200,210', 0.08 * (1 - u))
+      }
+    }
+    // stupas on the horizon
+    slots(c, 0.07, 30, (x, i, st) => {
+      const s2 = st * 0.32, base = hy + 2 * k
+      g.fillStyle = hsla(m.hue, 25, 9)
+      g.beginPath()
+      g.ellipse(x + st / 2, base - s2 * 0.2, s2 * 0.5, s2 * 0.75, 0, Math.PI, TAU)
+      g.fill()
+      g.fillRect(x + st / 2 - 0.7 * k, base - s2 * 1.25, 1.4 * k, s2 * 0.4)
+      g.fillRect(x + st / 2 - s2 * 0.6, base - s2 * 0.22, s2 * 1.2, s2 * 0.22)
+    })
+    // rice terraces: stepped ridges, the water catching the light
+    for (let j = 0; j < 4; j++) {
+      ridge(g, c, { par: 0.12 + 0.07 * j, y: hy + (c.ground - hy) * (0.25 + 0.22 * j), amp: (c.ground - hy) * 0.12, scale: 260 + 40 * j, seed: 21 + j, oct: 2, quant: 6, fill: hsla(m.hue + 10, 40, 8 + 2 * j), line: rgba(m.B, 0.2 + 0.1 * m.down), lw: 0.8 })
+    }
+    onBeats(c, 4, (x, b) => diya(g, x, c.ground, H * 0.03, m, 1, '255,190,90', b))
+  },
+
   lofi(g, c, m) {
     const { W, H, k, hy } = c, R = Math.min(W, H)
     moon(g, W * 0.8, hy * 0.36, R * 0.045, '255,232,200')
@@ -1107,6 +1150,7 @@ const ROAD = {
   romantic: { prop: 'lamp', every: 8, rgb: '255,220,170' },
   jazz: { prop: 'lamp', every: 4, rgb: '255,200,120' },
   desert: { prop: 'lantern', every: 4, rgb: '255,190,100', span: 'horseshoe', spanEvery: 16 },
+  java: { prop: 'diya', every: 4, rgb: '255,190,90', out: 1.8, span: 'torana', spanEvery: 16 },
   india: { prop: 'diya', every: 2, rgb: '255,170,70', out: 1.6, span: 'torana', spanEvery: 16 },
 }
 

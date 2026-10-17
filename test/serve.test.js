@@ -83,8 +83,8 @@ test('MathMusic.exe builds and serves the same', { skip: process.platform !== 'w
     for (let i = 0; i < 50 && !(await fetch(`http://127.0.0.1:${port}/api/hello`).then(r => r.ok, () => false)); i++) await new Promise(r => setTimeout(r, 100))
     await check(root, port)
   } finally {
-    child.kill()
-    await new Promise(r => setTimeout(r, 300))
-    fs.rmSync(root, { recursive: true, force: true })
+    // the exe lets go of its folder only when it has exited (under load that takes a while): wait, then retry
+    await new Promise(r => { if (child.exitCode != null) return r(); child.once('exit', r); child.kill(); setTimeout(r, 5000) })
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
   }
 })

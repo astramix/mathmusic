@@ -66,8 +66,8 @@ for (const style of Object.keys(STYLES)) {
         for (let x = 0; x < song.length; x += 0.37) {
           tr.graph?.(x)
           const m = tr.midi?.(x)
-          // (quarter tones are fractional: 63.5 = E𝄳4 — in a song of a microtonal mode)
-          if (m) assert.ok(Array.isArray(m) && m.every(n => (Number.isInteger(n) || (song.mode && Number.isInteger(n * 4))) && n >= 0 && n < 128), `${k}.midi(${x})`)
+          // (in a song of a microtonal mode notes are fractional: 63.5 = E𝄳4, 64.63 = slendro 2)
+          if (m) assert.ok(Array.isArray(m) && m.every(n => (Number.isInteger(n) || (song.mode && Number.isFinite(n))) && n >= 0 && n < 128), `${k}.midi(${x})`)
         }
       }
       // audio: 6 s from the start and 10 s of the final section, every track
@@ -103,7 +103,7 @@ for (const style of Object.keys(STYLES)) {
       t.diagnostic(`${meta.title} · ${meta.key} · ${meta.bpm} BPM · ${minutes.toFixed(1)} min · A: ${meta.themes.A.title} (${meta.themes.A.how}) · strong-beat non-chord tones ${notes ? Math.round((100 * strong) / notes) : 0}%`)
       // (a fugue has no chord track to sit on — its voices are checked by the rules of counterpoint in test/fugue.test.js —
       // and a maqam no harmony at all: test/maqam.test.js checks its scale and its sayr)
-      if (notes > 8 && !['fugue', 'maqam', 'raga'].includes(style)) assert.ok(strong / notes < 0.25, `too many strong-beat non-chord tones: ${strong}/${notes}`)
+      if (notes > 8 && !['fugue', 'maqam', 'raga', 'gamelan'].includes(style)) assert.ok(strong / notes < 0.25, `too many strong-beat non-chord tones: ${strong}/${notes}`)
     })
   }
 }

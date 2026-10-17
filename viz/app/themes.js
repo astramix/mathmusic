@@ -17,13 +17,14 @@ export const THEMES = {
   ink: { label: 'Тушь и киноварь', hue: 355, sat: 38, light: 5, star: '255,200,190', accent: '#ff4d5a', accent2: '#ffd9a0', deco: 'grain' },
   romantic: { label: 'Романтизм', hue: 345, sat: 32, light: 6, star: '255,225,215', accent: '#e8a0b4', accent2: '#f6d58e', deco: 'gold' },
   desert: { label: 'Ночь в пустыне', hue: 32, sat: 45, light: 6, star: '255,240,210', accent: '#f0b860', accent2: '#5fd0c0', deco: 'stars' },
+  java: { label: 'Ява', hue: 165, sat: 35, light: 6, star: '220,255,240', accent: '#e8c27a', accent2: '#7fe0c0', deco: 'stars' },
   india: { label: 'Ночь у храма', hue: 280, sat: 40, light: 6, star: '255,230,200', accent: '#ff9a3c', accent2: '#5fd8c8', deco: 'stars' },
   jazz: { label: 'Джаз-клуб', hue: 220, sat: 40, light: 6, star: '200,220,255', accent: '#7fb0ff', accent2: '#ffc56b', deco: 'grain' },
 }
 const BY_NAME = {
   voidchip: 'void', lofi: 'lofi', chiptune: 'chip', bossa: 'bossa', kawaii: 'kawaii', classical: 'classical',
   gothic: 'gothic', synthwave: 'synth', dnb: 'dnb', phonk: 'phonk', meow: 'meow', hardstyle: 'phonk', example: 'void',
-  jbattle: 'ink', romantic: 'romantic', maqam: 'desert', fugue: 'classical', raga: 'india',
+  jbattle: 'ink', romantic: 'romantic', maqam: 'desert', fugue: 'classical', raga: 'india', gamelan: 'java',
 }
 export function themeFor(song) {
   const id = song?.theme ?? BY_NAME[song?.style] ?? BY_NAME[song?.name] ?? 'void'

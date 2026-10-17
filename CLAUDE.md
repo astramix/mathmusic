@@ -14,9 +14,10 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (14 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (15 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
-  raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis), retune (every song in two modes), theory, MIDI export, the song
+  raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
+  gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -109,6 +110,8 @@ slides) · `darbukaDrum()` → d(t s, 'dum'|'tek'|'ka', on) · `riqDrum()` → r
 India: `sitar({ tarab: [Hz…], sawari })` → s() sample, s.hit(f, vel, { from (meend), bend, bendAt, bendTime, back })
 (jawari buzz, the tarab strings as resonators at the raga's notes) · `tanpura()` → tp([f×4], period s, on) (plucks round and
 round, heavy jawari) · `tablaDrum({ f: Sa })` → d(t s, bol, on): na/ta, tin, te, ge (the bayan's pitch rising), ke, dha, dhin.
+Gamelan tones for poly() (each a pair a few Hz apart: the ombak beats): `saronTone, bonangTone, kenongTone, kempulTone,
+kethukTone, gongTone` = (f, t s, vel).
 Japan (plucked strings are a Karplus–Strong loop with a moving, exactly tuned delay: pitch error < 2 cents):
 `shamisen({sawari})`, `koto()`, `biwa()` → s() sample, s.hit(f, vel, {from, glide, bend, bendAt, bendTime,
 back, at (samples), keep}) — from = slide in (suri), bend/back = oshide pressed and let go, sawari = buzz;
@@ -207,6 +210,14 @@ bansuri, tabla, swar, manjira, gatStart }: alap (stages low → middle → high 
 detour, meend and andolan marks), jor (a note a beat + chikari), gat and antara (4-beat phrases to nyas notes, the last to the
 sam), taans (runs and alankars, sitar/bansuri sawal-jawab, a tihai), jhala (note + 3 chikari, a tihai to the end).
 
+## gamelan.js (the gamelan style, tests — not imported by songs)
+`LARAS` (slendro, pelog: measured cents, tone 1 = D4), `PATHET` (slendro manyura/sanga/nem, pelog nem/lima/barang: tones, gong
+tone, strong tones), `FORMS` (ketawang 16, ladrang 32: kethuk, kenong, kempul positions; gong at the end), `ladder(pathet)`.
+`composeGamelan({ pathet, r, form, length })` → { sections, balungan, peking, bonang, panerus, colot, kendhang, suling, A, B }: two
+gongan of gatras ending on the pathet's strong tones (GATRA contours, rests = pin), buka → merong ×2 → ngelik → irama II (A, B) →
+ngampat → suwuk (the last gatras stretching); garap per pair of balungan notes: peking a a b b, bonang a b a b, panerus ×2,
+densities × irama; the suling's long tones toward the next kenong goal in irama II.
+
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
 `kWeighting(sr)` — the editor's full check, A/B, mastering.
@@ -248,7 +259,7 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga — each: tempo/keys, forms
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -302,6 +313,9 @@ violin). midi() is fractional (63.5); the song has `mode`, `keys` with the tahwi
 kafi → bhimpalasi, bhairavi → malkauns, aeolian → darbari) — Sa C3 or D3; SITAR with ORN (meend, andolan = a bend down and back),
 CHIKARI, BANSURI, TABLA bols, MANJIRA (sam, tali, khali), SWAR strums; everything through `tuneHz` with the raga's TEMPER (the
 song's `tuning: { id: 'shruti' }`).
+**gamelan** (🔔 Гамелан, 60–76 BPM = balungan beats, theme 'java'): `generateGamelan` (opts.pathet, or opts.mode slendro / pelog /
+pelogBem / pelogBarang picks among its pathet; form by the arrangement seed) — saron (+ demung), peking, bonang, panerus,
+kenong, kempul, kethuk, gong, kendhang (dhah / tak / ket), suling; song `mode: 'slendro' | 'pelog'`, midi() fractional (cents).
 **jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
 style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
@@ -341,7 +355,8 @@ song moves to its new file; "write to songs/" asks before replacing; tabs synced
 themes.js · scenery.js (Вид → «Тематический фон», `app.view.scenery`, on by default, also in videos: a landscape per theme —
 space, rainy city, 8-bit hills, sunset sea, sakura, baroque hall, rose window + pointed arcade, outrun sun + grid, neon tunnel,
 drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club, desert night (crescent, medina, dunes, fanous lanterns,
-horseshoe arches in 3D), temple night (shikharas, the river with lotuses, diyas on the beats, toranas in 3D); classic: `scenery2d` behind the curves (silhouettes
+horseshoe arches in 3D), temple night (shikharas, the river with lotuses, diyas on the beats, toranas in 3D), Java (a smoking volcano,
+stupas, rice terraces); classic: `scenery2d` behind the curves (silhouettes
 on world-fixed grids, the nearest layer on bar lines via X(b)); space: `sceneryBack` at the horizon + `sceneryRoad` props
 every N beats beside the lanes, crossing the playhead plane on their beat, torii/lancet arches over all lanes. Driven by
 `musicOf(scene)`: beat phase, downbeat, kick (drum tracks' onsets), energy, progress, section flash — never Math.random) ·
@@ -410,4 +425,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | fughetta-serena | generated fugue (seed 1) | 66 | Cm | canon at the octave (flute/oboe/bassoon), 3-voice fugue: tonal answer, invertible CS, sequences, stretto, Picardy coda |
 | bahr-al-layl | generated maqam (seed 2, bayati) | 101 | D bayati | quarter tones (E𝄳), taqsims of oud and ney, tahwil to Hijaz, takht heterophony, maqsum |
 | nadi-swar | generated raga (seed 1) | 88 | D (Sa) bhairav | alap → jor → gat → antara → taans → jhala, shrutis 256/243 & 128/81, andolan, tihais |
+| gendhing-sri-rejeki | generated gamelan (seed 1) | 73 | slendro | measured laras, colotomy, irama I → II → ngampat → suwuk, ombak |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

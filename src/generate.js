@@ -34,6 +34,7 @@ import { composeFugue, fugueMode } from './fugue.js'
 import { at as pitchAt } from './counterpoint.js'
 import { composeMaqam, MAQAMAT, IQA } from './maqam.js'
 import { composeRaga, RAGAS, shrutiCents, THEKA } from './raga.js'
+import { composeGamelan, PATHET, LARAS, FORMS } from './gamelan.js'
 import { modeOf, parentMode, keyWithMode, MODES } from './modes.js'
 import { temperOf, temperOffsets } from './tuning.js'
 
@@ -194,6 +195,14 @@ export const STYLES = {
     keys: ['D', 'C'], moods: ['world'],
     about: 'хиндустани: Яман, Бхайрав, Бхупали, Бхимпаласи, Дарбари, Малкаунс — алап, джор, гат в тинтале, таны с ответами бансури, тихаи на сам, джхала; ситар с тарабом, танпура, табла; строй — шрути раги (чистые интервалы, ати-комал у Дарбари)',
     lead: ['sitar', 'bansuri'], chords: ['tanpura'], bass: ['—'], kit: 'tabla, manjira', forms: [], drums: {}, themes: {},
+  },
+  // Central Javanese gamelan in the measured slendro and pelog (src/gamelan.js): colotomic cycles (ketawang, ladrang), the
+  // balungan in gatras, the garap of peking and bonang, irama II, the suling, every bronze a beating pair (generateGamelan)
+  gamelan: {
+    label: 'Гамелан', emoji: '🔔', theme: 'java', bpm: [60, 76], swing: 0.5,
+    keys: ['D'], moods: ['world'],
+    about: 'яванский гамелан в измеренных строях слендро и пелог (Kyai Madu Laras): кетаванг и ладранг, колотомия гонга, кенонга, кемпула, кетука, балунган по гатрам, гарап пекинга и бонанга, ирама II, сулинг, омбак — биения парных инструментов',
+    lead: ['saron', 'bonang', 'suling'], chords: ['—'], bass: ['gong', 'kempul'], kit: 'kendhang', forms: [], drums: {}, themes: {},
   },
   // the Romantic orchestra: Tchaikovsky, Grieg, Dvořák, Chopin — horn, oboe or a singing cello over a nocturne piano,
   // harp rolls, a brass choir, celesta, strings and a choir; timpani
@@ -458,6 +467,7 @@ const NAMES = {
   romantic: [['autumn', 'white', 'northern', 'moonlit', 'tender', 'stormy', 'distant'], ['romance', 'nocturne', 'ballade', 'elegy', 'serenade', 'rhapsody', 'waltz']],
   maqam: [['layali', 'nasim', 'qamar', 'sahra', 'bahr', 'nur', 'warda', 'shams'], ['al-andalus', 'dimashq', 'al-qahira', 'halab', 'baghdad', 'tunis', 'al-layl', 'as-subh']],
   raga: [['sandhya', 'prabhat', 'chandni', 'megh', 'nadi', 'deepak', 'basant', 'ratri'], ['ki-dhun', 'alap', 'vistar', 'jhala', 'tarang', 'bandish', 'swar', 'gat']],
+  gamelan: [['ladrang', 'ketawang', 'gendhing', 'lancaran', 'bubaran'], ['wilujeng', 'pangkur', 'sekar-melati', 'udan-mas', 'kebo-giro', 'asmaradana', 'sri-rejeki', 'mega-mendung']],
   fugue: [['fuga', 'ricercar', 'contrapunctus', 'fughetta', 'canon-e-fuga'], ['dorica', 'notturna', 'aurea', 'di-vetro', 'serena', 'antica', 'stellata', 'd-inverno', 'del-lago']],
   jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
 }
@@ -473,6 +483,7 @@ export function generate(opts = {}) {
   // the fugue: its own composer (src/fugue.js) and writer
   if (styleId === 'fugue') return generateFugue(opts, S, seeds)
   if (styleId === 'maqam') return generateMaqam(opts, S, seeds)
+  if (styleId === 'gamelan') return generateGamelan(opts, S, seeds)
   if (styleId === 'raga') return generateRaga({ ...opts, raga: opts.raga ?? { kalyan: 'yaman', bhairav: 'bhairav', kafi: 'bhimpalasi', bhairavi: 'malkauns', aeolian: 'darbari' }[opts.mode] }, S, seeds)
   const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
 
@@ -3526,6 +3537,134 @@ ${body}
   style: 'raga',
   generator: ${JSON.stringify({ style: 'raga', seed: meta.seed, seeds, length, raga, ...(opts.key ? { key: opts.key } : {}) })},
   parts: ['sitar', 'bansuri'],
+  sections: SECTIONS,
+  tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.name)}: track${i}`).join(', ')} },
+}
+`,
+  ]
+  return { source: out.join('\n'), meta }
+}
+
+// ---- the gamelan style: Central Javanese gamelan in the measured slendro and pelog (src/gamelan.js) ---------------------
+function generateGamelan(opts, S, seeds) {
+  const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
+  const byMode = { slendro: ['slendro manyura', 'slendro sanga', 'slendro nem'], slendroKunst: ['slendro manyura', 'slendro sanga'], pelog: ['pelog nem', 'pelog lima', 'pelog barang'], pelogBem: ['pelog nem', 'pelog lima'], pelogBarang: ['pelog barang'] }
+  const pathet = PATHET[opts.pathet] ? opts.pathet : pick(RA, byMode[opts.mode] ?? Object.keys(PATHET))
+  const P = PATHET[pathet], form = pick(RA, ['ketawang', 'ladrang'])
+  const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
+  const length = opts.length ?? 'normal'
+  const F = composeGamelan({ pathet, r: RM, form, length })
+  const mode = P.laras === 'slendro' ? 'slendro' : 'pelog'
+  const names = NAMES.gamelan
+  const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
+  const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
+  const key = { tonic: 2, mode: 'major' }
+  const meta = {
+    style: 'gamelan', seed: (opts.seed ?? 1) >>> 0, seeds, length, key: 'D', mode, modeName: MODES[mode].name, bpm, title, form: F.sections.map(s => s[1]),
+    fixedKey: null, micro: null, temperament: null, meter: null, modulations: null,
+    themes: { A: { from: 'гамелан', title: `${form} · ${pathet}`, how: `гонган A: ${F.A.join(' ')}` }, B: { from: 'гамелан', title: 'нгелик', how: `гонган B: ${F.B.join(' ')}` }, bridge: { rhythmFrom: null } },
+    instruments: {}, pathet,
+  }
+  const fmt = list => fmtNotes(list.map(([b, n, d]) => [round(b), round(n - 60), round(d)]))
+  const cents = LARAS[P.laras].cents
+  const head = [
+    `// ${title} — ${form} in ${pathet}, ${bpm} BPM (balungan beats). Generated by MathMusic (style gamelan, seed ${meta.seed}):`,
+    `// ${F.sections.map(s => s[1]).join(' → ')}.`,
+    `// The laras as measured (Kyai Madu Laras, Oxford): ${Object.entries(cents).map(([t, c]) => `${t} = ${c} ¢`).join(', ')} — tone 1 on D4; not 12-TET, so the`,
+    `// notes are fractional (n = 2.63 is slendro 2). Pathet ${pathet.split(' ')[1]}: tones ${P.tones.join(' ')}, the gong tone ${P.gong}.`,
+    `// Gongan A: ${F.A.join(' ')}   B: ${F.B.join(' ')}   (gatras of four; the last note of each the seleh, the goal).`,
+    `// Colotomy (${form}): kethuk ${FORMS[form].kethuk.join(' ')}, kempul ${FORMS[form].kempul.join(' ')}, kenong ${FORMS[form].kenong.join(' ')}, gong ${FORMS[form].beats} — a cycle halved and halved again.`,
+    `// Garap: peking a a b b, bonang barung a b a b, panerus twice as fast; irama II: the balungan at half speed, the`,
+    `// elaborations twice as dense against it; the suling floats there. Every bronze is a pair a few Hz apart (ombak).`,
+  ]
+  const data = `
+const SECTIONS = ${JSON.stringify(F.sections.map(([a, n]) => [round(a), n]))}
+const END = ${round(F.length)}
+const C4 = 440 * 2 ** (-9 / 12) // 261.63 Hz; the laras' cents make the fractional n
+// ---- the balungan (saron; the demung an octave down) and the garap: [beat, n from C4, length] ---------------------------
+const BALUNGAN = ${fmt(F.balungan)}
+const PEKING = ${fmt(F.peking)}
+const BONANG = ${fmt(F.bonang)}
+const PANERUS = ${fmt(F.panerus)}
+const SULING = ${fmt(F.suling)}
+// the colotomic gongs: [beat, instrument, n from C4]
+const COLOTOMY = ${JSON.stringify(F.colot.map(([b, k, n]) => [round(b), k, round(n - 60)]))}
+const KENDHANG = ${JSON.stringify(F.kendhang.map(([b, k]) => [round(b), k]))}
+const lastOf = (list, x) => { let lo = 0, hi = list.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (list[m][0] <= x) (k = m), (lo = m + 1); else hi = m - 1 } return k }
+const BY_KIND = {}
+for (const c of COLOTOMY) (BY_KIND[c[1]] ??= []).push(c)
+const struck = kind => BY_KIND[kind] ?? []
+`
+  const used = { engine: new Set(['hz', 'reverb', 'floor']), instruments: new Set(['notesAt', 'hash', 'pan', 'trigger', 'poly', 'saronTone', 'bonangTone', 'kenongTone', 'kempulTone', 'kethukTone', 'gongTone', 'taikoDrum', 'woodClack', 'flute']) }
+  const T = (name, color, graph, midi, formula, init, body) => ({ name, code: `{
+  color: '${color}',
+  graph: x => { ${graph} },
+  midi: x => { ${midi} },
+  formula: ${JSON.stringify(formula)},
+  audio({ bpm }) {
+    const sec = 60 / bpm, ${init}
+    return x => {
+${body}
+    }
+  },
+}` })
+  // a metallophone part over a note list: struck on each note, damped at the next (its duration)
+  const metal = (name, color, list, tone, gain, y0, k, panv, oct = '', extra = '') => T(name, color,
+    `const m = notesAt(${list}, x); return m ? ${y0} + (m.n + 12) * ${k} : null`, `const m = notesAt(${list}, x); return m && m.u < 0.9 ? [60 + Math.round(m.n * 100) / 100] : []`,
+    [`${name}(f, t) = \\tfrac12\\big(s(f, t) + s(f + \\omega, t)\\big)\\quad\\text{— пара инструментов в нескольких Гц друг от друга: омбак (биения)}`],
+    `p = poly(${tone}, { release: 0.25, life: 4, max: 12 }), fire = trigger(), verb = reverb({ room: 0.86, damp: 0.4, wet: 0.34 })`,
+    `      const m = notesAt(${list}, x)
+      if (m && fire(m.at)) { p.hit(hz(m.n${oct}, C4), 0.6 + 0.15 * hash(floor(m.at * 4), 3), m.d * sec + 0.15)${extra} }
+      return verb(...pan(${gain} * p(), ${panv}))`)
+  const colotomic = (name, kind, tone, gain, y, panv, life) => T(name, '#e8c27a',
+    `const k = lastOf(struck('${kind}'), x); return k >= 0 && x - struck('${kind}')[k][0] < 1 ? ${y} : null`,
+    `const s = struck('${kind}'), k = lastOf(s, x); return k >= 0 && x - s[k][0] < 0.5 ? [60 + Math.round(s[k][2] * 100) / 100] : []`,
+    [`${kind}:\\ \\text{колотомия — удар на позициях цикла (${FORMS[form][kind]?.join(' ') ?? FORMS[form].beats})'`],
+    `p = poly(${tone}, { release: ${life}, life: ${life + 2}, max: 6 }), fire = trigger(), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.4 }), list = struck('${kind}')`,
+    `      const k = lastOf(list, x)
+      if (k >= 0 && fire(k)) p.hit(hz(list[k][2], C4), 0.8, ${life})
+      return verb(...pan(${gain} * p(), ${panv}))`)
+  const tracks = [
+    metal('saron', '#f2d38a', 'BALUNGAN', 'saronTone', 0.3, 0.6, 0.05, -0.15, '', '; p.hit(hz(m.n - 12, C4), 0.55, m.d * sec + 0.2) /* the demung, an octave down */'),
+    metal('peking', '#fff3c0', 'PEKING', 'saronTone', 0.3, 1.6, 0.05, 0.35),
+    metal('bonang', '#ffd090', 'BONANG', 'bonangTone', 0.38, 1.1, 0.05, 0.25),
+    metal('bonang panerus', '#ffe8b0', 'PANERUS', 'bonangTone', 0.22, 2, 0.04, -0.3),
+    colotomic('kenong', 'kenong', 'kenongTone', 0.32, -0.6, 0.2, 3),
+    colotomic('kempul', 'kempul', 'kempulTone', 0.36, -1.4, -0.25, 3),
+    colotomic('kethuk', 'kethuk', 'kethukTone', 0.8, 0.2, 0.1, 0.3),
+    colotomic('gong', 'gong', 'gongTone', 0.28, -2.6, 0, 9),
+    T('kendhang', '#d98b5f', `const k = lastOf(KENDHANG, x); return k >= 0 && x - KENDHANG[k][0] < 0.25 ? (KENDHANG[k][1] === 'dhah' ? 3 : 3.8) : null`,
+      `const k = lastOf(KENDHANG, x); return k >= 0 && x - KENDHANG[k][0] < 0.1 ? [KENDHANG[k][1] === 'dhah' ? 41 : 38] : []`,
+      ['K:\\ \\text{dhah — низкий открытый удар, tak — шлепок, ket — малый барабан ketipung'],
+      `dhah = taikoDrum({ pitch: 105, decay: 0.45, bend: 2, crack: 0.15, boom: 0.25, seed: 83 }), ket = taikoDrum({ pitch: 230, decay: 0.2, bend: 1, crack: 0.2, seed: 89 }), tak = woodClack({ f: 1100, seed: 97 }), verb = reverb({ room: 0.7, damp: 0.5, wet: 0.2 })`,
+      `      const k = lastOf(KENDHANG, x), e = k >= 0 ? KENDHANG[k] : null, t = e ? (x - e[0]) * sec : 9
+      const y = 0.5 * dhah(t, !!e && e[1] === 'dhah') + 0.35 * ket(t, !!e && e[1] === 'ket') + 0.3 * tak(t, !!e && e[1] === 'tak')
+      return verb(...pan(0.9 * y, -0.05))`),
+    T('suling', '#d8f0e0', `const m = notesAt(SULING, x); return m ? 2.2 + m.n * 0.04 : null`, `const m = notesAt(SULING, x); return m && m.u < 0.9 ? [60 + Math.round(m.n * 100) / 100] : []`,
+      ['S = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.15\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бамбуковая флейта, плывёт над ирамой II'],
+      `fl = flute({ breath: 0.15 }), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.45 })
+    let n = 0`,
+      `      const m = notesAt(SULING, x)
+      if (m) n = m.n
+      return verb(...pan(0.35 * fl(hz(n, C4), !!m && m.u < 0.95), 0.4))`),
+  ]
+  const imp = mod => [...used[mod]].sort()
+  const out = [
+    ...head,
+    `import { ${imp('engine').join(', ')} } from '../src/engine.js'`,
+    `import {\n  ${imp('instruments').join(', ')},\n} from '../src/instruments.js'`,
+    data,
+    ...tracks.map((t, i) => `// ---- ${t.name} ${'-'.repeat(Math.max(4, 90 - t.name.length))}\nconst track${i} = ${t.code}\n`),
+    `export default {
+  name: '${title}',
+  bpm: ${bpm},
+  key: 'D',
+  mode: '${mode}', // the measured ${mode}: tone 1 = D4
+  length: END,
+  theme: '${S.theme}',
+  style: 'gamelan',
+  generator: ${JSON.stringify({ style: 'gamelan', seed: meta.seed, seeds, length, pathet })},
+  parts: ['saron', 'bonang'],
   sections: SECTIONS,
   tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.name)}: track${i}`).join(', ')} },
 }
