@@ -228,6 +228,30 @@ export const STYLES = {
     comp: { 0: [[0, 0.5, 3.5]], 1: [[0, 0.5, 1.4], [1.66, 0.42, 1.2]], 2: [[0, 0.5, 1.3], [1.66, 0.45, 0.9], [3.66, 0.42, 0.3]], 3: [[0.66, 0.5, 0.8], [2, 0.45, 0.6], [2.66, 0.5, 1]] },
     bassline: 'walking', arpStep: 0.5, arpPoly: false,
   },
+  // Celtic: tunes of our own in the modes of the tradition (mixolydian, dorian, aeolian or major, by its own dice), reels in 4/4
+  // or jigs in 6/8, cuts and rolls on the tunes; tin whistle, fiddle or uilleann pipes, bouzouki/guitar, harp, the pipes'
+  // drone in the bass, the bodhrán
+  celtic: {
+    label: 'Кельтская музыка', emoji: '☘️', theme: 'celtic', bpm: [100, 126], swing: 0.55,
+    themes: { 'celtic-reel': 5, 'celtic-air': 3 },
+    keys: ['D', 'G', 'A', 'E', 'Am', 'Em', 'Dm'], moods: ['folk'],
+    modes: [null, 'mixolydian', 'dorian', 'mixolydian', 'dorian'], meters: ['6/8', null, '6/8'], ornate: true,
+    voicing: 'close', chordRange: [50, 69], bassRange: [26, 38],
+    lead: ['whistle', 'violin', 'pipes'], lead2: ['violin', 'whistle', 'flute'], chords: ['guitar'], bass: ['drone'],
+    pad: [null], arp: ['harp'], texture: [null], kit: 'bodhran',
+    forms: [
+      [['air', 4, 'intro', 0], ['tune', 16, 'theme', 2], ['turn', 16, 'themeB', 2], ['harp', 8, 'bridge', 1], ['session', 8, 'solo', 3], ['tune again', 16, 'final', 3], ['last chord', 4, 'outro', 1]],
+      [['drone', 4, 'intro', 0], ['tune', 16, 'theme', 2], ['turn', 8, 'themeB', 2], ['session', 16, 'solo', 3], ['harp', 8, 'bridge', 1], ['tune again', 16, 'final', 3], ['last chord', 4, 'outro', 1]],
+    ],
+    drums: {
+      full: { don: 'x-----x-x-----x-', rim: '----x-------x---', tip: 'x-o-x-o-x-o-x-o-' },
+      busy: { don: 'x-----x-x--x--x-', rim: '----x-------x-x-', tip: 'xoxoxoxoxoxoxoxo' },
+      light: { don: 'x-------x-------', tip: '--o---o---o---o-' },
+      fill: { rim: '--------x-xx-xxx' },
+    },
+    comp: { 0: [[0, 0.5, 4]], 1: [[0, 0.55, 2], [2, 0.45, 2]], 2: [[0, 0.6, 1], [1, 0.4, 0.5], [1.5, 0.45, 1], [2.5, 0.4, 0.5], [3, 0.5, 1]], 3: [[0, 0.65, 0.5], [0.5, 0.35, 0.5], [1, 0.45, 0.5], [1.5, 0.4, 0.5], [2, 0.6, 0.5], [2.5, 0.35, 0.5], [3, 0.45, 0.5], [3.5, 0.4, 0.5]] },
+    bassline: [[0, 'R', 3.9]], arpStep: 0.5, arpPoly: false,
+  },
   // the Romantic orchestra: Tchaikovsky, Grieg, Dvořák, Chopin — horn, oboe or a singing cello over a nocturne piano,
   // harp rolls, a brass choir, celesta, strings and a choir; timpani
   romantic: {
@@ -469,6 +493,27 @@ function ornament(notes, key, chordAt, r) {
   return out
 }
 
+// Irish and Scottish ornaments: a cut — a grace note a step (or two) above, a sixteenth of a beat before the note it
+// sharpens; a roll on a long note — the note, the step above, the note, the step below, the note (as quick graces)
+function celticOrnament(notes, key, r) {
+  const scale = (key.mode === 'minor' ? MIN : MAJ).map(i => (i + key.tonic) % 12)
+  const step = (m, dir) => { let v = m + dir; while (!scale.includes(pc(v))) v += dir; return v }
+  const out = [], g = 0.0625
+  notes.forEach(([b, m, d], i) => {
+    const prev = notes[i - 1]
+    if (d >= 1 && r() < 0.45) {
+      // a roll: graces in the first eighth of the note
+      out.push([b, m, 2 * g], [b + 2 * g, step(m, 1), g], [b + 3 * g, m, g], [b + 4 * g, step(m, -1), g], [b + 5 * g, m, d - 5 * g])
+    } else if (prev && (prev[1] === m || d >= 0.5) && b - prev[0] >= 2 * g && r() < 0.3) {
+      // a cut: the grace above taken from the end of the note before
+      const last = out[out.length - 1]
+      if (last && last[0] + last[2] > b - g + 1e-9 && last[2] > 2 * g) last[2] -= g
+      out.push([b - g, step(m, d >= 1 ? 2 : 1), g], [b, m, d])
+    } else out.push([b, m, d])
+  })
+  return out.sort((x, y) => x[0] - y[0])
+}
+
 // ---- voicing ----------------------------------------------------------------------------------------
 function chordTones(ch, style) {
   const ivs = ch.ivs
@@ -499,6 +544,7 @@ const NAMES = {
   raga: [['sandhya', 'prabhat', 'chandni', 'megh', 'nadi', 'deepak', 'basant', 'ratri'], ['ki-dhun', 'alap', 'vistar', 'jhala', 'tarang', 'bandish', 'swar', 'gat']],
   gamelan: [['ladrang', 'ketawang', 'gendhing', 'lancaran', 'bubaran'], ['wilujeng', 'pangkur', 'sekar-melati', 'udan-mas', 'kebo-giro', 'asmaradana', 'sri-rejeki', 'mega-mendung']],
   jazz: [['blue', 'midnight', 'smoky', 'late', 'velvet', 'uptown', 'moody', 'cool'], ['corner', 'train', 'avenue', 'session', 'lounge', 'walk', 'changes', 'stroll']],
+  celtic: [['misty', 'green', 'silver', 'hazel', 'wild', 'lonely', 'merry', 'stony'], ['glen', 'harbour', 'piper', 'hill', 'road', 'island', 'reel', 'shore']],
   fugue: [['fuga', 'ricercar', 'contrapunctus', 'fughetta', 'canon-e-fuga'], ['dorica', 'notturna', 'aurea', 'di-vetro', 'serena', 'antica', 'stellata', 'd-inverno', 'del-lago']],
   jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
 }
@@ -516,6 +562,9 @@ export function generate(opts = {}) {
   if (styleId === 'maqam') return generateMaqam(opts, S, seeds)
   if (styleId === 'gamelan') return generateGamelan(opts, S, seeds)
   if (styleId === 'raga') return generateRaga({ ...opts, raga: opts.raga ?? { kalyan: 'yaman', bhairav: 'bhairav', kafi: 'bhimpalasi', bhairavi: 'malkauns', aeolian: 'darbari' }[opts.mode] }, S, seeds)
+  // a style that lists its modes or meters draws them with its own dice (the others never do)
+  if (S.modes && opts.mode === undefined) opts = { ...opts, mode: pick(rng((seeds.arrangement ^ 0x3a0de) >>> 0), S.modes) ?? undefined }
+  if (S.meters && opts.meter === undefined) opts = { ...opts, meter: pick(rng((seeds.arrangement ^ 0x3e7e) >>> 0), S.meters) ?? undefined }
   const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
 
   // key, tempo, form
@@ -578,6 +627,8 @@ export function generate(opts = {}) {
     return th
   }
   const A = treat(melA, 'A'), B = treat(melB, 'B')
+  // the tradition's ornaments: cuts (a grace note a step above) and rolls on the tunes, with their own dice
+  if (S.ornate) { const RO = rng((seeds.melody ^ 0x0c17) >>> 0); for (const th of [A, B]) th.notes = celticOrnament(th.notes, key, RO) }
   // the bridge: a new progression, a new melody on the rhythm of a third theme
   const progs = PROGRESSIONS[bridgeKey.mode]
   const bridgeProg = pick(RA, progs).map(s => roman(s, bridgeKey))
@@ -897,7 +948,7 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   need('instruments', 'improvise')
   // ---- tracks
   const T = (name, code) => tracks.push({ name, code })
-  const leadCode = (id, at, laneR, gainMul = 1, panv = 0.15) => LEADS[id]({ at, lane: laneR, gain: gainMul, pan: panv, need, sw, hard })
+  const leadCode = (id, at, laneR, gainMul = 1, panv = 0.15) => LEADS[id]({ at, lane: laneR, gain: gainMul, pan: panv, need, sw, hard, tonic: round(pc(key.tonic)) })
   T(inst.lead, leadCode(inst.lead, 'leadAt', lane.lead, 1, 0.12))
   // bells carry a melody alone at full level, but next to another lead they cut through: softer
   const LEAD2_GAIN = { bells: 0.45 }
@@ -909,7 +960,7 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   T(counterVoice + ' counter', leadCode(counterVoice, 'counterAt', lane.counter, 0.5 * louder * (boss ? 2 : 1), -0.4))
   T(inst.chords, CHORDS[inst.chords]({ need, comp: S.comp, lane: lane.chords, hard }))
   if (inst.pad) T(inst.pad === 'strings' ? 'strings' : inst.pad, PADS[inst.pad]({ need, lane: lane.pad, gain: boss ? 3 : hard ? 4 : 1, hard: hard && !boss }))
-  T('bass', BASSES[inst.bass]({ need, line: S.bassline, lane: lane.bass, hard }))
+  T('bass', BASSES[inst.bass]({ need, line: S.bassline, lane: lane.bass, hard, tonic: round(pc(key.tonic)) }))
   if (hard) T('rbass', reverseBassTrack({ need, lane: lane.bass, gain: boss ? 1 : 0.7 }))
   if (inst.arp) T(inst.arp + ' arp', ARPS[inst.arp]({ need, step: S.arpStep, poly: S.arpPoly, lane: lane.arp, hard }))
   if (hard) T('kick', hardKickTrack({ need, gain: boss ? 1 : 0.6 }))
@@ -2245,6 +2296,68 @@ LEADS.trumpet = sustainedLead({
   formula: ['Tp = 0.7y + 0.5\\,\\BP_{450}y,\\quad y = \\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g + \\saw 1.0023g\\big)e(t),\\quad f_c = 250 + 9200\\,e(t)^{1.6}\\ \\text{— труба'],
 })
 Object.assign(COUNTER_VOICE, { sax: 'trumpet', trumpet: 'sax' })
+
+// ---- celtic ---------------------------------------------------------------------------------------------------------------
+// the tin whistle: the festival flute's bright tone an octave above the tune (as the D whistle sounds)
+LEADS.whistle = o => LEADS.shinobue(o).replace("color: '#ff5a5f'", "color: '#a8f0c8'").replace('— синобуэ, октавой выше темы', '— вистл, октавой выше темы')
+// the uilleann pipes: a double-reed chanter (narrow pulse through bright formants) over three drones on the tonic, two
+// octaves deep, that sound as long as the pipes play
+LEADS.pipes = o => {
+  o.need('instruments', 'reed', 'organ')
+  return `{
+  color: '#8fd08f',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(['P = \\text{чантер: } r_{\\text{гобой}}(f) + \\text{бурдоны } \\sum_{k=1}^{3} \\sin 2\\pi\\,2^{-k} f_{\\text{тоника}} t\\ (\\text{тенор, баритон, бас})'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, ch = reed({ kind: 'oboe', breath: 0.05 }), dr = organ({ voices: 3, stops: [[1, 1], [2, 0.5], [3, 0.3], [4, 0.2], [5, 0.12]], chiff: 0.05, gain: 0.05 }), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })
+    const T = (TONIC => [TONIC - 24, TONIC - 36, TONIC - 12])(${o.tonic} + 48)
+    let n = 0
+    return x => {
+      const m = ${o.at}(x)
+      if (m) n = m.n
+      const playing = x < END - 1 && energy(x) >= 1
+      const [l, r] = dr(playing ? T.map(t => hz(t - 60, C4)) : [])
+      const y = ${round(0.42 * o.gain)} * ch(hz(n, C4), !!m && m.u < 0.95, 0.4)
+      return verb(...pan(y, ${o.pan}).map((v, i) => v + (i ? r : l)))
+    }
+  },
+}`
+}
+// the drone in the bass: the tonic and its fifth held on reeds, breathing in at each section
+BASSES.drone = o => {
+  o.need('instruments', 'organ')
+  return `{
+  color: '#6fa86f',
+  graph: x => (x < END - 1 && energy(x) >= 1 ? ${o.lane[0]} + 0.3 : null),
+  midi: x => (x < END - 1 && energy(x) >= 1 && mod(x - sectionOf(x)[0], 8) < 7.8 ? [${o.tonic} + 36, ${o.tonic} + 43] : []),
+  formula: ${JSON.stringify(['D = \\sum_{s=1}^{5} a_s\\big(\\sin 2\\pi s f_1 t + \\sin 2\\pi s f_5 t\\big)\\quad\\text{— бурдон: тоника и квинта'])},
+  audio() {
+    const o = organ({ voices: 2, stops: [[1, 1], [2, 0.6], [3, 0.35], [4, 0.2], [5, 0.15]], chiff: 0.02, gain: 0.11 }), level = smooth(400)
+    return x => {
+      const on = x < END - 1 && energy(x) >= 1 && mod(x - sectionOf(x)[0], 8) < 7.8, a = level(on ? 1 : 0)
+      const [l, r] = o(on ? [hz(${o.tonic} + 36 - 60, C4), hz(${o.tonic} + 43 - 60, C4)] : [])
+      return [a * l, a * r]
+    }
+  },
+}`
+}
+// the bodhrán: a goatskin frame drum and its tipper — "don" (the open low skin), the rim, the light tips between
+KITS.bodhran = o => {
+  o.need('instruments', 'taikoDrum')
+  return `(() => {
+  ${drumData(o.drums)}
+  return {
+  color: '#c8a070',
+  ${drumGraph.replace("lastHit(x, 'kick') ?? lastHit(x, 'timp')", "lastHit(x, 'don') ?? lastHit(x, 'tip')")}
+  formula: ${JSON.stringify(['B(t) = \\sum_k a_k e^{-t k/d}\\sin r_k\\varphi(t),\\ \\varphi = 2\\pi\\cdot 72\\,(t + \\ldots)\\ \\text{(дон, открытая кожа)};\\quad \\text{тип — 190 Гц, рука гасит кожу'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, don = taikoDrum({ pitch: 72, decay: 0.55, bend: 2, crack: 0.12, boom: 0.45, drive: 1.1, seed: 113 }), tip = taikoDrum({ pitch: 190, decay: 0.12, bend: 1, crack: 0.3, boom: 0.05, drive: 1, seed: 127 })
+    const rim = taikoDrum({ pitch: 260, decay: 0.1, bend: 0, crack: 0.5, boom: 0, drive: 1, seed: 131 }), verb = reverb({ room: 0.6, damp: 0.5, wet: 0.16 })
+    const play = (x, d, f) => { const h = lastHit(x, d); return h ? h.vel * f(h.τ * sec, true) : f(9, false) }
+    return x => verb(...pan(0.3 * play(x, 'don', don) + 0.16 * play(x, 'tip', tip) + 0.14 * play(x, 'rim', rim), -0.1))
+  },
+}})()`
+}
 // the swing kit: the ride ("ding ding-a ding"), the hi-hat closed by the foot on 2 and 4, the bass drum feathered, the snare
 // comping; brushes in the quiet sections; when the horn rests in trading fours, the drummer solos (snare, toms, kick, the
 // crash on the last bar's downbeat) on a swung triplet grid

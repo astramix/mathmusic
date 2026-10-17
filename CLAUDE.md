@@ -14,11 +14,12 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (16 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (17 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
-  jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours), retune (every song in two modes), theory, MIDI export, the song
+  jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours),
+  celtic (test/celtic.test.js: its own modes and meters, cuts and rolls, the drone), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -262,7 +263,7 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz — each: tempo/keys, forms
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -325,6 +326,11 @@ minor's ii–V–i), voicing 'jazz' (rootless A/B: 3 5 7 9, 3 13 7 9, ♭3 ♭5 
 beat, chord tones between, a half step above or below the next root before it), KITS.jazz (ride ding ding-a, hat on 2 & 4,
 feathered kick, snare comping, brushes when quiet; a triplet drum solo in the drums' bars of trading fours), Charleston
 comping, LEADS sax / trumpet, the role 'trade' (TRADE: improvised in bars 1–4, 9–12…, the drums answer), TEXTURES.club.
+**celtic** (☘️ Кельтская музыка, 100–126 BPM, theme 'celtic'): the ordinary generator; the style lists `modes` (major, mixolydian,
+dorian) and `meters` ('6/8' jig or 4/4 reel) that it draws with its own dice when the options don't say (`S.modes`, `S.meters`),
+`ornate` (`celticOrnament`: cuts — a grace a step above, 1/16 beat before — and rolls on long notes, own dice); tunes of our own
+(The Hazel Road reel, Loch na Gealaich air, `only: 'celtic'`); LEADS whistle (the shinobue an octave up) and pipes (an oboe-reed
+chanter over three tonic drones), BASSES.drone (tonic + fifth on reeds), KITS.bodhran (don / rim / tip), guitar, harp arps.
 **jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
 style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
@@ -365,7 +371,7 @@ themes.js · scenery.js (Вид → «Тематический фон», `app.vi
 space, rainy city, 8-bit hills, sunset sea, sakura, baroque hall, rose window + pointed arcade, outrun sun + grid, neon tunnel,
 drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club, desert night (crescent, medina, dunes, fanous lanterns,
 horseshoe arches in 3D), temple night (shikharas, the river with lotuses, diyas on the beats, toranas in 3D), Java (a smoking volcano,
-stupas, rice terraces); classic: `scenery2d` behind the curves (silhouettes
+stupas, rice terraces), green hills (a ruined tower, mist, standing stones with glowing spirals, trilithons in 3D); classic: `scenery2d` behind the curves (silhouettes
 on world-fixed grids, the nearest layer on bar lines via X(b)); space: `sceneryBack` at the horizon + `sceneryRoad` props
 every N beats beside the lanes, crossing the playhead plane on their beat, torii/lancet arches over all lanes. Driven by
 `musicOf(scene)`: beat phase, downbeat, kick (drum tracks' onsets), energy, progress, section flash — never Math.random) ·
@@ -436,4 +442,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | nadi-swar | generated raga (seed 1) | 88 | D (Sa) bhairav | alap → jor → gat → antara → taans → jhala, shrutis 256/243 & 128/81, andolan, tihais |
 | gendhing-sri-rejeki | generated gamelan (seed 1) | 73 | slendro | measured laras, colotomy, irama I → II → ngampat → suwuk, ombak |
 | moody-walk | generated jazz (seed 1) | 133 | B♭ | Night Train + Rhythm Hill heads, walking bass, rootless comping, vibes solo, trading fours, club room |
+| misty-harbour | generated celtic (seed 6) | 107 | A mixolydian | jig in 6/8 on the uilleann pipes with drones, rolls and cuts, flute air, harp, bodhrán |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

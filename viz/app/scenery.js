@@ -356,7 +356,23 @@ function diya(g, x, y, s, m, side, rgb, b = 0) {
   g.quadraticCurveTo(x + 0.12 * s, y - 0.55 * s, x + 0.25 * s, y - 0.25 * s)
   g.fill()
 }
-const PROPS = { lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya }
+// a standing stone with a spiral carved in it that glows on the downbeat
+function menhir(g, x, y, s, m, side, rgb, b = 0) {
+  const h = (3.2 + 1.2 * hsh(b * 0.71)) * s, w = 0.9 * s
+  g.fillStyle = 'rgba(16,20,18,0.95)'
+  g.beginPath()
+  g.moveTo(x - w / 2, y)
+  g.lineTo(x - w * 0.42, y - h * 0.85)
+  g.quadraticCurveTo(x, y - h * 1.05, x + w * 0.4, y - h * 0.9)
+  g.lineTo(x + w / 2, y)
+  g.fill()
+  g.strokeStyle = rgba(rgb, 0.25 + 0.45 * m.down)
+  g.lineWidth = 0.08 * s
+  g.beginPath()
+  for (let a = 0; a < 3 * TAU; a += 0.2) { const r = 0.05 * s * a, px = x + Math.cos(a) * r, py = y - h * 0.55 + Math.sin(a) * r; a ? g.lineTo(px, py) : g.moveTo(px, py) }
+  g.stroke()
+}
+const PROPS = { lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir }
 
 function torii(g, cx, y, s, half, rgb, a) {
   g.fillStyle = rgba(rgb, a)
@@ -417,7 +433,15 @@ function torana(g, cx, y, s, half, rgb, a) {
   }
   g.stroke()
 }
-const SPANS = { torii, lancet, horseshoe, torana }
+// a trilithon: two great stones and a lintel (Stonehenge)
+function trilithon(g, cx, y, s, half, rgb, a) {
+  g.fillStyle = rgba('20,24,22', a)
+  const w = 1.2 * s, h = 6.5 * s
+  g.fillRect(cx - half - w / 2, y - h, w, h)
+  g.fillRect(cx + half - w / 2, y - h, w, h)
+  g.fillRect(cx - half - w * 0.7, y - h - 0.9 * s, 2 * half + 1.4 * w, 0.9 * s)
+}
+const SPANS = { torii, lancet, horseshoe, torana, trilithon }
 
 // ---- skies, one per theme; c = { W, H, k, hy (horizon), ground, scroll(par) px, at(b) | null, from, to } ----
 const SKIES = {
@@ -571,6 +595,35 @@ const SKIES = {
       ridge(g, c, { par: 0.12 + 0.07 * j, y: hy + (c.ground - hy) * (0.25 + 0.22 * j), amp: (c.ground - hy) * 0.12, scale: 260 + 40 * j, seed: 21 + j, oct: 2, quant: 6, fill: hsla(m.hue + 10, 40, 8 + 2 * j), line: rgba(m.B, 0.2 + 0.1 * m.down), lw: 0.8 })
     }
     onBeats(c, 4, (x, b) => diya(g, x, c.ground, H * 0.03, m, 1, '255,190,90', b))
+  },
+
+  // the west of Ireland: a dusk sky with drifting mist, a ruined tower on a far hill, green hills folding into each other,
+  // standing stones on the beats
+  celtic(g, c, m) {
+    const { W, H, k, hy } = c, R = Math.min(W, H)
+    halo(g, W * 0.65, hy * 0.85, W * 0.7, '255,190,140', 0.1 + 0.04 * m.energy)
+    for (let i = 0; i < 40; i++) {
+      const x = fr(hsh(i * 3.9) - c.scroll(0.005) / W) * W, y = hy * 0.6 * hsh(i * 8.1)
+      g.fillStyle = rgba(m.S, 0.15 + 0.35 * hsh(i * 2.7))
+      g.fillRect(x, y, 1.1 * k, 1.1 * k)
+    }
+    ridge(g, c, { par: 0.04, y: hy + 2 * k, amp: hy * 0.18, scale: 300, seed: 31, oct: 3, fill: hsla(150, 25, 9) })
+    // the tower on the far hill
+    const tx = W * 0.25 - (c.scroll(0.04) % (W * 1.6)), th = hy * 0.22
+    for (const off of [0, W * 1.6]) {
+      const x0 = tx + off, base = hy - hy * 0.1
+      g.fillStyle = hsla(150, 20, 7)
+      g.fillRect(x0, base - th, R * 0.03, th)
+      for (let j = 0; j < 3; j++) g.fillRect(x0 + j * R * 0.012, base - th - R * 0.01, R * 0.007, R * 0.01)
+    }
+    ridge(g, c, { par: 0.12, y: hy + (c.ground - hy) * 0.45, amp: (c.ground - hy) * 0.45, scale: 240, seed: 37, oct: 3, fill: hsla(140, 35, 12) })
+    ridge(g, c, { par: 0.25, y: c.ground + 2 * k, amp: (c.ground - hy) * 0.35, scale: 320, seed: 41, oct: 2, fill: hsla(135, 40, 16) })
+    // mist drifting over the hills
+    for (let j = 0; j < 4; j++) {
+      const span = W * 1.8, x = ((hsh(j * 5.3) * span - c.scroll(0.08 + 0.03 * j)) % span + span) % span - W * 0.4
+      halo(g, x, hy + (c.ground - hy) * (0.2 + 0.2 * j), W * 0.25, '220,235,230', 0.06)
+    }
+    onBeats(c, 4, (x, b) => menhir(g, x, c.ground, H * 0.03, m, 1, '140,230,170', b))
   },
 
   lofi(g, c, m) {
@@ -1150,6 +1203,7 @@ const ROAD = {
   romantic: { prop: 'lamp', every: 8, rgb: '255,220,170' },
   jazz: { prop: 'lamp', every: 4, rgb: '255,200,120' },
   desert: { prop: 'lantern', every: 4, rgb: '255,190,100', span: 'horseshoe', spanEvery: 16 },
+  celtic: { prop: 'menhir', every: 4, rgb: '140,230,170', span: 'trilithon', spanEvery: 16 },
   java: { prop: 'diya', every: 4, rgb: '255,190,90', out: 1.8, span: 'torana', spanEvery: 16 },
   india: { prop: 'diya', every: 2, rgb: '255,170,70', out: 1.6, span: 'torana', spanEvery: 16 },
 }
