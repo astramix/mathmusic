@@ -299,6 +299,37 @@ export const MELODIES = [
       [23.5, 7, 0.5], [24, 15, 1], [25, 14, 0.5], [25.5, 12, 0.5], [26, 7, 1], [27, 8, 0.5], [27.5, 5, 0.5], [28, 14, 0.5], [28.5, 11, 0.5], [29, 7, 0.5],
       [29.5, 2, 0.5], [30, 7, 1], [31, -1, 1]],
   },
+  // ---- jazz: three heads of our own in the manner of the standards (only the jazz style draws them). Guide tones — the
+  // chords' thirds and sevenths — on the strong beats, eighths swung by the style.
+  // "Blue Corner": the descending fifths of a ballad's A section (ii – V – I – IV – viiø – III7 – vi), in F
+  {
+    id: 'jazz-corner', from: 'jazz', title: 'Blue Corner (в духе стандартов)', key: 'F', base: 'F4', feel: 'swing', per: 4, modal: false, only: 'jazz',
+    moods: ['jazzy', 'night', 'calm'], chords: ['ii7', 'V7', 'Imaj7', 'IVmaj7', 'viiø7', 'III7', 'vi7', 'vi7'],
+    notes: [[0, 5, 1.5], [1.5, 4, 0.5], [2, 2, 1], [3, 5, 1], [4, 5, 1], [5, 4, 0.5], [5.5, 2, 0.5], [6, -1, 2],
+      [8, 4, 2], [10, 7, 0.5], [10.5, 4, 0.5], [11, 0, 1], [12, 9, 3], [15, 7, 1], [16, 5, 1.5], [17.5, 4, 0.5], [18, 2, 1], [19, 9, 1],
+      [20, 8, 1], [21, 9, 0.5], [21.5, 8, 0.5], [22, 2, 2], [24, 0, 1.5], [25.5, 2, 0.5], [26, 4, 1], [27, 7, 1], [28, 9, 3], [31, -3, 1]],
+  },
+  // "Rhythm Hill": a bebop line on I – vi – ii – V turnarounds, a chord every two beats, in B♭
+  {
+    id: 'jazz-rhythm', from: 'jazz', title: 'Rhythm Hill (бибоп)', key: 'Bb', base: 'C4', feel: 'swing', per: 2, modal: false, only: 'jazz',
+    moods: ['jazzy', 'bright'], chords: ['Imaj7', 'vi7', 'ii7', 'V7', 'iii7', 'VI7', 'ii7', 'V7', 'Imaj7', 'I7', 'IVmaj7', 'iv7', 'iii7', 'VI7', 'ii7', 'V7'],
+    notes: [[0, 14, 0.5], [0.5, 17, 0.5], [1, 21, 0.5], [1.5, 19, 0.5], [2, 17, 0.5], [2.5, 14, 0.5], [3, 10, 1],
+      [4, 12, 0.5], [4.5, 15, 0.5], [5, 19, 0.5], [5.5, 17, 0.5], [6, 15, 0.5], [6.5, 14, 0.5], [7, 12, 0.5], [7.5, 9, 0.5],
+      [8, 12, 1], [9, 9, 0.5], [9.5, 5, 0.5], [10, 11, 0.5], [10.5, 14, 0.5], [11, 17, 1],
+      [12, 15, 1.5], [13.5, 14, 0.5], [14, 12, 0.5], [14.5, 9, 0.5], [15, 10, 1],
+      [16, 14, 1], [17, 12, 0.5], [17.5, 10, 0.5], [18, 8, 1], [19, 7, 0.5], [19.5, 5, 0.5],
+      [20, 7, 1], [21, 10, 1], [22, 6, 1], [23, 10, 0.5], [23.5, 13, 0.5],
+      [24, 12, 1], [25, 9, 0.5], [25.5, 12, 0.5], [26, 11, 1], [27, 14, 1], [28, 10, 1.5], [29.5, 12, 0.5], [30, 9, 2]],
+  },
+  // "Night Train": the minor ii – V – i of the relative minor and back to the major, in E♭ (C minor inside)
+  {
+    id: 'jazz-night', from: 'jazz', title: 'Night Train (минорный ii–V)', key: 'Eb', base: 'C4', feel: 'swing', per: 4, modal: false, only: 'jazz',
+    moods: ['jazzy', 'night', 'dark'], chords: ['viiø7', 'III7', 'vi7', 'vi7', 'ii7', 'V7', 'Imaj7', 'III7'],
+    notes: [[0, 8, 1.5], [1.5, 7, 0.5], [2, 5, 1], [3, 2, 1], [4, -1, 1.5], [5.5, 2, 0.5], [6, 5, 1], [7, 8, 1],
+      [8, 7, 2], [10, 3, 1], [11, 2, 0.5], [11.5, 3, 0.5], [12, 0, 3], [15, 7, 1],
+      [16, 8, 1.5], [17.5, 7, 0.5], [18, 3, 1], [19, 5, 1], [20, 2, 1.5], [21.5, 0, 0.5], [22, -2, 1], [23, 2, 1],
+      [24, 7, 2], [26, 10, 1], [27, 8, 0.5], [27.5, 7, 0.5], [28, 5, 1.5], [29.5, 3, 0.5], [30, 2, 1], [31, -1, 1]],
+  },
 ]
 
 // Progressions for sections without a borrowed theme (intro, bridge, breakdown, solo), per mood.

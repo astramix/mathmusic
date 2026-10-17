@@ -14,10 +14,11 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (15 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (16 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
-  gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak), retune (every song in two modes), theory, MIDI export, the song
+  gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
+  jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -110,6 +111,8 @@ slides) · `darbukaDrum()` → d(t s, 'dum'|'tek'|'ka', on) · `riqDrum()` → r
 India: `sitar({ tarab: [Hz…], sawari })` → s() sample, s.hit(f, vel, { from (meend), bend, bendAt, bendTime, back })
 (jawari buzz, the tarab strings as resonators at the raga's notes) · `tanpura()` → tp([f×4], period s, on) (plucks round and
 round, heavy jawari) · `tablaDrum({ f: Sa })` → d(t s, bol, on): na/ta, tin, te, ge (the bayan's pitch rising), ke, dha, dhin.
+`sax({ bright, breath })` → s(f, on, vel): a tenor saxophone (saw through a low-pass that opens with the breath, formants 600 /
+1700 / 2900 Hz, a scoop into each note, a late vibrato, a growl when loud).
 Gamelan tones for poly() (each a pair a few Hz apart: the ombak beats): `saronTone, bonangTone, kenongTone, kempulTone,
 kethukTone, gongTone` = (f, t s, vel).
 Japan (plucked strings are a Karplus–Strong loop with a moving, exactly tuned delay: pitch error < 2 cents):
@@ -259,8 +262,8 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan — each: tempo/keys, forms
-(sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz — each: tempo/keys, forms
+(sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
 Roman-numeral harmony) and move to the new key/mode (accidentals follow the chord, leading tone over V),
@@ -316,6 +319,12 @@ song's `tuning: { id: 'shruti' }`).
 **gamelan** (🔔 Гамелан, 60–76 BPM = balungan beats, theme 'java'): `generateGamelan` (opts.pathet, or opts.mode slendro / pelog /
 pelogBem / pelogBarang picks among its pathet; form by the arrangement seed) — saron (+ demung), peking, bonang, panerus,
 kenong, kempul, kethuk, gong, kendhang (dhah / tak / ket), suling; song `mode: 'slendro' | 'pelog'`, midi() fractional (cents).
+**jazz** (🎷 Джаз, 116–168 BPM, swing 0.66, theme 'jazz'): the ordinary generator with its own pieces — three heads of our own
+(`only: 'jazz'`: Blue Corner on ii–V–I–IV–viiø–III7–vi, Rhythm Hill on I–vi–ii–V turnarounds, Night Train on the relative
+minor's ii–V–i), voicing 'jazz' (rootless A/B: 3 5 7 9, 3 13 7 9, ♭3 ♭5 ♭7 11), bassline 'walking' (root on a chord's first
+beat, chord tones between, a half step above or below the next root before it), KITS.jazz (ride ding ding-a, hat on 2 & 4,
+feathered kick, snare comping, brushes when quiet; a triplet drum solo in the drums' bars of trading fours), Charleston
+comping, LEADS sax / trumpet, the role 'trade' (TRADE: improvised in bars 1–4, 9–12…, the drums answer), TEXTURES.club.
 **jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
 style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
@@ -426,4 +435,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | bahr-al-layl | generated maqam (seed 2, bayati) | 101 | D bayati | quarter tones (E𝄳), taqsims of oud and ney, tahwil to Hijaz, takht heterophony, maqsum |
 | nadi-swar | generated raga (seed 1) | 88 | D (Sa) bhairav | alap → jor → gat → antara → taans → jhala, shrutis 256/243 & 128/81, andolan, tihais |
 | gendhing-sri-rejeki | generated gamelan (seed 1) | 73 | slendro | measured laras, colotomy, irama I → II → ngampat → suwuk, ombak |
+| moody-walk | generated jazz (seed 1) | 133 | B♭ | Night Train + Rhythm Hill heads, walking bass, rootless comping, vibes solo, trading fours, club room |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

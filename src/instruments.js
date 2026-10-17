@@ -955,6 +955,26 @@ export function reed({ kind = 'oboe', breath = 0.03, seed = 59 } = {}) {
     return a * (0.6 * y + breath * bn(n, 2 * g, 2) + (on ? 0.15 * exp(-held / 0.015) : 0) * n * 0.2)
   }
 }
+// Saxophone: a conical brass bore driven by a single reed — every harmonic (a saw), brighter the harder it is blown
+// (the low-pass opens with the breath), the mouthpiece and bore formants (≈ 600, 1700, 2900 Hz), air around the tone,
+// notes scooped in from below and a vibrato that comes late; a little growl when loud. s(f, on, vel) → sample
+export function sax({ bright = 1, breath = 0.07, seed = 101 } = {}) {
+  const η = noise(seed), o = osc('saw'), sub = osc('sine'), lp = filter('lp'), f1 = filter('bp'), f2 = filter('bp'), f3 = filter('bp'), bn = filter('bp')
+  const level = ar(25, 110), glide = smooth(14)
+  let t = 0, held = 0, cur = 0
+  return (f, on, vel = 0.8) => {
+    t += 1 / SR
+    if (on && (held === 0 || Math.abs(f / cur - 1) > 0.01)) (held = 0), (cur = f)
+    held = on ? held + 1 / SR : 0
+    const scoop = on ? -0.35 * exp(-held / 0.04) : 0, vib = 0.16 * smoothstep(0.3, 0.8, held) * sin(TAU * 5.4 * t)
+    const g = glide(cur || f) * 2 ** ((scoop + vib) / 12)
+    const a = level(on ? vel : 0), n = η()
+    const src = o(g) + 0.3 * sub(g) + 0.15 * a * tanh(3 * o(g * 0.5)) * (vel > 0.85 ? 1 : 0)
+    const tone = lp(src, 600 + 3800 * bright * a ** 1.5)
+    const y = 0.35 * tone + 0.8 * f1(tone, 600, 2.5) + 0.55 * f2(tone, 1700, 3) + 0.3 * f3(tone, 2900, 4)
+    return a * (y + breath * bn(n, 2 * g, 1.5))
+  }
+}
 // Choir: c(freqs, F) → [l, r]; two singers per part (a few cents apart, their own vibrato), F = vowel formants
 export function choir({ voices = 4, size = 1, breath = 0.06, rough = 0, gain = 0.3 } = {}) {
   const parts = Array.from({ length: voices }, (_, j) => ({
