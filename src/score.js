@@ -217,6 +217,8 @@ const dedupe = list => list.filter((c, i) => i === 0 || c.symbol !== list[i - 1]
 // the melody (the highest part that sings one note at a time and is there a good while), the chords (the part with the
 // most notes at once) and the bass (the lowest single line) — by listening to midi(), not by the tracks' names
 export function guessParts(song) {
+  // a song may name its staves (a fugue: one per instrument that carries a voice)
+  if (Array.isArray(song.parts)) return song.parts.filter(k => song.tracks?.[k]?.midi)
   const stats = []
   for (const [k, t] of Object.entries(song.tracks ?? {})) {
     if (!t || typeof t.midi !== 'function' || UNPITCHED.test(k)) continue
@@ -308,7 +310,7 @@ export function buildScore(song, { parts = null, key, mode = null, source = null
   const sections = song.sections ?? []
   const outBars = bars.map(b => {
     const k = keyAt(song, b.at, key)
-    return { n: b.n, at: b.at, len: b.len, time: b.meter.text, meter: b.meter, key: k, sig: k === key ? sig : keySignature(k), section: sections.find(s => s[0] >= b.at - 1e-6 && s[0] < b.at + b.len - 1e-6)?.[1] ?? null, chords: [] }
+    return { n: b.n, at: b.at, len: b.len, time: b.meter.text, meter: b.meter, key: k, sig: k === key || song.signature === 'home' ? sig : keySignature(k), section: sections.find(s => s[0] >= b.at - 1e-6 && s[0] < b.at + b.len - 1e-6)?.[1] ?? null, chords: [] }
   })
   for (const c of songChords(song, bars, key, source)) {
     const b = outBars.findLast(b => b.at <= c.at + 1e-6)

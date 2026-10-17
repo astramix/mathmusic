@@ -181,7 +181,7 @@ function dialog() {
   const info = h('div', { class: 'dim' })
   const describeStyle = () => {
     const S = STYLES[style.value]
-    info.innerHTML = `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · тональности ${S.keys.join(', ')} · лид: ${S.lead.join(' / ')} · аккорды: ${S.chords.join(' / ')} · бас: ${S.bass.join(' / ')} · барабаны: ${S.kit}`
+    info.innerHTML = S.about ? `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · ${esc(S.about)}` : `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · тональности ${S.keys.join(', ')} · лид: ${S.lead.join(' / ')} · аккорды: ${S.chords.join(' / ')} · бас: ${S.bass.join(' / ')} · барабаны: ${S.kit}`
   }
   style.onchange = describeStyle
   describeStyle()

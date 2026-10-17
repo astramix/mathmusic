@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (11 styles × 3 seeds: loads, renders, lead on its chords), retune (every song in two modes), theory, MIDI export, the song
+  the generator (12 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -50,6 +50,8 @@ export default {
   // optional: keys: [[0, 'D'], [80, 'F'], …] — a song that modulates: the score's signatures, note names by section
   // optional: meter: '12/8' (x is then a dotted quarter), '2+2+3/8' (additive: its groups), '2+2+3/8 | 2+2+2+3/8' (bars in turn)
   //   | meters: [[0, '4/4'], [120, '7/8'], …] per section — for the score (plain '9/8' is compound 3+3+3)
+  // optional: parts: ['violin', 'viola', 'cello'] — the score's staves (else guessParts); signature: 'home' — with `keys`: the
+  //   signature stays the home key's, the local keys only spell the notes (a fugue's entries, as Bach wrote them)
   // optional: mode: 'rast' (a modes.js id — a microtonal one makes the app spell E𝄳, B♭¹, D♯−37¢);
   //   tuning: { id: 'werckmeister3', name, offsets: [12 cents of C … B from 12-TET] } — what the song sounds in (export, inspector)
 }
@@ -160,6 +162,26 @@ of worklet.js (exports stripped); masterui.js («🎛 Мастеринг», K; `
 meter, the drive estimated from the rendered audio and corrected once by the meter after 25 s; export.js `masterIfOn`
 (MP3/WAV/OGG, video; stems stay raw) masters the whole song in a worker.
 
+## counterpoint.js, fugue.js (the fugue style, tests — not imported by songs)
+`counterVoice({ contexts: [{ voices: [{ notes, above }], shift | map }], rhythm, key, lo, hi, r, pins: [[beat, pcs]], chordAt,
+bass, prev, next, invertible, maxHold })` → notes: a voice by dynamic programming over the key's notes with the species rules
+as costs — consonance where a note begins on a beat, dissonance only as a passing/neighbour note (`passable`: short, off the
+half bar, stepped into and out of), the 4th dissonant over the lowest sounding voice, B♭–C♯ / C♯–F in D minor dissonant
+(`spelledDissonance`), no parallel or contrary 5ths/8ves (also across a breath and into `next`), hidden ones in outer voices,
+no crossing, leaps answered by steps, no tritone/7th/aug 2nd, the raised 6̂/7̂ of minor going up. A slot is cut where another
+voice begins a non-passing note and may be held on (tie) up to maxHold beats. Several contexts = one line judged in several
+textures (the countersubject below the answer and above the subject: invertible at the octave). `check(voices, { key })` →
+faults (dissonance, parallel, crossing, leap, augmented second). `speciesCanon({ key, bars, delay, interval })` → { dux, comes }:
+beam search, florid rhythms bar by bar, the follower's cadence (ficta: its ♭7̂ raised). `freeRhythm`, `impliedChords`.
+`composeFugue({ key, r, canon, canonBars })` (key may be { tonic, mode: 'modal', iv } — a church mode with a perfect 5th: entries
+on degrees of the same scale, the answer on the 5th or, plagal, the 4th) → { voices: { s, a, b }, sections, keys, harmony,
+entries, subject, answer, cs, faults, attempt }: subject by rule (32 candidates: head leap on 1̂/5̂, running tail, 2̂–1̂, chord
+tones of a half-bar skeleton on the beats, singable in every key it will visit, stretto potential) → exposition (alto S,
+soprano A + CS, codetta, bass S + CS + free) → episodes (descending-fifths chains to the next key's V; the soprano's motif —
+a 4-beat window of the subject or CS — moved a step down per bar, bass on the roots) → middle entries (relative, subdominant)
+→ stretto (the subject against itself δ beats later, checked) or a last entry → coda iv–V–I (♭II–I in Phrygian, Picardy).
+Entries after a leap move the note before by an octave or take a breath. Up to 8 attempts; the first with no fault wins.
+
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
 `kWeighting(sr)` — the editor's full check, A/B, mastering.
@@ -201,7 +223,7 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss — each: tempo/keys, forms
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -239,6 +261,13 @@ Dvořák (Largo) — public domain, harmonised with chord tones on the strong be
 Tchaikovsky and Chopin (`only: ['classical', 'romantic']`). Recipes: violin/oboe/flute/clarinet, horn and a singing
 cello an octave down, celesta; continuo harpsichord, Alberti bass, Bach's prelude figure, pipe organ, nocturne
 left hand, harp rolls, brass choir; harp/celesta arps; real timpani (`timpaniTone`) in the orchestral kit.
+**fugue** (🎹 Фуга и канон, 60–80 BPM): `generateFugue` (returns before the other dice are drawn) — composeFugue on the melody
+seed, an ensemble on the instrument seed (`ENSEMBLES`: chamber — flute/oboe/bassoon in the canon, violin/viola/cello in the
+fugue, harpsichord continuo, violone + organ chords in the tutti; strings; organ — gedackt/flute 4′/pedal, principals + pedal 16′,
+mixture + posaune 16′; harpsichord — lute stop, 8′ + 8′, 4′ and 16′), `fugueTrack` per [name, voice, phases, instrument, dn].
+The song: SOPRANO/ALTO/BASS, HARMONY (the continuo's chords), PHASES canon/fugue/tutti, `keys` + `signature: 'home'`, `parts`.
+`length: short` drops the canon (6 tracks). A church mode → a modal fugue; other modes, `micro` and `meter` are ignored;
+`temperament` works (Werckmeister III, meantone… suit it). Its seeds are new, so the other styles' songs are untouched.
 **jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
 style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
@@ -343,4 +372,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | kagekiri | jbattle: rawstyle × samurai | 150 | Dm | 2 min, shamisen screech (sawari + crush + wah), kick melody (tsuba), biwa tale, euphoric koto/supersaw theme, rolling rbass |
 | oni-matsuri | jbattle: festival fight | 136 | D (yo)→Bm→E | 2 min, yo scale + sus chords, Euclidean taiko E(5,16)/E(7,16)/E(11,16) and E(5,12) (3:4), kane, hyoshigi, kotsuzumi + shouts, timpani bass |
 | shogun-requiem | jbattle: epic, half time ↔ full | 168 | Cm→Dm→D | 2 min, in-scale + ♭II, male chant choir, biwa, 7/4 koto stretto K₂ = K₁(x − 3/2) − 12, chorale, boom kick, Picardy end |
+| fughetta-serena | generated fugue (seed 1) | 66 | Cm | canon at the octave (flute/oboe/bassoon), 3-voice fugue: tonal answer, invertible CS, sequences, stretto, Picardy coda |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

@@ -100,7 +100,8 @@ for (const style of Object.keys(STYLES)) {
         }
       }
       t.diagnostic(`${meta.title} · ${meta.key} · ${meta.bpm} BPM · ${minutes.toFixed(1)} min · A: ${meta.themes.A.title} (${meta.themes.A.how}) · strong-beat non-chord tones ${notes ? Math.round((100 * strong) / notes) : 0}%`)
-      if (notes > 8) assert.ok(strong / notes < 0.25, `too many strong-beat non-chord tones: ${strong}/${notes}`)
+      // (a fugue has no chord track to sit on: its voices are checked by the rules of counterpoint in test/fugue.test.js)
+      if (notes > 8 && style !== 'fugue') assert.ok(strong / notes < 0.25, `too many strong-beat non-chord tones: ${strong}/${notes}`)
     })
   }
 }
