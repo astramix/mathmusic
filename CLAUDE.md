@@ -14,12 +14,13 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (17 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (18 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
   jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours),
-  celtic (test/celtic.test.js: its own modes and meters, cuts and rolls, the drone), retune (every song in two modes), theory, MIDI export, the song
+  celtic (test/celtic.test.js: its own modes and meters, cuts and rolls, the drone), ambient (test/ambient.test.js: the loops' LCM, the
+  harmonic series' cents), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -141,14 +142,15 @@ Krumhansl–Kessler, bass-weighted) · `SCALES` · `QUALITIES` · `roman('V7/V',
 `chordName(ch, key)` · `voiceLead(pcs, prev, {lo, hi, voices})` smooth compact voicings · `snap(n, pcs)`.
 
 ## modes.js (shared by the app, the generator, the tests — not imported by songs)
-`MODE_GROUPS` — 99 modes in 16 groups, the well-known first: basic, church modes, pentatonics/blues, modes of melodic
+`MODE_GROUPS` — 100 modes in 16 groups, the well-known first: basic, church modes, pentatonics/blues, modes of melodic
 minor, harmonic minor, harmonic major, Middle East/Balkans, Japan & East Asia, islands (Ryukyu, Gaelic), India (thaats),
 then the microtonal ones (`micro: true`), each in its real tuning: Arabic maqamat in quarter tones (rast bayati sikah
 huzam saba hijazRast suznak iraq; 24-EDO as in the Cairo 1932 theory), Persian dastgah-ha (shur homayun chahargah,
 `system: 'persian'`), Turkish makamlar in 53 commas of Arel–Ezgi–Uzdilek (trRast ussak huseyni trHicaz trSaba kurdi
 nihavent, `system: 'aeu'`), measured gamelan (slendro / pelog / pelogBem / pelogBarang: saron barung of Kyai Madu Laras,
 Oxford, tuned 1987 — J. Montagu's tables; slendroKunst: Kunst's Kanyut Mesem; `system: 'cents'`), microchromatic grids
-(quarter24, eighth48 — `grid: 24|48`: the generator writes ¼/⅛ tones into the melodies) and Thai 7-EDO; then symmetric.
+(quarter24, eighth48 — `grid: 24|48`: the generator writes ¼/⅛ tones into the melodies), Thai 7-EDO and the harmonic series
+(`harmonic`: overtones 8–15 — 11/8, 13/8, 7/4 —, `system: 'cents'`); then symmetric.
 Each { id, name, alt, iv (fractional semitones), system?, home (its usual tonic), short, text }. `MODES[id]` (old ids
 pelogSelisir/pelogTembung → pelogBem), `isMicro(m)`, `keyWithMode(key, id)` (the key with the mode's steps/system for
 spelling), `parentMode(iv)` (major/minor by the third; a neutral third leans by size), `spellScale(tonic, iv, system)`
@@ -222,6 +224,12 @@ gongan of gatras ending on the pathet's strong tones (GATRA contours, rests = pi
 ngampat → suwuk (the last gatras stretching); garap per pair of balungan notes: peking a a b b, bonang a b a b, panerus ×2,
 densities × irama; the suling's long tones toward the next kenong goal in irama II.
 
+## ambient.js (the ambient style, tests — not imported by songs)
+`LOOP_PERIODS` (17, 20.5, 23.5, 25.75, 29, 31.25, 34.5, 37, 39.75, 41.5 beats), `lcmOf(periods)` (exact, in quarter beats),
+`composeAmbient({ iv, tonic, r, length })` → { sections, loops [{ period, from, to, inst, vel, pan, notes [offset, n, d] }], pad, lcm }:
+sections by how many loops sound (2 → 4 → 6 → 5 → 3 → 1), loops entering and leaving in order, notes from the scale's chord
+tones in a register per instrument, the pad's chord per section ('tide' leans to the 4th degree).
+
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
 `kWeighting(sr)` — the editor's full check, A/B, mastering.
@@ -263,7 +271,7 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic — each: tempo/keys, forms
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic ambient — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -331,6 +339,10 @@ dorian) and `meters` ('6/8' jig or 4/4 reel) that it draws with its own dice whe
 `ornate` (`celticOrnament`: cuts — a grace a step above, 1/16 beat before — and rolls on long notes, own dice); tunes of our own
 (The Hazel Road reel, Loch na Gealaich air, `only: 'celtic'`); LEADS whistle (the shinobue an octave up) and pipes (an oboe-reed
 chanter over three tonic drones), BASSES.drone (tonic + fifth on reeds), KITS.bodhran (don / rim / tip), guitar, harp arps.
+**ambient** (🌫️ Генеративный эмбиент, 56–72 BPM): `generateAmbient` (mode by its dice: harmonic, lydian, dorian, major,
+mixolydian — or opts.mode) — LOOPS data + `strikes(inst, x)` (each note again every period while from ≤ x < to), tracks piano,
+bells, glass (celesta), choir, pad (strings / choir / organ, its low-pass breathing on 64 beats), drone (the harmonic series'
+fundamental, or the tonic), wind; the head says the LCM in beats and years.
 **jbattle** (⛩️ Японская битва, 140–164 BPM, minor): Japanese instruments on the boss machinery (`hard: true` in the
 style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build roles): shinobue (an octave up) or
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
@@ -443,4 +455,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | gendhing-sri-rejeki | generated gamelan (seed 1) | 73 | slendro | measured laras, colotomy, irama I → II → ngampat → suwuk, ombak |
 | moody-walk | generated jazz (seed 1) | 133 | B♭ | Night Train + Rhythm Hill heads, walking bass, rootless comping, vibes solo, trading fours, club room |
 | misty-harbour | generated celtic (seed 6) | 107 | A mixolydian | jig in 6/8 on the uilleann pipes with drones, rolls and cuts, flute air, harp, bodhrán |
+| tidal-fields | generated ambient (seed 2, harmonic) | 66 | C harmonic series | loops of 17 … 41½ beats, LCM in centuries; overtones 8–15 over their fundamental |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |

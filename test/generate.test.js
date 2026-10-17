@@ -103,7 +103,7 @@ for (const style of Object.keys(STYLES)) {
       t.diagnostic(`${meta.title} · ${meta.key} · ${meta.bpm} BPM · ${minutes.toFixed(1)} min · A: ${meta.themes.A.title} (${meta.themes.A.how}) · strong-beat non-chord tones ${notes ? Math.round((100 * strong) / notes) : 0}%`)
       // (a fugue has no chord track to sit on — its voices are checked by the rules of counterpoint in test/fugue.test.js —
       // and a maqam no harmony at all: test/maqam.test.js checks its scale and its sayr)
-      if (notes > 8 && !['fugue', 'maqam', 'raga', 'gamelan'].includes(style)) assert.ok(strong / notes < 0.25, `too many strong-beat non-chord tones: ${strong}/${notes}`)
+      if (notes > 8 && !['fugue', 'maqam', 'raga', 'gamelan', 'ambient'].includes(style)) assert.ok(strong / notes < 0.25, `too many strong-beat non-chord tones: ${strong}/${notes}`)
     })
   }
 }

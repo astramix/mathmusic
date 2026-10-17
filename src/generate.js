@@ -35,6 +35,7 @@ import { at as pitchAt } from './counterpoint.js'
 import { composeMaqam, MAQAMAT, IQA } from './maqam.js'
 import { composeRaga, RAGAS, shrutiCents, THEKA } from './raga.js'
 import { composeGamelan, PATHET, LARAS, FORMS } from './gamelan.js'
+import { composeAmbient } from './ambient.js'
 import { modeOf, parentMode, keyWithMode, MODES } from './modes.js'
 import { temperOf, temperOffsets } from './tuning.js'
 
@@ -251,6 +252,14 @@ export const STYLES = {
     },
     comp: { 0: [[0, 0.5, 4]], 1: [[0, 0.55, 2], [2, 0.45, 2]], 2: [[0, 0.6, 1], [1, 0.4, 0.5], [1.5, 0.45, 1], [2.5, 0.4, 0.5], [3, 0.5, 1]], 3: [[0, 0.65, 0.5], [0.5, 0.35, 0.5], [1, 0.45, 0.5], [1.5, 0.4, 0.5], [2, 0.6, 0.5], [2.5, 0.35, 0.5], [3, 0.45, 0.5], [3.5, 0.4, 0.5]] },
     bassline: [[0, 'R', 3.9]], arpStep: 0.5, arpPoly: false,
+  },
+  // Generative ambient (src/ambient.js): loops of incommensurate lengths, as in "Music for Airports" — piano, bells, glass, a
+  // choir, a breathing pad, a low drone, wind; often in the harmonic series (overtones 8–15) (generateAmbient)
+  ambient: {
+    label: 'Генеративный эмбиент', emoji: '🌫️', theme: 'void', bpm: [56, 72], swing: 0.5,
+    keys: ['F', 'D', 'E', 'C', 'A', 'G'], moods: ['calm'],
+    about: 'петли несоизмеримых длин (17, 20½, 23½, 29… долей), как магнитофонные петли «Music for Airports»: ноты встречаются в новых сочетаниях, целое повторится лишь через НОК; часто в натуральном звукоряде — обертоны 8–15 (11-й почти четвертитон, 7-й на 31 ¢ ниже)',
+    lead: ['piano', 'bells', 'glass', 'choir'], chords: ['pad'], bass: ['drone'], kit: '—', forms: [], drums: {}, themes: {},
   },
   // the Romantic orchestra: Tchaikovsky, Grieg, Dvořák, Chopin — horn, oboe or a singing cello over a nocturne piano,
   // harp rolls, a brass choir, celesta, strings and a choir; timpani
@@ -545,6 +554,7 @@ const NAMES = {
   gamelan: [['ladrang', 'ketawang', 'gendhing', 'lancaran', 'bubaran'], ['wilujeng', 'pangkur', 'sekar-melati', 'udan-mas', 'kebo-giro', 'asmaradana', 'sri-rejeki', 'mega-mendung']],
   jazz: [['blue', 'midnight', 'smoky', 'late', 'velvet', 'uptown', 'moody', 'cool'], ['corner', 'train', 'avenue', 'session', 'lounge', 'walk', 'changes', 'stroll']],
   celtic: [['misty', 'green', 'silver', 'hazel', 'wild', 'lonely', 'merry', 'stony'], ['glen', 'harbour', 'piper', 'hill', 'road', 'island', 'reel', 'shore']],
+  ambient: [['music-for', 'thursday', 'airport', 'slow', 'quiet', 'drifting', 'tidal', 'low'], ['airports', 'light', 'water', 'tapes', 'harbour', 'clouds', 'rooms', 'fields']],
   fugue: [['fuga', 'ricercar', 'contrapunctus', 'fughetta', 'canon-e-fuga'], ['dorica', 'notturna', 'aurea', 'di-vetro', 'serena', 'antica', 'stellata', 'd-inverno', 'del-lago']],
   jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
 }
@@ -561,6 +571,7 @@ export function generate(opts = {}) {
   if (styleId === 'fugue') return generateFugue(opts, S, seeds)
   if (styleId === 'maqam') return generateMaqam(opts, S, seeds)
   if (styleId === 'gamelan') return generateGamelan(opts, S, seeds)
+  if (styleId === 'ambient') return generateAmbient(opts, S, seeds)
   if (styleId === 'raga') return generateRaga({ ...opts, raga: opts.raga ?? { kalyan: 'yaman', bhairav: 'bhairav', kafi: 'bhimpalasi', bhairavi: 'malkauns', aeolian: 'darbari' }[opts.mode] }, S, seeds)
   // a style that lists its modes or meters draws them with its own dice (the others never do)
   if (S.modes && opts.mode === undefined) opts = { ...opts, mode: pick(rng((seeds.arrangement ^ 0x3a0de) >>> 0), S.modes) ?? undefined }
@@ -3909,6 +3920,170 @@ ${body}
   style: 'gamelan',
   generator: ${JSON.stringify({ style: 'gamelan', seed: meta.seed, seeds, length, pathet })},
   parts: ['saron', 'bonang'],
+  sections: SECTIONS,
+  tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.name)}: track${i}`).join(', ')} },
+}
+`,
+  ]
+  return { source: out.join('\n'), meta }
+}
+
+// ---- the ambient style: loops of incommensurate lengths (src/ambient.js) ------------------------------------------------
+const AMBIENT_MODES = ['harmonic', 'lydian', 'dorian', 'major', 'harmonic', 'mixolydian']
+function generateAmbient(opts, S, seeds) {
+  const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
+  const modeId = opts.mode && MODES[opts.mode] && !MODES[opts.mode].grid ? opts.mode : pick(RA, AMBIENT_MODES)
+  const iv = modeId === 'major' ? SCALES.major : modeId === 'minor' ? SCALES.minor : MODES[modeId].iv
+  const keyIn = parseKey(opts.key ?? pick(RA, S.keys))
+  const tonic = 60 + (Math.round(keyIn.tonic) % 12) - (keyIn.tonic > 5 ? 12 : 0)
+  const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
+  const length = opts.length ?? 'normal'
+  const F = composeAmbient({ iv, tonic, r: RM, length })
+  const harmonic = modeId === 'harmonic'
+  const names = NAMES.ambient
+  const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
+  const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
+  const key = { tonic: Math.round(keyIn.tonic) % 12, mode: modeId === 'major' ? 'major' : parentMode(iv) }
+  const songMode = ['major', 'minor'].includes(modeId) ? null : modeId
+  const skey = keyWithMode(key, songMode)
+  const padKind = pick(RI, ['strings', 'choir', 'organ'])
+  const meta = {
+    style: 'ambient', seed: (opts.seed ?? 1) >>> 0, seeds, length, key: keyName(key), mode: songMode, modeName: songMode ? MODES[songMode].name : null, bpm, title, form: F.sections.map(s => s[1]),
+    fixedKey: opts.key ?? null, micro: null, temperament: null, meter: null, modulations: null,
+    themes: { A: { from: 'петли', title: `${F.loops.length} петель: ${F.loops.map(l => l.period).join(', ')} долей`, how: `повтор через НОК = ${F.lcm} долей` }, B: { from: 'петли', title: 'пэд', how: padKind }, bridge: { rhythmFrom: null } },
+    instruments: { pad: padKind },
+  }
+  const minutesL = (F.lcm * 60) / bpm / 60
+  const head = [
+    `// ${title} — ambient in ${spell(tonic, skey, false)} ${songMode ? MODES[songMode].name.toLowerCase() : 'major'}, ${bpm} BPM. Generated by MathMusic (style ambient, seed ${meta.seed}):`,
+    `// ${F.sections.map(s => s[1]).join(' → ')}.`,
+    `// ${F.loops.length} loops, each going round in its own time: ${F.loops.map(l => `${l.period}`).join(', ')} beats. They share no common`,
+    `// measure: together they repeat only after their least common multiple, ${F.lcm} beats (${minutesL > 525960 ? Math.round(minutesL / 525960).toLocaleString('en') + ' years' : minutesL > 120 ? Math.round(minutesL / 60) + ' hours' : Math.round(minutesL) + ' minutes'} at this tempo) —`,
+    `// so the notes meet in ever new constellations ("Music for Airports": tape loops of different lengths).`,
+    harmonic ? `// The scale: the harmonic series — overtones 8–15 of ${spell(tonic - 36, skey, false)}: ${MODES.harmonic.iv.map(v => Math.round(v * 100)).join(' ')} ¢ (the 7th harmonic\n// 31 ¢ below the tempered minor seventh, the 11th between F and F♯); the low drone is that fundamental.` : `// The scale: ${songMode ? MODES[songMode].name : 'major'} on ${spell(tonic, skey, false)}; the low drone on the tonic.`,
+    `// x is time in beats; n counts semitones from C4 (fractional n are the harmonic series' own pitches).`,
+  ]
+  const loopsData = F.loops.map(l => `  { period: ${l.period}, from: ${l.from}, to: ${l.to}, inst: '${l.inst}', vel: ${round(l.vel)}, pan: ${l.pan}, notes: ${JSON.stringify(l.notes.map(([o, n, d]) => [o, round(n - 60), d]))} },`).join('\n')
+  const data = `
+const SECTIONS = ${JSON.stringify(F.sections)}
+const END = ${F.length}
+const C4 = 440 * 2 ** (-9 / 12) // 261.63 Hz
+// ---- the loops: each note [offset in the loop, n from C4, length] sounds again every \`period\` beats while from ≤ x < to
+const LOOPS = [
+${loopsData}
+]
+// the notes of the loops of one instrument struck at x: [loop, note, cycle, start]
+function strikes(inst, x) {
+  const out = []
+  LOOPS.forEach((l, i) => {
+    if (l.inst !== inst || x < l.from || x >= l.to + 12) return
+    l.notes.forEach(([o, n, d], j) => {
+      const k = floor((x - l.from - o) / l.period), s = l.from + o + k * l.period
+      if (k >= 0 && s < l.to && x - s < d + 6) out.push({ i, j, k, s, n, d, vel: l.vel, pan: l.pan })
+    })
+  })
+  return out
+}
+// the pad's chord per section: [start, length, n…]
+const PAD = ${JSON.stringify(F.pad.map(([a, len, ns]) => [a, len, ns.map(n => round(n - 60))]))}
+const padAt = x => { for (const p of PAD) if (x >= p[0] && x < p[0] + p[1]) return p; return null }
+const DRONE = ${round((harmonic ? tonic - 36 : tonic - 24) - 60)} // the low drone${harmonic ? ': the fundamental of the overtones' : ''}
+`
+  const used = { engine: new Set(['floor', 'hz', 'filter', 'reverb', 'delay', 'sin', 'TAU', 'osc', 'smooth', 'noise']), instruments: new Set(['pan', 'poly', 'pianoTone', 'celestaTone', 'fm', 'choir', 'VOWELS', 'blend', 'strings', 'organ']) }
+  const loopTrack = (inst, color, tone, gain, lane) => ({ name: inst, code: `{
+  color: '${color}',
+  graph: x => { const s = strikes('${inst}', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => ${lane} + (e.n + 12) * 0.04) : null },
+  midi: x => strikes('${inst}', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
+  formula: ${JSON.stringify([`\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{${F.loops.filter(l => l.inst === inst).map(l => l.period).join(', ') || '—'}\\}`, 'T \\text{ — ' + { piano: 'рояль (тихо, педаль)', bells: 'FM-колокольчик', glass: 'челеста' }[inst] + '; НОК периодов — ' + F.lcm + ' долей'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, p = poly(${tone}, { release: 2, life: 9, max: 16 }), seen = new Set(), echo = delay({ time: sec * 1.5, feedback: 0.45, wet: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 })
+    return x => {
+      for (const e of strikes('${inst}', x)) {
+        const id = e.i * 1e6 + e.j * 1e4 + e.k
+        if (x >= e.s && !seen.has(id)) { seen.add(id); p.hit(hz(e.n, C4), e.vel, e.d * sec) }
+      }
+      return verb(...echo(...pan(${gain} * p(), 0.2 * sin(TAU * x / 37))))
+    }
+  },
+}` })
+  const tracks = [
+    loopTrack('piano', '#ffffff', 'pianoTone', 0.85, 0.4),
+    loopTrack('bells', '#fff3b0', '(f, t, v) => v * fm(f, t, { ratio: 3.5, index: 1.4, decay: 0.7, idecay: 3 })', 0.85, 1.2),
+    loopTrack('glass', '#b8f0ff', 'celestaTone', 0.95, 1.6),
+    { name: 'choir', code: `{
+  color: '#e0c8ff',
+  graph: x => { const s = strikes('choir', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => -0.8 + (e.n + 24) * 0.04) : null },
+  midi: x => strikes('choir', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
+  formula: ${JSON.stringify(['Ch = \\sum_{i} \\tfrac{G_i}{Q_i}\\BP_{F_i}\\big(\\saw f\\big),\\quad F:\\ \\text{«а» → «о» — хор, долгие ноты петель'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, c = choir({ voices: 2, size: 1, gain: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 }), level = smooth(600)
+    return x => {
+      const s = strikes('choir', x).filter(e => x >= e.s && x - e.s < e.d)
+      const a = level(s.length ? 1 : 0), F = blend(VOWELS.a, VOWELS.o, 0.5 + 0.5 * sin(TAU * x / 32))
+      const [l, r] = c(s.map(e => hz(e.n, C4)), F)
+      return verb(1.6 * a * l, 1.6 * a * r)
+    }
+  },
+}` },
+    { name: 'pad', code: `{
+  color: '#9fb8ff',
+  graph: x => { const p = padAt(x); return p ? p[2].map(n => -1.2 + (n + 24) * 0.03) : null },
+  midi: x => { const p = padAt(x); return p && x < END - 8 ? p[2].map(n => 60 + Math.round(n * 100) / 100) : [] },
+  formula: ${JSON.stringify(['Pad = \\LP_{f_c(x)}\\,' + (padKind === 'organ' ? 'O' : padKind === 'choir' ? 'Ch' : 'S') + '(f_1 \\ldots f_4),\\quad f_c = 900 + 2600\\,\\tfrac{1 - \\cos(2\\pi x/64)}{2}\\ \\text{— фильтр дышит раз в 64 доли'])},
+  audio({ bpm }) {
+    ${padKind === 'organ' ? `const o = organ({ voices: 4, stops: [[1, 1], [2, 0.3], [4, 0.1]], chiff: 0.02, gain: 0.025 })` : padKind === 'choir' ? `const o = choir({ voices: 4, size: 0.95, gain: 0.1 })` : `const o = strings({ voices: 4, attack: 2500, release: 4000, cutoff: 4000, gain: 0.1 })`}
+    const lpL = filter('lp'), lpR = filter('lp'), verb = reverb({ room: 0.95, damp: 0.35, wet: 0.55 })
+    return x => {
+      const p = padAt(x), fc = 900 + 2600 * (0.5 - 0.5 * Math.cos(TAU * x / 64))
+      const [l, r] = o(p && x < END - 8 ? p[2].map(n => hz(n, C4))${padKind === 'choir' ? ', blend(VOWELS.o, VOWELS.a, 0.5 + 0.5 * sin(TAU * x / 48))' : ''} : [])
+      return verb(lpL(l, fc), lpR(r, fc))
+    }
+  },
+}` },
+    { name: 'drone', code: `{
+  color: '#7f8fff',
+  graph: x => (x < END - 6 && x > 8 ? -2.6 : null),
+  midi: x => (x < END - 6 && x > 8 ? [60 + Math.round(DRONE * 100) / 100] : []),
+  formula: ${JSON.stringify(['D = a(x)\\big(\\sin 2\\pi f_0 t + 0.3\\sin 4\\pi f_0 t\\big)' + (harmonic ? '\\quad\\text{— основной тон натурального звукоряда (обертоны 8–15 над ним)}' : '\\quad\\text{— тоника}')])},
+  audio() {
+    const o1 = osc('sine'), o2 = osc('sine'), level = smooth(3000), f = hz(DRONE, C4)
+    return x => {
+      const a = level(x > 8 && x < END - 6 ? 1 : 0)
+      const y = a * (0.17 * o1(f) + 0.05 * o2(2 * f))
+      return [y, y]
+    }
+  },
+}` },
+    { name: 'wind', code: `{
+  color: '#7f8fa6',
+  graph: x => (x < END ? -2.95 + 0.04 * sin(TAU * x / 8) : null),
+  formula: ${JSON.stringify(['W = \\BP_{f(T)}\\eta,\\quad f(T) \\text{ блуждает — ветер'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, n = noise(77), bl = filter('bp'), br = filter('bp'), level = smooth(800)
+    return x => {
+      const t = x * sec, a = level(x < END ? 0.22 : 0), f = 500 * 2 ** (1.3 * sin(TAU * t / 13))
+      return [a * bl(n(), f, 3), a * br(n(), f * 1.06, 3)]
+    }
+  },
+}` },
+  ]
+  const imp = mod => [...used[mod]].sort()
+  const out = [
+    ...head,
+    `import { ${imp('engine').join(', ')} } from '../src/engine.js'`,
+    `import {\n  ${imp('instruments').join(', ')},\n} from '../src/instruments.js'`,
+    data,
+    ...tracks.map((t, i) => `// ---- ${t.name} ${'-'.repeat(Math.max(4, 90 - t.name.length))}\nconst track${i} = ${t.code}\n`),
+    `export default {
+  name: '${title}',
+  bpm: ${bpm},
+  key: '${keyName(key)}',${songMode ? `
+  mode: '${songMode}', // ${MODES[songMode].name}` : ''}
+  length: END,
+  theme: '${S.theme}',
+  style: 'ambient',
+  generator: ${JSON.stringify({ style: 'ambient', seed: meta.seed, seeds, length, ...(opts.key ? { key: opts.key } : {}), ...(opts.mode ? { mode: opts.mode } : {}) })},
+  parts: ['piano', 'bells', 'glass'],
   sections: SECTIONS,
   tracks: { ${tracks.map((t, i) => `${JSON.stringify(t.name)}: track${i}`).join(', ')} },
 }
