@@ -69,14 +69,14 @@ export async function mutate(which) {
   const seeds = { ...g.seeds, [which]: newSeed() }
   const label = { melody: '🔁 новые мелодии', arrangement: '🎚 новая аранжировка', instruments: '🎻 новые инструменты' }[which]
   toast(label + '…', { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...seeds })
+  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...seeds })
 }
 // the current generated song again — the same seeds, in another tonic and mode
 export function regenerate(t, { from = 0 } = {}) {
   const g = genOf()
   if (!g) return toast('пересочинить можно только сгенерированную песню — 🎲 «Новая песня в этом ладу»')
   toast(`↻ ${g.style} · seed ${g.seed} → ${t.tonic} …`, { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null }, { from })
+  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}) }, { from })
 }
 // the music playing now, in another tonic and mode, going on from the same beat (paused stays paused): a generated
 // song is made again from its seeds; any other — a built-in one too — becomes a retuned copy (src/retune.js: every
@@ -104,6 +104,8 @@ export async function sameIn(t) {
   if (!was && p.playing) await p.pause()
 }
 // a new song in a tonality: the style of the current generated song, else the last one used
+// a melody played or drawn in the piano roll → a whole song in a style, the melody as theme A (harmonized)
+export const fromMelody = (notes, style, title) => create({ style, userTheme: { notes, title } })
 export const createIn = t => create({ style: genOf()?.style ?? last.style, key: keyFor(t.tonic, t.mode), mode: t.mode })
 // the same music in another tuning: a target with the song's own tonic and mode (modesui.js) and a temperament
 

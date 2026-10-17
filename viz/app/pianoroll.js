@@ -4,6 +4,11 @@
 //   click — a note (length = the last one used) · drag — move · drag the right edge — length
 //   right click / double click / Del — delete · ↑↓ — a row (Shift: octave) · ←→ — by the grid
 //   wheel — scroll · Ctrl+wheel — zoom · Shift — no snapping
+//   🎹 играть — a MIDI keyboard (Web MIDI; pitch bend ±2 semitones makes quarter and eighth tones on those pitch grids) or
+//   the computer's keys (A W S E D F T G Y H U J K O L P = C … E′, Z / X an octave down / up, Shift = one step of the pitch
+//   grid higher: E𝄳 on the ¼-tone grid); ⏺ запись — while the song plays, notes land on its beats (snapped to the grid);
+//   paused, step by step from the cursor (a chord: keys pressed together); ✨ песня — a whole song on this melody in a
+//   style: its key and harmony found by the harmonizer (src/harmonize.js), the melody as theme A
 // Rows are semitones, quarter tones or eighth tones (the pitch grid in the header): n may be 3.5 (E𝄳) or 0.25 (C𝄮);
 // names follow the song's key and mode (Stein–Zimmermann–Gould accidentals, Turkish commas, cents).
 // n counts semitones from a base note: read from the comment near the array ("n from F4"),
@@ -13,6 +18,8 @@ import { h, toast } from './ui.js'
 import * as acorn from './acorn.js'
 import { spell, pc, freq, SCALES, parseKey } from './theory.js'
 import { MODES } from './modes.js'
+import { STYLE_LIST } from './generate.js'
+import { fromMelody } from './genui.js'
 
 const NOTE_RE = /\b(?:n|semitones|notes?)?\s*(?:from|от)\s+([A-G](?:#|♯|b|♭)?-?\d)\b/i
 const midiOf = name => {
@@ -79,8 +86,13 @@ export function createPianoRoll(root) {
   for (const [v, l] of [[1, 'полутоны'], [0.5, '¼ тона'], [0.25, '⅛ тона']]) resSel.append(new Option(l, v))
   const play = h('button', { title: 'прослушать мелодию отдельно (по кругу)' }, '▶ слушать')
   const info = h('span', { class: 'dim' })
+  const kbBtn = h('button', { title: 'играть: MIDI-клавиатура или компьютерная (A W S E D F T G Y H U J K O L P — от до; Z/X — октава; Shift — +шаг сетки высоты, например E𝄳). Питч-бенд ±2 полутона даёт ¼ и ⅛ тона' }, '🎹 играть')
+  const recBtn = h('button', { title: 'запись: пока песня играет — ноты ложатся на её доли (по сетке); на паузе — пошагово от курсора (аккорд — клавиши вместе)' }, '⏺ запись')
+  const styleSel = h('select', { title: 'стиль песни для «✨ песня»' })
+  for (const st of STYLE_LIST.filter(st => !['fugue', 'maqam', 'raga', 'gamelan', 'ambient'].includes(st.id))) styleSel.append(new Option(`${st.emoji} ${st.label}`, st.id))
+  const songBtn = h('button', { title: 'сочинить целую песню на эту мелодию: тональность и гармония — по ней (гармонизатор), мелодия — тема A' }, '✨ песня')
   root.append(h('div', { class: 'pr-head' }, h('span', { class: 'title' }, '🎹 пианоролл'), sel, baseSel, gridSel, resSel, play,
-    h('button', { title: 'новая мелодия в коде', onclick: () => newMelody() }, '＋ новая'), info, h('span', { class: 'sp' }),
+    h('button', { title: 'новая мелодия в коде', onclick: () => newMelody() }, '＋ новая'), kbBtn, recBtn, styleSel, songBtn, info, h('span', { class: 'sp' }),
     h('span', { class: 'dim' }, 'клик — нота · тяни — сдвиг/длина · ПКМ — удалить · ↑↓←→ · ¼ и ⅛ тона — шаг по высоте'),
     h('button', { onclick: () => app.togglePianoRoll(false), title: 'закрыть (P)' }, '✕')))
   const body = h('div', { class: 'pr-body', tabindex: 0 }), cv = h('canvas')
@@ -214,6 +226,11 @@ export function createPianoRoll(root) {
         g.fillText(spell(base + n, key, true), x0 + 3, y0 + row - 4)
       }
     })
+    // the step-input cursor
+    if (recording && !app.player.playing) {
+      g.fillStyle = '#7dff9b'
+      g.fillRect(X(stepAt) - 1, 0, 2, H)
+    }
     // the preview playhead
     if (playing) {
       const b = ((app.player.actx.currentTime - playing.t0) / playing.sec) % playing.len
@@ -409,6 +426,127 @@ export function createPianoRoll(root) {
     commit()
     draw()
   })
+
+  // ---- playing in: a MIDI keyboard or the computer's keys ----
+  let inputOn = false, midiAccess = null, recording = false, stepAt = 0, octave = 0, lastOnAt = -1
+  const held = new Map(), bend = new Map() // key → { midi, voice, rec }; channel → semitones
+  const quant = m => Math.round(m / res) * res // to the pitch grid (semitones, ¼ or ⅛ tones)
+  function voiceOn(midi, vel = 0.8) {
+    const a = app.player.actx
+    if (!a) return null
+    const t = a.currentTime, o = a.createOscillator(), o2 = a.createOscillator(), gn = a.createGain(), g2 = a.createGain()
+    o.type = 'triangle'
+    o.frequency.value = freq(midi)
+    o2.frequency.value = 2 * freq(midi)
+    g2.gain.value = 0.2
+    gn.gain.setValueAtTime(0, t)
+    gn.gain.linearRampToValueAtTime(0.16 * vel, t + 0.01)
+    gn.gain.setTargetAtTime(0.09 * vel, t + 0.05, 0.3)
+    o.connect(gn)
+    o2.connect(g2).connect(gn)
+    gn.connect(a.destination)
+    o.start(t)
+    o2.start(t)
+    return { o, o2, gn, set: m => { o.frequency.setTargetAtTime(freq(m), a.currentTime, 0.01); o2.frequency.setTargetAtTime(2 * freq(m), a.currentTime, 0.01) } }
+  }
+  function voiceOff(v) {
+    if (!v) return
+    const a = app.player.actx, t = a.currentTime
+    v.gn.gain.cancelScheduledValues(t)
+    v.gn.gain.setTargetAtTime(0, t, 0.06)
+    v.o.stop(t + 0.4)
+    v.o2.stop(t + 0.4)
+  }
+  function noteOn(id, midi, vel = 0.8) {
+    if (held.has(id)) return
+    midi = quant(midi)
+    const v = voiceOn(midi, vel)
+    let rec = null
+    if (recording && cur) {
+      const live = app.player.playing, now = performance.now()
+      const b = live ? Math.max(0, Math.round(app.player.x / grid()) * grid()) : (now - lastOnAt < 60 ? held.size ? [...held.values()].find(h => h.rec)?.rec.b ?? stepAt : stepAt : stepAt)
+      lastOnAt = now
+      notes.push([+b.toFixed(4), Math.round((midi - base) * 4) / 4, live ? grid() : lastDur])
+      rec = { b, i: notes.length - 1, live, x0: app.player.x }
+      if (!live && b === stepAt) stepAt = +(stepAt + lastDur).toFixed(4)
+      if (b < scrollX || b > B(W) - 1) scrollX = Math.max(0, b - 2)
+      draw()
+    }
+    held.set(id, { midi, v, rec })
+  }
+  function noteOff(id) {
+    const h0 = held.get(id)
+    if (!h0) return
+    held.delete(id)
+    voiceOff(h0.v)
+    if (h0.rec?.live) {
+      const e = notes[h0.rec.i]
+      if (e) e[2] = Math.max(grid(), Math.round((app.player.x - h0.rec.x0) / grid()) * grid())
+    }
+    if (h0.rec) { commit(); draw() }
+  }
+  function onMidi(ev) {
+    const [st, d1, d2] = ev.data, kind = st & 0xf0, ch = st & 0x0f
+    if (kind === 0xe0) {
+      // pitch bend ±2 semitones: held notes follow, the recorded note takes the bent pitch (on the pitch grid)
+      const semis = (((d2 << 7) | d1) - 8192) / 8192 * 2
+      bend.set(ch, semis)
+      for (const [id, h0] of held) if (id.startsWith(`m${ch}:`)) {
+        const m = quant(h0.midi + semis)
+        h0.v?.set(m)
+        if (h0.rec && notes[h0.rec.i]) { notes[h0.rec.i][1] = Math.round((m - base) * 4) / 4; draw() }
+      }
+      return
+    }
+    if (kind === 0x90 && d2 > 0) noteOn(`m${ch}:${d1}`, d1 + (bend.get(ch) ?? 0), d2 / 127)
+    else if (kind === 0x80 || (kind === 0x90 && d2 === 0)) noteOff(`m${ch}:${d1}`)
+  }
+  async function toggleInput() {
+    inputOn = !inputOn
+    kbBtn.classList.toggle('on', inputOn)
+    if (!inputOn) { for (const id of [...held.keys()]) noteOff(id); return }
+    await app.player.ensureAudio()
+    await app.player.actx.resume()
+    body.focus()
+    let msg = 'компьютерная клавиатура: A W S E D F T G Y H U J K — от до · Z/X — октава · Shift — +шаг сетки высоты'
+    try {
+      if (!midiAccess && navigator.requestMIDIAccess) midiAccess = await navigator.requestMIDIAccess({ sysex: false })
+      const ins = midiAccess ? [...midiAccess.inputs.values()] : []
+      for (const i of ins) i.onmidimessage = onMidi
+      if (midiAccess) midiAccess.onstatechange = () => { for (const i of midiAccess.inputs.values()) i.onmidimessage = onMidi }
+      if (ins.length) msg = `MIDI: ${ins.map(i => i.name).join(', ')} · и компьютерная клавиатура`
+    } catch {}
+    toast('🎹 ' + msg, { ms: 6000 })
+  }
+  kbBtn.onclick = toggleInput
+  recBtn.onclick = () => {
+    recording = !recording
+    recBtn.classList.toggle('on', recording)
+    if (recording) {
+      if (!inputOn) toggleInput()
+      stepAt = notes.length ? Math.max(...notes.map(e => e[0] + e[2])) : 0
+      if (!cur) newMelody()
+      toast(app.player.playing ? '⏺ запись на доли песни' : '⏺ пошаговая запись: каждая нота за предыдущей (длина — последняя использованная; сетка — в шапке)', { ms: 4000 })
+    }
+    draw()
+  }
+  const KEYMAP = { KeyA: 0, KeyW: 1, KeyS: 2, KeyE: 3, KeyD: 4, KeyF: 5, KeyT: 6, KeyG: 7, KeyY: 8, KeyH: 9, KeyU: 10, KeyJ: 11, KeyK: 12, KeyO: 13, KeyL: 14, KeyP: 15, Semicolon: 16 }
+  body.addEventListener('keydown', e => {
+    if (!inputOn || e.ctrlKey || e.metaKey || e.altKey) return
+    if (e.code === 'KeyZ' || e.code === 'KeyX') { octave = Math.max(-3, Math.min(3, octave + (e.code === 'KeyZ' ? -1 : 1))); toast(`октава ${octave >= 0 ? '+' : ''}${octave}`, { ms: 800 }); e.preventDefault(); e.stopPropagation(); return }
+    if (!(e.code in KEYMAP)) return
+    e.preventDefault()
+    e.stopPropagation()
+    if (!e.repeat) noteOn('k' + e.code, 60 + 12 * octave + KEYMAP[e.code] + (e.shiftKey && res < 1 ? res : 0))
+  }, true)
+  body.addEventListener('keyup', e => { if (inputOn && e.code in KEYMAP) { e.stopPropagation(); noteOff('k' + e.code) } }, true)
+  body.addEventListener('blur', () => { for (const id of [...held.keys()]) if (id.startsWith('k')) noteOff(id) })
+  // a whole song on this melody
+  songBtn.onclick = async () => {
+    if (!notes.length) return toast('в мелодии нет нот — сыграй или нарисуй её')
+    const abs = [...notes].sort((a, b) => a[0] - b[0]).map(([b, n, d]) => [b, base + n, d])
+    await fromMelody(abs, styleSel.value, cur ? `мелодия ${cur.name}` : 'ваша мелодия')
+  }
 
   const pr = {
     visible: true,

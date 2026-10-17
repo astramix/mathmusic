@@ -20,7 +20,7 @@ Open a source file only to change it or when something here is unclear.
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
   jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours),
   celtic (test/celtic.test.js: its own modes and meters, cuts and rolls, the drone), ambient (test/ambient.test.js: the loops' LCM, the
-  harmonic series' cents), retune (every song in two modes), theory, MIDI export, the song
+  harmonic series' cents), harmonize (test/harmonize.test.js: key, chord tones, cadence; a song on your melody keeps it as written), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -230,6 +230,13 @@ densities × irama; the suling's long tones toward the next kenong goal in irama
 sections by how many loops sound (2 → 4 → 6 → 5 → 3 → 1), loops entering and leaving in order, notes from the scale's chord
 tones in a register per instrument, the pad's chord per section ('tide' leans to the 4th degree).
 
+## harmonize.js (the generator's userTheme, the piano roll — not imported by songs)
+`keyCandidates(notes)` (24 keys by Krumhansl–Kessler on weighted durations), `harmonize(notes, { key?, per? })` → { key, keyName,
+per, chords (romans), notes (from beat 0), fit, score }: Viterbi over the key's chords (triads, sevenths, secondary dominants and
+borrowed chords dearer) — the note at each step's start a chord tone, passing notes cheap, roots by fifths, V → IV avoided, a
+secondary dominant resolving, I first, V – I at the end; without a key, the likeliest six keys are tried and the best fit kept.
+Two chords a bar (one when the melody only holds). `userMelody(notes)` → a MELODIES entry (id 'user').
+
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
 `kWeighting(sr)` — the editor's full check, A/B, mastering.
@@ -261,7 +268,9 @@ __T in __R; the copy gets a `tuning` field. The prelude ends with `// ---- end o
 replaces the whole prelude.
 
 ## The generator (src/generate.js, src/melodies.js)
-`generate({ style, seed, key?, mode?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme?, micro?, temperament? })` → { source, meta }.
+`generate({ style, seed, key?, mode?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme?, micro?, temperament?, userTheme? })` → { source, meta }.
+`userTheme: { notes: [[beat, MIDI, length]], title? }` — a melody of your own: harmonized (harmonize.js), theme A as written (no
+ornament, no recomposing, the celtic graces skipped), the song in its key unless asked; the song's `generator` keeps it.
 `mode` (a modes.js id): made in the major/minor with the same third, then every pitch (themes, voicings, bass) moves
 into the mode by scale degree (`modeMapper`; other sizes: nearest note), chords renamed; the song gets `mode: 'dorian'`.
 A microtonal mode the same way (C rast: E𝄳, B𝄳 in melody and chords — `describeChord` names them, 'n' = neutral third);
@@ -362,7 +371,10 @@ loop UI in main.js (🔁, L, [ ], Shift+drag on the timeline, Shift+click bars i
 (scene: classic / paper — axes, formulas pop up when a part enters / space 3D; the same code draws the
 video frames) · editor.js (CodeMirror, lint, API hints from api.js, number sliders, full check with
 LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code; rows in semitones, ¼ or ⅛ tones — chosen from
-the notes / the song's mode) · genui.js (dialog: Строй, Микротоны ¼/⅛) · export.js (MP3
+the notes / the song's mode; «🎹 играть»: Web MIDI input — pitch bend ±2 st gives ¼/⅛ tones on those grids — and the computer's
+keys A W S E D F T G Y H U J K O L P (Z/X octave, Shift +one pitch-grid step), a monitor tone; «⏺ запись»: notes on the song's
+beats while it plays (snapped to the grid), step input from a green cursor when paused (chords: keys together);
+«✨ песня» + a style: genui `fromMelody(notes, style)` → a whole song on the melody) · genui.js (dialog: Строй, Микротоны ¼/⅛) · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
 ch. 10 / MIDI MPE: microtones and tunings as per-note pitch bends — lower zone, members ch. 2–9, ±48 st, MCM + RPN 0 /
 the tuning as .scl .kbm .ascl in a ZIP / stems ZIP) · scoreview.js («Ноты», S: the score as SVG in Bravura — viz/vendor/bravura, SIL OFL, embedded by build.js as a font-face;

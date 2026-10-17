@@ -36,6 +36,7 @@ import { composeMaqam, MAQAMAT, IQA } from './maqam.js'
 import { composeRaga, RAGAS, shrutiCents, THEKA } from './raga.js'
 import { composeGamelan, PATHET, LARAS, FORMS } from './gamelan.js'
 import { composeAmbient } from './ambient.js'
+import { userMelody } from './harmonize.js'
 import { modeOf, parentMode, keyWithMode, MODES } from './modes.js'
 import { temperOf, temperOffsets } from './tuning.js'
 
@@ -574,12 +575,15 @@ export function generate(opts = {}) {
   if (styleId === 'ambient') return generateAmbient(opts, S, seeds)
   if (styleId === 'raga') return generateRaga({ ...opts, raga: opts.raga ?? { kalyan: 'yaman', bhairav: 'bhairav', kafi: 'bhimpalasi', bhairavi: 'malkauns', aeolian: 'darbari' }[opts.mode] }, S, seeds)
   // a style that lists its modes or meters draws them with its own dice (the others never do)
-  if (S.modes && opts.mode === undefined) opts = { ...opts, mode: pick(rng((seeds.arrangement ^ 0x3a0de) >>> 0), S.modes) ?? undefined }
+  if (S.modes && opts.mode === undefined && !opts.userTheme) opts = { ...opts, mode: pick(rng((seeds.arrangement ^ 0x3a0de) >>> 0), S.modes) ?? undefined }
   if (S.meters && opts.meter === undefined) opts = { ...opts, meter: pick(rng((seeds.arrangement ^ 0x3e7e) >>> 0), S.meters) ?? undefined }
   const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
 
   // key, tempo, form
-  const key = { ...(parseKey(opts.key) ?? parseKey(pick(RA, S.keys))) }
+  // a melody of your own (opts.userTheme: { notes: [[beat, MIDI, length]], title? }): harmonized (src/harmonize.js), it is
+  // theme A as written, and the song is in its key unless a key is asked for
+  const userMel = opts.userTheme?.notes?.length ? userMelody(opts.userTheme.notes, { title: opts.userTheme.title ?? 'ваша мелодия' }) : null
+  const key = { ...(parseKey(opts.key) ?? (userMel ? parseKey(userMel.key) : null) ?? parseKey(pick(RA, S.keys))) }
   // a quarter-tone tonic (E𝄳): the song is made on the semitone above, then moved down (shiftPitches)
   const tonicShift = key.tonic - Math.round(key.tonic), tonicLabel = key.name ?? null
   if (tonicShift) { key.tonic = Math.round(key.tonic) % 12; delete key.name }
@@ -616,7 +620,7 @@ export function generate(opts = {}) {
     return weighted(RM, cands.map(m => [m, weightOf(m) * (avoid && m.from === avoid.from ? 0.35 : 1)]))
   }
   // opts.theme: the id of theme A, chosen by hand (if it can live in this key)
-  const melA = (opts.theme && LIB.find(m => m.id === opts.theme && fits(m))) || pickTheme()
+  const melA = userMel ?? ((opts.theme && LIB.find(m => m.id === opts.theme && fits(m))) || pickTheme())
   const melB = pickTheme(melA)
   const ranges = { lead: [62, 84], lead2: [60, 82] }
   const shape = (th, lo, hi) => { // octave so the theme sits in [lo, hi]
@@ -628,7 +632,7 @@ export function generate(opts = {}) {
   const treat = (mel, role) => {
     const th = shape(adaptTheme(mel, key), ...ranges.lead)
     const chordAt = b => th.chords[Math.floor(b / th.per) % th.chords.length]
-    const how = weighted(RM, [['as written', 5], ['ornamented', 2], ['recomposed', role === 'B' ? 3 : 1.5]])
+    const how = mel === userMel ? 'as written' : weighted(RM, [['as written', 5], ['ornamented', 2], ['recomposed', role === 'B' ? 3 : 1.5]])
     if (how === 'ornamented') th.notes = ornament(th.notes, key, chordAt, RM)
     if (how === 'recomposed') {
       const ns = th.notes.map(e => e[1])
@@ -639,7 +643,7 @@ export function generate(opts = {}) {
   }
   const A = treat(melA, 'A'), B = treat(melB, 'B')
   // the tradition's ornaments: cuts (a grace note a step above) and rolls on the tunes, with their own dice
-  if (S.ornate) { const RO = rng((seeds.melody ^ 0x0c17) >>> 0); for (const th of [A, B]) th.notes = celticOrnament(th.notes, key, RO) }
+  if (S.ornate) { const RO = rng((seeds.melody ^ 0x0c17) >>> 0); for (const th of [A, B]) if (th.id !== 'user') th.notes = celticOrnament(th.notes, key, RO) } // (your own melody stays as you played it)
   // the bridge: a new progression, a new melody on the rhythm of a third theme
   const progs = PROGRESSIONS[bridgeKey.mode]
   const bridgeProg = pick(RA, progs).map(s => roman(s, bridgeKey))
@@ -795,6 +799,7 @@ export function generate(opts = {}) {
     meter: meter ? opts.meter : null,
     modulations: opts.modulations ? sectionInfo.filter(s => s.lk).map(s => ({ at: s.at, section: s.name, key: keyName(s.lk), type: s.modType })) : null,
     themes: { A: { from: melA.from, title: melA.title, how: A.how }, B: { from: melB.from, title: melB.title, how: B.how }, bridge: { rhythmFrom: melR.from } },
+    userTheme: userMel ? { notes: opts.userTheme.notes, title: userMel.title, chords: userMel.chords, key: userMel.key } : null,
     instruments: inst,
   }
   MT = meter
@@ -863,6 +868,8 @@ function emit(P) {
   head.push(`// (style ${styleId}, seed ${meta.seed}): ${sections.map(s => s[1]).join(' → ')}.`)
   head.push(`// Themes: A — ${meta.themes.A.title} (${meta.themes.A.how}), B — ${meta.themes.B.title} (${meta.themes.B.how}); the bridge melody is newly`)
   head.push(`// composed on the rhythm of a theme from ${BR.from}. Computed parts: ${[solo ? (boss ? 'a solo that is an equation (the graph of two sines)' : 'an improvised solo') : null, 'a counter-melody from the chords', plans.counter.some(p => p[1] === 'CANON') ? 'a canon' : null, RUN ? 'a run up to the dominant in every build-up' : null, hard ? 'a reverse bass that rolls in the final' : null, 'the theme at half speed in the outro', sectionInfo.some(s => s.keyUp) ? 'a key change up' : null].filter(Boolean).join(', ')}.`)
+  if (meta.userTheme) head.push(`// Theme A is a melody you played, harmonized in ${meta.userTheme.key}: ${meta.userTheme.chords.join(' ')} (src/harmonize.js — chord tones on the strong
+// parts, roots moving by fifths, a V – I cadence).`)
   if (hard && !boss) head.push(`// Japanese instruments over the boss machinery: the hardstyle kick's tail and the reverse bass sit on the tonic,\n// every part ducks under the kick in the drops, d(t) = 1 − 0.7(1 − t/0.18)²; the taiko roll doubles through each build.`)
   if (boss) head.push(`// The hardstyle kick's tail and the reverse bass sit on the tonic; every part ducks under the kick in the drops,\n// d(t) = 1 − 0.7(1 − t/0.18)². \`boss\` below makes it a Glitch Forest boss song (tools/score-export.mjs).`)
   if (meter) head.push(`// In ${meter.label}: made in 4/4, then mapped bar by bar onto the meter (${meter.compound ? 'every eighth becomes the triplet one' : 'the notes stay on the grid'}); the drums, the\n// comping and the bass are made for its groups of beats.`)
@@ -1025,7 +1032,7 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   length: END,
   theme: '${S.theme}',
   style: '${styleId}',
-  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}), ...(meta.meter ? { meter: meta.meter } : {}) })},${meta.meter ? `
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}), ...(meta.meter ? { meter: meta.meter } : {}), ...(meta.userTheme ? { userTheme: { notes: meta.userTheme.notes, title: meta.userTheme.title } } : {}) })},${meta.meter ? `
   meter: '${METERS[meta.meter].text}', // ${METERS[meta.meter].label}${METERS[meta.meter].compound ? ' — a beat (x) is a dotted quarter' : ''}` : ''}${meta.modulations?.length ? `
   keys: ${JSON.stringify(keysField(key, sectionInfo))}, // the key of each stretch (the score's signatures, note names)` : ''}
   sections: SECTIONS,${bossField}
