@@ -124,3 +124,54 @@ test('instruments for parts of other songs', () => {
   assert.equal(instrumentFor('drums'), 'drums')
   assert.equal(instrumentFor('marimba arp'), 'marimba')
 })
+
+test('a project in another tonic and mode: its notes move degree by degree, the code tracks through retune.js', async () => {
+  const { retunePlan, retuneSource } = await import('../src/retune.js')
+  const { modeOf } = await import('../src/modes.js')
+  const R = { parse: acorn.parse, retunePlan, retuneSource, modeOf }
+  const scale = [60, 62, 64, 65, 67, 69, 71, 72], drums = [[0, 36, 0.25, 0.9], [1, 38, 0.25, 0.9]]
+  const src = newProjectSource({ name: 'гамма', bpm: 100, key: 'C', bars: 2, tracks: [
+    { id: 't1', name: 'Рояль', inst: 'piano', notes: scale.map((n, i) => [i, n, 1, 0.8]).concat([[7.5, 63, 0.5, 0.8]]) },
+    { id: 't2', name: 'Барабаны', inst: 'drums', notes: drums }] })
+  const song = await load(src)
+  // C major → D dorian: the same degrees on D (E → F, the minor third); the blue E♭ (♭3 of C) is ♭3 of D: F
+  const a = R.retunePlan && (await import('../src/project.js')).retuneProject(src, song, { tonic: 'D', mode: 'dorian' }, R)
+  const pa = readProject(a.source)
+  assert.deepEqual(pa.tracks[0].notes.slice(0, 8).map(e => e[1]), [62, 64, 65, 67, 69, 71, 72, 74])
+  assert.equal(pa.tracks[0].notes[8][1], 65, 'an altered note keeps its alteration: ♭3 of C → ♭3 of D = F')
+  assert.deepEqual(pa.tracks[1].notes, drums, 'drums stay')
+  assert.equal(pa.song.mode, 'dorian')
+  const sa = await load(a.source)
+  assert.equal(sa.mode, 'dorian')
+  assert.match(sa.name, /^гамма · /)
+  assert.deepEqual(sa.tracks['Рояль'].midi(2.5), [65])
+  // → C rast: E → E𝄳, B → B𝄳 (quarter tones), and played exactly so
+  const b = (await import('../src/project.js')).retuneProject(src, song, { tonic: 'C', mode: 'rast' }, R)
+  const nb = readProject(b.source).tracks[0].notes.map(e => e[1])
+  assert.deepEqual(nb.slice(0, 8), [60, 62, 63.5, 65, 67, 69, 70.5, 72])
+  // a temperament: the project's notes take its cents
+  const c = (await import('../src/project.js')).retuneProject(src, song, { tonic: 'C', mode: 'major', temperament: 'werckmeister3' }, R)
+  const sc = await load(c.source)
+  assert.equal(sc.tuning?.id, 'werckmeister3')
+  assert.equal(sc.tuning.offsets.length, 12)
+  // a built-in song made a project: its code tracks retuned by retune.js, the project's notes moved once (not twice)
+  const bossa = fs.readFileSync(path.join(ROOT, 'songs/bossa.js'), 'utf8').replace(/\r/g, '')
+  const bsong = await load(bossa)
+  const p = { tracks: [{ id: 't1', name: 'Виолончель', inst: 'cello', notes: [[0, 52, 2, 0.8], [2, 59, 2, 0.8]] }] }
+  const bp = writeProject(bossa, p, { parse: acorn.parse }), bps = await load(bp)
+  const r = (await import('../src/project.js')).retuneProject(bp, bps, { tonic: 'C', mode: 'minor' }, R)
+  assert.match(r.source, /export default __retuneSong\(__project\(\{/)
+  assert.ok(r.source.indexOf('// ---- end of the retune prelude') < r.source.indexOf('// ==== MathMusic project'), 'the prelude stays out of the block')
+  const rs = await load(r.source)
+  assert.equal(rs.key, 'Cm')
+  assert.deepEqual(rs.tracks['Виолончель'].midi(0.5), [51], 'E → E♭ in C minor, once')
+  assert.deepEqual(readProject(r.source).tracks[0].notes.map(e => e[1]), [51, 58])
+  const own = Object.keys(bsong.tracks).find(k => /bass/.test(k))
+  const xs = [...Array(400).keys()].map(i => i / 2).filter(x => bsong.tracks[own].midi(x).length)
+  assert.ok(xs.length && xs.some(x => rs.tracks[own].midi(x).join() !== bsong.tracks[own].midi(x).join()), 'the code tracks are retuned too')
+  // and again, to another mode: the copy keeps working
+  const r2 = (await import('../src/project.js')).retuneProject(r.source, rs, { tonic: 'D', mode: 'dorian' }, R)
+  const rs2 = await load(r2.source)
+  assert.equal(rs2.mode, 'dorian')
+  assert.deepEqual(readProject(r2.source).tracks[0].notes.map(e => e[1]), [53, 60])
+})

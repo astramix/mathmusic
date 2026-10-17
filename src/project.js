@@ -281,6 +281,7 @@ function dataText(p) {
   const L = ['{']
   if (p.song) L.push(`  "song": ${JSON.stringify(p.song)},`)
   if (p.removed?.length) L.push(`  "removed": ${JSON.stringify(p.removed)},`)
+  if (p.tuning) L.push(`  "tuning": ${JSON.stringify(p.tuning)},`)
   L.push('  "tracks": [')
   p.tracks.forEach((t, i) => {
     const { notes = [], ...rest } = t
@@ -313,7 +314,8 @@ ${DATA_END}
 const __project = (() => {
   const { ${ENGINE_NAMES.join(', ')} } = __PE
   const { ${INSTRUMENT_NAMES.join(', ')} } = __PI
-  const F = n => 440 * 2 ** ((n - 69) / 12) // A4 = 440 exactly; n may be fractional: 63.5 = E𝄳4
+  // A4 = 440 exactly; n may be fractional: 63.5 = E𝄳4. A temperament (PROJECT.tuning: cents of C … B) moves each note by its own
+  const TUNE = PROJECT.tuning?.offsets ?? null, F = n => 440 * 2 ** ((n + (TUNE && Math.abs(n - Math.round(n)) < 0.01 ? TUNE[mod(Math.round(n), 12)] / 100 : 0) - 69) / 12)
   // a drum kit: D = { drum: [d(t, on), gain, time scale (1: τ in beats, sec: t in seconds)] }, MAP: note → drum
   const kitOf = (D, MAP, other) => {
     const hits = {}, lp = filter('lp')
@@ -353,6 +355,7 @@ ${inst.join('\n')}
     return {
       color: t.color ?? def.color,
       program: def.program,
+      project: true,
       graph: x => { const a = at(x).filter(e => !drums || x - e[0] < 0.25); return a.length ? a.map(e => (drums ? y0 + (y1 - y0) * clamp((e[1] - 35) / 46, 0, 1) * (1 - 0.3 * (x - e[0]) / 0.25) : y0 + ((e[1] - lo) / (hi - lo)) * (y1 - y0))) : null },
       midi: x => at(x).filter(e => x < e[0] + (drums ? Math.min(0.1, e[2]) : e[2] - Math.min(0.03, 0.06 * e[2]))).map(e => e[1]),
       formula: def.formula,
@@ -372,6 +375,7 @@ ${inst.join('\n')}
   // the song with the project's tracks (keys: the track names, made unique)
   return song => {
     if (PROJECT.song) Object.assign(song, PROJECT.song)
+    if (PROJECT.tuning) song.tuning = PROJECT.tuning
     const removed = new Set(PROJECT.removed ?? []), tracks = {}
     for (const [k, t] of Object.entries(song.tracks ?? {})) if (!removed.has(k)) tracks[k] = t
     const o = { tonic: song.key ? ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[String(song.key)[0]] ?? 0) + (/^.[#♯]/.test(song.key) ? 1 : /^.(b|♭)/.test(song.key) ? -1 : 0) : 0 }
@@ -448,6 +452,49 @@ export default __project({
   tracks: {},
 })
 `
+}
+
+// ---- the same music in another tonic and mode (Лады → «эта же музыка в …») -----------------------------------------------
+// A project's notes are data: each pitched note goes to the same degree of the new mode on the new tonic (plan: retunePlan of
+// the song as it is now — its key, mode and modulating sections), an altered note keeping its alteration from the nearest
+// degree; a scale of another size: the nearest note of the new one. Drums stay. The song's own code tracks, if it has any,
+// go through retuneSource as before (it leaves the project's tracks alone).
+export function moveNote(n, b, plan, dst) {
+  const off = plan.sect.reduce((o, s) => (s[0] <= b + 1e-9 ? s[1] : o), 0), t0 = plan.tonic + off
+  const rel = n - t0, oct = Math.floor(rel / 12 + 1e-9), p = rel - 12 * oct, src = plan.iv
+  let q
+  if (src.length === 7 && dst.length === 7) {
+    let d = 0
+    for (let i = 0; i < 7; i++) if (Math.abs(src[i] - p) < Math.abs(src[d] - p)) d = i
+    if (Math.abs(12 - p) < Math.abs(src[d] - p)) q = 12 + dst[0] + (p - 12) // just under the octave: the next tonic's alteration
+    else q = dst[d] + (p - src[d])
+  } else {
+    q = dst[0]
+    for (const o of [-12, 0, 12]) for (const v of dst) if (Math.abs(v + o - p) < Math.abs(q - p)) q = v + o
+  }
+  return Math.round((t0 + plan.tr + 12 * oct + q) * 100) / 100
+}
+// the name in the song's literal (export default __project({ name: '…' }))
+const setName = (src, name) => {
+  const i = src.search(/export\s+default\s/), clean = String(name).replace(/['"`\\\n\r]/g, '')
+  return src.slice(0, i) + src.slice(i).replace(/\bname\s*:\s*(['"`])[^'"`\n]*\1/, `name: '${clean}'`)
+}
+export function retuneProject(source, song, target, { parse, theme = null, retunePlan, retuneSource, modeOf }) {
+  const p = readProject(source)
+  const plan = retunePlan(song, target), dst = modeOf(target.mode).iv
+  for (const t of p.tracks) {
+    if (INSTRUMENT[t.inst]?.kind === 'drums') continue
+    t.notes = t.notes.map(([b, n, d, v]) => [b, moveNote(n, b, plan, dst), d, v])
+  }
+  if (p.song) { p.song.key = plan.key; if (plan.mode) p.song.mode = plan.mode; else delete p.song.mode }
+  // the temperament of the new key (the home section's offsets), or none
+  if (plan.temperament && plan.tm) p.tuning = { id: plan.temperament.id, name: plan.temperament.name, offsets: plan.tm[0] ?? Object.values(plan.tm)[0] }
+  else delete p.tuning
+  let out = writeProject(source, p)
+  const n = p.tracks.length, keys = Object.keys(song.tracks ?? {}).filter(k => song.tracks[k])
+  if (keys.length > n) return retuneSource(out, song, target, { parse, theme }) // code tracks too
+  const name = `${String(song.name).replace(/ · .*$/, '')} · ${plan.label}`
+  return { source: setName(out, name), name, plan }
 }
 
 // ---- from a song's parts to notes ---------------------------------------------------------------------------------------

@@ -250,7 +250,12 @@ measured rms), formula }. Drum kits take General MIDI numbers (36 kick, 38 snare
 carries `program` — midi.js / musicxml.js use it before guessing by name. `newProjectSource`, `readProject`, `writeProject(src, p,
 { parse })` (a song that isn't one yet: the block before `export default`, its value wrapped), `trackKeys`, `readTrackNotes(midi,
 length)` (notes back from midi(): gated lengths restored), `instrumentFor(name, style)`, `roleOf`, `alignedParts(parts, melody,
-len)` (where theme A sounds as written in a song made on that melody → the other parts cut to it). A user theme longer than its
+len)` (where theme A sounds as written in a song made on that melody → the other parts cut to it). `retuneProject(src, song,
+target, { parse, retunePlan, retuneSource, modeOf })` — Лады → «эта же музыка в …» for a project (genui `sameIn` checks it before
+regenerating): every pitched note to the same degree of the new mode on the new tonic (`moveNote`: an altered note keeps its
+alteration from the nearest degree; ♭3 of C major → ♭3 of D dorian = F; another scale size: the nearest note; drums stay),
+PROJECT.song key/mode, `PROJECT.tuning` = the temperament's offsets (F() adds them to whole notes); code tracks, if any, through
+retuneSource, whose __retuneSong skips tracks with `project: true` and whose prelude stays in front of the project block. A user theme longer than its
 section makes the theme/final sections grow (generate.js), so it plays whole.
 
 ## loudness.js

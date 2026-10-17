@@ -12,6 +12,9 @@
 // Microtonal modes work the same way (C major → C Rast: E → E𝄳, B → B𝄳; to a measured slendro: the nearest of its
 // five notes) and midi() then reports the microtones (63.5). A temperament (src/tuning.js) re-tunes the twelve notes
 // of the result: every frequency gets its note's offset in cents, per the key of each section.
+// A project (src/project.js) keeps its notes as data: those are moved by retuneProject there, note by note; here its
+// tracks (project: true) are left alone, the prelude goes in front of the project's block, and the song's literal is
+// found inside __project(…).
 // parse: acorn's parse (the app has viz/app/acorn.js), passed in so this file runs in Node and in the page.
 import { MODES, modeOf, tonicPc, keyFor, tonalityLabel, isMicro } from './modes.js'
 import { songKey, parseKey } from './theory.js'
@@ -140,7 +143,7 @@ const __R = f => (f > 0 && Number.isFinite(f) ? 440 * 2 ** ((__T(__N(69 + 12 * M
 const __Nrel = (n, base) => { const b = 69 + 12 * Math.log2(base / 440); return __T(__N(n + b)) - b }
 const __retuneSong = s => {
   for (const t of Object.values(s.tracks ?? {})) {
-    if (!t || typeof t !== 'object') continue
+    if (!t || typeof t !== 'object' || t.project) continue // a project's notes were moved as data
     if (typeof t.midi === 'function') {
       const m = t.midi, one = (n, x) => (Number.isFinite(n) ? ((__X = x), Math.round(__N(n) * 100) / 100) : n)
       t.midi = x => { const v = m(x); return Array.isArray(v) ? v.map(n => one(n, x)) : one(v, x) }
@@ -223,7 +226,7 @@ export function retuneSource(source, song, target, { parse, theme = null }) {
   const def = ast.body.find(n => n.type === 'ExportDefaultDeclaration')
   if (!def) throw new Error('в песне нет export default')
   if (prev) { // a copy again: new parameters and fields, the same original underneath
-    const call = def.declaration, obj = call.type === 'CallExpression' ? call.arguments[0] : call
+    const obj = objOf(def.declaration)
     const line = source.indexOf(m[0]), head = source.lastIndexOf('// ---- a retuned copy:', line), end = source.indexOf(PRELUDE_END, line)
     const edits = [...fieldEdits(obj, rt, null)]
     // the whole prelude anew (older copies, without its end mark, get new parameters only)
@@ -237,8 +240,10 @@ export function retuneSource(source, song, target, { parse, theme = null }) {
   const edits = [] // [pos, text]: inserted, from the end
   const wrapped = []
   let lastImport = null
+  const block = source.indexOf('// ==== MathMusic project') // a project's block: its own imports; the prelude stays out of it
   for (const node of ast.body) {
     if (node.type === 'ImportDeclaration') {
+      if (block >= 0 && node.start > block) continue
       lastImport = node
       for (const s of node.specifiers) {
         if (s.type !== 'ImportSpecifier' || !WRAPPERS[s.imported.name] || s.local.name !== s.imported.name) continue
@@ -301,12 +306,14 @@ export function retuneSource(source, song, target, { parse, theme = null }) {
     edits.push([n.start, '__R('], [n.end, ')'])
   })
   // the prelude right after the imports; export default __retuneSong({ … }) with the new name, key, mode, theme
-  edits.push([lastImport ? lastImport.end : 0, '\n' + PRELUDE(rt) + wrapped.map(w => WRAPPERS[w]).join('\n') + '\n'])
+  edits.push([lastImport ? lastImport.end : Math.max(0, block), '\n' + PRELUDE(rt) + wrapped.map(w => WRAPPERS[w]).join('\n') + '\n'])
   edits.push([def.declaration.start, '__retuneSong('], [def.declaration.end, ')'])
-  edits.push(...fieldEdits(def.declaration, rt, theme))
+  edits.push(...fieldEdits(objOf(def.declaration), rt, theme))
   return { source: apply(source, edits), name: `${rt.name} · ${rt.label}`, plan: rt }
 }
 
+// the song's object literal inside its wrappers: __retuneSong(__project({ … }))
+const objOf = n => { while (n?.type === 'CallExpression' && n.arguments[0]) n = n.arguments[0]; return n }
 // insertions [pos, text] and replacements [start, end, text], from the end; at one place an opening goes
 // before a closing one: …a)__R(b…
 function apply(source, edits) {

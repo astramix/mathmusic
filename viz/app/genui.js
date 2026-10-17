@@ -8,7 +8,9 @@ import { MELODIES } from './melodies.js'
 import { keyLabel, parseKey } from './theory.js'
 import { MODE_GROUPS, keyFor, tonalityLabel } from './modes.js'
 import { TEMPERAMENTS, temperOf } from './tuning.js'
-import { retuneSource } from './retune.js'
+import { retuneSource, retunePlan } from './retune.js'
+import { isProject, retuneProject } from './project.js'
+import { modeOf } from './modes.js'
 import { themeFor } from './themes.js'
 import * as acorn from './acorn.js'
 import { shelfOf } from './library.js'
@@ -85,11 +87,13 @@ export async function sameIn(t) {
   const cur = app.current, p = app.player
   if (!cur?.song) return toast('сначала выбери песню')
   const was = p.playing, from = p.x
-  if (cur.song.generator) await regenerate(t, { from })
+  const src = app.sourceOf(cur), proj = isProject(src) // a project's notes are data: moved note by note (src/project.js)
+  if (cur.song.generator && !proj) await regenerate(t, { from })
   else {
     let r
     try {
-      r = retuneSource(app.drafts.get(cur.id) ?? cur.source, cur.song, t, { parse: acorn.parse, theme: themeFor(cur.song).id })
+      r = proj ? retuneProject(src, cur.song, t, { parse: acorn.parse, theme: themeFor(cur.song).id, retunePlan, retuneSource, modeOf })
+        : retuneSource(src, cur.song, t, { parse: acorn.parse, theme: themeFor(cur.song).id })
     } catch (e) {
       console.error(e)
       return toast('не получилось перенести: ' + e.message, { kind: 'err', ms: 8000 })
