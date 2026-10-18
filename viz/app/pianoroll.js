@@ -202,6 +202,12 @@ export function createPianoRoll(root) {
   }
   // no "n from X" comment: assume the song's tonic in octave 4 or 5
   function guessBase(m) {
+    // the nearest "n from X" above the array (one comment heading a group of melodies), else a song that plays its notes
+    // as hz(m.n, C4) counts them from C4 (the generator's maqam, raga, gamelan… arrays)
+    const src = source(), above = [...src.slice(0, m.start).matchAll(new RegExp(NOTE_RE.source, 'gi'))].at(-1)
+    const named = above && midiOf(above[1])
+    if (named != null) return named
+    if (/hz\(\s*[\w.]*\bn\b[^,)]*,\s*C4\s*\)/.test(src)) return 60
     const k = app.current?.key ?? { tonic: 9 }
     const ns = m.notes.map(e => e[1]), mid = ns.length ? (Math.min(...ns) + Math.max(...ns)) / 2 : 0
     let b = 60 + k.tonic
