@@ -153,7 +153,19 @@ kick: { audio: ({ bpm }) => {
 
 > Windows может предупредить о неизвестном издателе: «Подробнее» → «Выполнить в любом случае».
 
-### Вариант 2. Из исходников
+### Вариант 2. Android
+
+1. Скачайте **`MathMusic.apk`** со страницы [Releases](https://github.com/astramix/mathmusic/releases/latest) прямо на телефон или планшет (Android 11 и новее).
+2. Откройте файл и разрешите установку из этого источника, когда Android спросит.
+3. Приложение открывается на весь экран в горизонтальной ориентации. Работает всё то же, что на компьютере: генерация,
+   радио, лады, ноты, экспорт.
+   - Сгенерированные и сохранённые песни остаются в приложении.
+   - Экспорт (MP3, WAV, MIDI, MusicXML…) попадает в **Загрузки/MathMusic**, видео в **Movies/MathMusic**.
+   - Долгое нажатие работает как правый клик, «Назад» закрывает меню и окна, а два «Назад» подряд выходят из приложения.
+
+> Интерфейс рассчитан на широкий экран: удобнее всего на планшете, на телефоне можно увеличить жестом двумя пальцами.
+
+### Вариант 3. Из исходников
 
 Нужен [Node.js](https://nodejs.org) 20+ и Chrome или Edge.
 
@@ -198,6 +210,8 @@ node generate.js --style jbattle --meter 7/8 --modulations
 node generate.js --style maqam --mode saba --micro quarter
 node render.js songs/lofi.js --master -14                  # → out/lofi/: mix.wav, стемы, .mid, график
 npm test                                                   # все песни, контрапункт, лады, строи
+npm run exe                                                # MathMusic.exe (Windows)
+npm run apk                                                # MathMusic.apk (нужны Android SDK и JDK 17+)
 ```
 
 Песня — обычный JS-модуль: `export default { name, bpm, length, key, sections, tracks: { имя: { graph(x), midi(x), audio(ctx) } } }`.

@@ -29,10 +29,21 @@ Open a source file only to change it or when something here is unclear.
   the app's 🎲 menu.
 - Program: `npm run exe [-- --shortcut]` → `MathMusic.exe` (viz/build-exe.js: page without my_songs, icon drawn in
   code, viz/launcher.cs compiled by Windows' own csc, C# 5). The exe serves the page + my_songs/ + generated/ itself (same API
-  and checks as serve.js — test/serve.test.js runs both), opens Chrome/Edge `--app` with its own profile
+  and checks as serve.js — test/serve.test.js runs all three servers), opens Chrome/Edge `--app` with its own profile
   (%LOCALAPPDATA%MathMusicrowser) and exits when that window closes. Users need no Node.js.
   Вид → Окно / Полноэкранное окно (work area, resizeTo) / Полный экран (Alt+Enter, F11) — main.js `setWindowMode`,
   remembered in localStorage `mm.window`; resizing works only in such an app window, not in a browser tab.
+- Android: `npm run apk` → `MathMusic.apk` (android/build-apk.js, no Gradle: aapt2, javac --release 11, d8, zipalign,
+  apksigner from the SDK — ANDROID_HOME or %LOCALAPPDATA%\Android\Sdk; JDK 17+ from JAVA_HOME or Android Studio's jbr;
+  minSdk 30, target 36). The exe's page (+ android/bridge.js, viewport width=1600: narrower, the menu bar overlaps) in a
+  full-screen landscape WebView (MainActivity) served by android/src/…/Server.java — plain Java, the same API and checks
+  (test/serve.test.js runs it on the desktop JVM). Songs in Android/data/com.astramix.mathmusic/files/{my_songs,generated},
+  videos in Movies/MathMusic; exports (`<a download>` of a blob) go through bridge.js → the `MathMusicAndroid` bridge in
+  base64 pieces → Download/MathMusic (MediaStore). Back = Esc, twice = exit. Long press = right click (no text selection).
+  Signed with ~/.mathmusic/release.jks (made on the first build; pass MATHMUSIC_KEY_PASS, default 'mathmusic') — keep it,
+  updates need the same key. Try it: the AVD in the SDK, `adb install -r`, screencap; an emulator's adb taps are slow
+  (they may read as a long press) — WebView debugging (`setWebContentsDebuggingEnabled`, adb forward
+  webview_devtools_remote_<pid>) + CDP for real gestures.
 - App: double-click `Visualizer.bat` (= `npm run app`: viz/serve.js on http://localhost:5178, builds the page on
   every load and writes my_songs/, generated/ and songs/ itself — no folder dialog; 127.0.0.1 only, writes need the
   `x-mathmusic: 1` header, plain file names only). `npm run viz` builds the standalone `MathMusic Live.html`

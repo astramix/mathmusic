@@ -23,6 +23,14 @@ for (const f of fs.readdirSync('viz/app').filter(f => f.endsWith('.js'))) {
     assert.equal(r.status, 0, r.stderr)
   })
 }
+// android/bridge.js runs in the page as a classic script (before the modules), build-apk.js in Node
+test('android/bridge.js and build-apk.js parse', () => {
+  acorn.parse(fs.readFileSync('android/bridge.js', 'utf8'), { ecmaVersion: 'latest', sourceType: 'script' })
+  for (const f of ['android/bridge.js', 'android/build-apk.js']) {
+    const r = spawnSync(process.execPath, ['--check', f], { encoding: 'utf8' })
+    assert.equal(r.status, 0, r.stderr)
+  }
+})
 test('songs compile for the browser runtime (imports → __mods)', async () => {
   // the same transform the page applies (runtime.js), here in Node with acorn
   const rt = fs.readFileSync('viz/app/runtime.js', 'utf8').replace("import * as acorn from './acorn.js'", "import * as acorn from '../vendor/acorn.min.mjs'")

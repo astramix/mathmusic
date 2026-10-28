@@ -4,6 +4,8 @@ out/
 MathMusic Live.html
 # built program — rebuild with `npm run exe`
 MathMusic.exe
+# built Android app — rebuild with `npm run apk`
+MathMusic.apk
 node_modules/
 .claude/settings.local.json
 *.log

@@ -7,7 +7,7 @@
     "device": "node max/build-device.js",
     "app": "node viz/serve.js --open",
     "exe": "node viz/build-exe.js",
-    "exe": "node viz/build-exe.js",
+    "apk": "node android/build-apk.js",
     "viz": "node viz/build.js",
     "dev": "node viz/watch.js",
     "generate": "node generate.js",

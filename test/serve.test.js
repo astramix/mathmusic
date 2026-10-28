@@ -1,6 +1,7 @@
-// The app's local servers — viz/serve.js (Node, Visualizer.bat) and the one inside MathMusic.exe (C#,
-// viz/launcher.cs) — read and write my_songs/ and generated/ (no folder dialog), and nothing else can: no other host,
-// no request without the app's header, no path outside the folder. Both get the same checks.
+// The app's local servers — viz/serve.js (Node, Visualizer.bat), the one inside MathMusic.exe (C#, viz/launcher.cs)
+// and the one inside MathMusic.apk (Java, android/src/…/Server.java) — read and write my_songs/ and generated/ (no
+// folder dialog), and nothing else can: no other host, no request without the app's header, no path outside the
+// folder. All three get the same checks.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -11,6 +12,7 @@ import net from 'node:net'
 import { spawn } from 'node:child_process'
 import { serve } from '../viz/serve.js'
 import { compile } from '../viz/build-exe.js'
+import { jdk, javac } from '../android/build-apk.js'
 import { Library, serverFolder, setName } from '../viz/app/library.js'
 
 async function check(root, port) {
@@ -84,6 +86,22 @@ test('MathMusic.exe builds and serves the same', { skip: process.platform !== 'w
     await check(root, port)
   } finally {
     // the exe lets go of its folder only when it has exited (under load that takes a while): wait, then retry
+    await new Promise(r => { if (child.exitCode != null) return r(); child.once('exit', r); child.kill(); setTimeout(r, 5000) })
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
+  }
+})
+
+test('the server inside MathMusic.apk serves the same', { skip: !jdk() && 'no JDK' }, async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-apk-'))
+  fs.writeFileSync(path.join(root, 'MathMusic Live.html'), '<p>app</p>')
+  const classes = path.join(root, 'classes')
+  const java = javac(classes)
+  const port = await new Promise(r => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)) }) })
+  const child = spawn(java, ['-cp', classes, 'com.astramix.mathmusic.Server', root, String(port)])
+  try {
+    for (let i = 0; i < 100 && !(await fetch(`http://127.0.0.1:${port}/api/hello`).then(r => r.ok, () => false)); i++) await new Promise(r => setTimeout(r, 100))
+    await check(root, port)
+  } finally {
     await new Promise(r => { if (child.exitCode != null) return r(); child.once('exit', r); child.kill(); setTimeout(r, 5000) })
     fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
   }
