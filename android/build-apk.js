@@ -110,7 +110,7 @@ export async function buildApk(out = APK) {
     run(path.join(bt, exe('aapt')), ['add', d('base.apk'), 'classes.dex'], { cwd: d('dex') })
     run(path.join(bt, exe('zipalign')), ['-f', '-p', '4', d('base.apk'), d('aligned.apk')])
     const { ks, pass } = keystore(path.join(home, 'bin', exe('keytool')))
-    run(path.join(bt, bat('apksigner')), ['sign', '--ks', ks, '--ks-pass', `pass:${pass}`, '--key-pass', `pass:${pass}`, '--out', out, d('aligned.apk')], { env })
+    run(path.join(bt, bat('apksigner')), ['sign', '--v4-signing-enabled', 'false', '--ks', ks, '--ks-pass', `pass:${pass}`, '--key-pass', `pass:${pass}`, '--out', out, d('aligned.apk')], { env })
     run(path.join(bt, bat('apksigner')), ['verify', out], { env })
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
