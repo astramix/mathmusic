@@ -21,7 +21,7 @@ const player = app.player
 const lazy = name => import(MM.url(name))
 
 // ---- view options (remembered) -----------------------------------------------------------------
-const VIEW_DEFAULTS = { style: 'classic', live: false, fx: true, scenery: true, labels: true, scope: true, theme: 'auto', loop: true, zoom: 22, volume: 0.9 }
+const VIEW_DEFAULTS = { style: 'classic', live: false, fx: true, scenery: true, labels: true, scope: true, theme: 'auto', loop: true, zoom: 22, volume: 0.9, quality: 'auto', autoQuality: 0 }
 app.view = { ...VIEW_DEFAULTS }
 try { Object.assign(app.view, JSON.parse(localStorage.getItem('mm.view') || '{}')) } catch {}
 const saveView = () => { try { localStorage.setItem('mm.view', JSON.stringify(app.view)) } catch {} }
@@ -33,13 +33,24 @@ player.setVolume(V.volume)
 // ---- canvas ----------------------------------------------------------------------------------------
 const cv = $('c'), g = cv.getContext('2d')
 let W = 0, H = 0
+// graphics quality: the canvas's pixels per screen pixel and the glow strokes left out (view.js `lite`) — a phone's GPU
+// pays for both. 'auto' starts high and steps down (remembered) while a song plays under 28 fps for 3 s running; picking
+// «Авто» again starts high again. Videos always draw in full.
+const QUALITY = [{ id: 'high', label: 'Высокое', res: 1, lite: 0 }, { id: 'mid', label: 'Среднее', res: 0.8, lite: 1 }, { id: 'low', label: 'Низкое', res: 0.65, lite: 2 }]
+const quality = () => QUALITY[V.quality === 'auto' ? Math.min(V.autoQuality || 0, 2) : Math.max(0, QUALITY.findIndex(q => q.id === V.quality))]
 const resize = () => {
-  const r = $('stage').getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1)
+  const r = $('stage').getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1) * quality().res
   W = r.width
   H = r.height
   cv.width = Math.max(1, W * d)
   cv.height = Math.max(1, H * d)
   g.setTransform(d, 0, 0, d, 0, 0)
+}
+function setQuality(id) {
+  V.quality = id
+  if (id === 'auto') V.autoQuality = 0
+  saveView()
+  resize()
 }
 new ResizeObserver(resize).observe($('stage'))
 resize()
@@ -724,6 +735,12 @@ menubar($('menus'), [
       { label: 'Тематический фон — пейзаж по стилю, в такт', checked: () => V.scenery, action: () => { V.scenery = !V.scenery; saveView() } },
       { label: 'Названия нот у плейхеда', checked: () => V.labels, action: () => { V.labels = !V.labels; saveView() } },
       { label: 'Осциллограф (фигура Лиссажу)', checked: () => V.scope, action: () => { V.scope = !V.scope; saveView() } },
+      { icon: '🎛', label: 'Качество графики', items: () => [
+        { header: `сейчас ${Math.round(fps)} кадров/с` },
+        { label: `Авто — ${QUALITY[Math.min(V.autoQuality || 0, 2)].label.toLowerCase()}`, checked: () => V.quality === 'auto', action: () => setQuality('auto'), note: 'упрощается само, если кадров меньше 28 в секунду' },
+        '-',
+        ...QUALITY.map(q => ({ label: q.label, checked: () => V.quality === q.id, action: () => setQuality(q.id), note: q.lite ? `холст ×${q.res}, ${q.lite > 1 ? 'одна линия впереди' : 'без широкого свечения'}` : 'полное разрешение и свечение' })),
+      ] },
       { icon: '🎨', label: 'Тема', items: () => [{ label: 'Авто — по стилю песни', checked: () => V.theme === 'auto', action: () => setTheme('auto') }, '-', ...Object.entries(THEMES).map(([id, t]) => ({ label: t.label, checked: () => V.theme === id, action: () => setTheme(id) }))] },
       '-',
       { icon: '🖼', label: 'Сетка всех песен', kbd: 'G', action: openGallery },
@@ -886,6 +903,25 @@ function updateLive(force) {
 }
 
 // ---- the frame loop ------------------------------------------------------------------------------------------------
+// auto quality: frames counted a second at a time while the song plays (not while it waits for audio, not after a pause
+// of the loop itself); three slow seconds running → one step down
+const perf = { t: performance.now(), n: 0, slow: 0 }
+function autoQuality(now) {
+  if (V.quality !== 'auto' || (V.autoQuality || 0) >= QUALITY.length - 1) return
+  perf.n++
+  const span = now - perf.t
+  if (span < 1000) return
+  const judged = span < 2000 && player.playing && !player.stalled && !document.hidden
+  perf.slow = judged && (perf.n * 1000) / span < 28 ? perf.slow + 1 : 0
+  perf.t = now
+  perf.n = 0
+  if (perf.slow < 3) return
+  perf.slow = 0
+  V.autoQuality = (V.autoQuality || 0) + 1
+  saveView()
+  resize()
+  toast(`🎛 Графика упрощена до «${quality().label.toLowerCase()}» — так плавнее (Вид → Качество графики)`, { ms: 4000 })
+}
 let last = performance.now(), fps = 60
 function frame(now) {
   requestAnimationFrame(frame)
@@ -899,6 +935,7 @@ function frame(now) {
     g.fillRect(0, 0, W, H)
     return
   }
+  autoQuality(now)
   const x = player.x, lv = player.levels()
   sc.update(x, dt, lv, player.playing && !player.stalled)
   for (const t of sc.tracks) if (t.meter) t.meter.style.width = `${Math.min(100, 100 * t.lvl)}%`
@@ -919,7 +956,7 @@ function frame(now) {
   const ins = pin ?? hover
   const focus = ins?.t ?? legendHover
   geo = sc.draw(g, {
-    style: V.style, W, H, zoom: V.zoom, fx: V.fx, scenery: V.scenery, labels: V.labels, focus, inspect: V.style === 'classic' ? ins : null,
+    style: V.style, W, H, zoom: V.zoom, fx: V.fx, scenery: V.scenery, labels: V.labels, focus, inspect: V.style === 'classic' ? ins : null, lite: quality().lite,
     scope: V.scope && player.playing ? player.scope() : null, cached: player.cachedRanges?.(), mouseX: mouse && mouse.y > H - 44 ? mouse.x : null,
     loop: loopDrag && mouse ? [Math.min(loopDrag.from, ((mouse.x - 16) / (W - 32)) * cur.song.length), Math.max(loopDrag.from, ((mouse.x - 16) / (W - 32)) * cur.song.length)] : player.loopBeats,
     title: cur.song.name, subtitle: `${tonalityOf(cur.song, cur.key)} · ${cur.song.bpm} BPM`, left: $('legend').style.display === 'none' ? 0 : 190,

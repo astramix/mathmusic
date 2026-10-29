@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Bundle;
@@ -61,6 +62,8 @@ public class MainActivity extends Activity {
             return;
         }
 
+        // npm run apk -- --debug: chrome://inspect sees the page
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) WebView.setWebContentsDebuggingEnabled(true);
         web = new WebView(this);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -145,6 +148,10 @@ public class MainActivity extends Activity {
         final Map<String, OutputStream> open = new HashMap<String, OutputStream>();
         final Map<String, String> names = new HashMap<String, String>();
         int next = 0;
+
+        // the WebView's width in screen pixels (bridge.js: the canvas gets as many pixels as the screen shows, no more)
+        @JavascriptInterface
+        public int width() { return web.getWidth(); }
 
         @JavascriptInterface
         public synchronized String begin(String name, String type) throws IOException {

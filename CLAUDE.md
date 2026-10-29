@@ -40,6 +40,8 @@ Open a source file only to change it or when something here is unclear.
   (test/serve.test.js runs it on the desktop JVM). Songs in Android/data/com.astramix.mathmusic/files/{my_songs,generated},
   videos in Movies/MathMusic; exports (`<a download>` of a blob) go through bridge.js → the `MathMusicAndroid` bridge in
   base64 pieces → Download/MathMusic (MediaStore). Back = Esc, twice = exit. Long press = right click (no text selection).
+  bridge.js sets devicePixelRatio to screen px / CSS px (MathMusicAndroid.width() / innerWidth = 1.5, not 2.625): the canvas
+  at the screen's own resolution. `npm run apk -- --debug`: debuggable, WebView open to chrome://inspect.
   Signed with ~/.mathmusic/release.jks (made on the first build; pass MATHMUSIC_KEY_PASS, default 'mathmusic') — keep it,
   updates need the same key. Try it: the AVD in the SDK, `adb install -r`, screencap; an emulator's adb taps are slow
   (they may read as a long press) — WebView debugging (`setWebContentsDebuggingEnabled`, adb forward
@@ -402,7 +404,10 @@ match) · abui.js (A/B panel, B: the original of a copy / the saved code under a
 loop UI in main.js (🔁, L, [ ], Shift+drag on the timeline, Shift+click bars in the score; `app.setLoop([a, b])` beats) · worker.js
 (classic worker) · worklet.js · runtime.js (ES module → function body, keeps line numbers) · view.js
 (scene: classic / paper — axes, formulas pop up when a part enters / space 3D; the same code draws the
-video frames) · editor.js (CodeMirror, lint, API hints from api.js, number sliders, full check with
+video frames. Cheap for a phone's GPU, which pays per stroke and per vertex: drawPath thins each polyline (a sleeve: every
+point left out within 0.3 px), 3D strokes a track's segments by 6 % steps of depth at once; `lite` 1|2 drops glow passes,
+bevel joins) · Вид → «Качество графики» (main.js QUALITY: high / mid ×0.8 lite 1 / low ×0.65 lite 2; 'auto' steps down,
+remembered as `V.autoQuality`, after 3 s under 28 fps while playing; videos always full) · editor.js (CodeMirror, lint, API hints from api.js, number sliders, full check with
 LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code; rows in semitones, ¼ or ⅛ tones — chosen from
 the notes / the song's mode; «🎹 играть»: Web MIDI input — pitch bend ±2 st gives ¼/⅛ tones on those grids — and the computer's
 keys A W S E D F T G Y H U J K O L P (Z/X octave, Shift +one pitch-grid step), a monitor tone; «⏺ запись»: notes on the song's

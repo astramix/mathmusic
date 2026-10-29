@@ -4,7 +4,7 @@
 // Needs the Android SDK (ANDROID_HOME, else %LOCALAPPDATA%\Android\Sdk: a platform and build-tools) and a JDK 17+
 // (JAVA_HOME, else the one inside Android Studio). Signed with ~/.mathmusic/release.jks, made on the first build —
 // keep it: an update installs over the app only when signed with the same key.
-//   node android/build-apk.js [--out MathMusic.apk]
+//   node android/build-apk.js [--out MathMusic.apk] [--debug]   (--debug: debuggable, the WebView open to chrome://inspect)
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -83,7 +83,7 @@ function keystore(keytool) {
 }
 
 // ---- the APK -------------------------------------------------------------------------------------------------
-export async function buildApk(out = APK) {
+export async function buildApk(out = APK, { debug = false } = {}) {
   const { bt, jar } = sdk(), home = jdk()
   if (!home) throw new Error('JDK not found: set JAVA_HOME (17 or later)')
   // d8 and apksigner are Java programs: the same JDK for them
@@ -101,7 +101,7 @@ export async function buildApk(out = APK) {
     fs.mkdirSync(d('assets'))
     fs.writeFileSync(d('assets', 'index.html'), await page())
     run(path.join(bt, exe('aapt2')), ['link', '-o', d('base.apk'), '-I', jar, '--manifest', path.join(HERE, 'AndroidManifest.xml'),
-      '-A', d('assets'), d('flat', 'res.zip')])
+      '-A', d('assets'), ...(debug ? ['--debug-mode'] : []), d('flat', 'res.zip')])
     // code: javac → d8 → classes.dex, added to the APK as it is (aapt add keeps resources.arsc stored, as Android 11+ wants)
     fs.mkdirSync(d('classes'))
     javac(d('classes'), { android: jar })
@@ -120,6 +120,6 @@ export async function buildApk(out = APK) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const i = process.argv.indexOf('--out')
-  const out = await buildApk(i > 0 ? path.resolve(process.argv[i + 1]) : APK)
+  const out = await buildApk(i > 0 ? path.resolve(process.argv[i + 1]) : APK, { debug: process.argv.includes('--debug') })
   console.log(`MathMusic.apk → ${out} (${(fs.statSync(out).size / 1e6).toFixed(1)} MB)`)
 }

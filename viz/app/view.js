@@ -15,6 +15,10 @@ const Y_MIN = -3, Y_MAX = 5
 
 // seeded RNG for particles and stars (videos must come out the same every time)
 const rng = seed => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296)
+// a curve's strokes, wide glow → core line; lite (the app's graphics quality, main.js; never in videos): 1 = without the
+// widest glow, 2 = the line ahead of the playhead as its core alone
+const GLOW = [[10, 0.06], [4.5, 0.16], [1.8, 0.95]]
+const glowPasses = (lite = 0, future = false) => (lite >= 2 && future ? GLOW.slice(2) : lite >= 1 ? GLOW.slice(1) : GLOW)
 const norm = v => (v == null ? null : Array.isArray(v) ? v.filter(Number.isFinite) : Number.isFinite(v) ? [v] : null)
 const safe = (f, x) => {
   try { return f ? f(x) : null } catch { return null }
@@ -271,19 +275,40 @@ export class Scene {
     }
     return paths
   }
-  drawPath(g, paths) {
+  // the polyline thinned out (a sleeve: every point left out is within 0.3 px of the segment drawn over it, x only grows):
+  // a held note is one segment, not one per sample, a smooth decay a few — the same picture with a fraction of the
+  // vertices (thick round-joined strokes are what a phone's GPU pays for, per vertex)
+  drawPath(g, paths, tol = 0.3) {
     g.beginPath()
     for (const p of paths) {
-      let pen = 0, x0 = 0, y0 = 0
-      const lone = () => pen === 1 && g.lineTo(x0 + 4, y0)
+      // (lx, ly) the last point drawn; (qx, qy) the furthest one its segment can reach yet; slopes lo…hi keep all between
+      let pen = 0, x0 = 0, y0 = 0, lx = 0, ly = 0, qx = 0, qy = 0, q = false, lo = 0, hi = 0
+      const sleeve = (x, y) => { const dx = x - lx; lo = (y - tol - ly) / dx; hi = (y + tol - ly) / dx; qx = x; qy = y; q = true }
+      const end = () => { if (q) g.lineTo(qx, qy); q = false; if (pen === 1) g.lineTo(x0 + 4, y0) }
       for (let i = 0; i < p.length; i++) {
-        if (p[i] === null) { lone(); pen = 0; continue }
-        if (pen) g.lineTo(p[i], p[i + 1])
-        else { g.moveTo(p[i], p[i + 1]); x0 = p[i]; y0 = p[i + 1] }
+        if (p[i] === null) { end(); pen = 0; continue }
+        const x = p[i], y = p[i + 1]
+        if (!pen) { g.moveTo(x, y); x0 = lx = x; y0 = ly = y }
+        else if (x <= lx) { if (q) g.lineTo(qx, qy); g.lineTo(x, y); lx = x; ly = y; q = false }
+        else if (!q) sleeve(x, y)
+        else {
+          const s = (y - ly) / (x - lx)
+          if (s >= lo && s <= hi) {
+            lo = Math.max(lo, (y - tol - ly) / (x - lx))
+            hi = Math.min(hi, (y + tol - ly) / (x - lx))
+            qx = x
+            qy = y
+          } else {
+            g.lineTo(qx, qy)
+            lx = qx
+            ly = qy
+            sleeve(x, y)
+          }
+        }
         pen++
         i++
       }
-      lone()
+      end()
     }
   }
 
@@ -323,9 +348,9 @@ export class Scene {
       for (const future of [false, true]) {
         const paths = future ? this.curve(t, x, xb, X, Yf) : this.curve(t, xa, x, X, Yf)
         g.strokeStyle = t.color
-        g.lineJoin = 'round'
+        g.lineJoin = o.lite ? 'bevel' : 'round' // a round join is many triangles a vertex
         g.lineCap = 'round'
-        for (const [w, a] of [[10, 0.06], [4.5, 0.16], [1.8, 0.95]]) {
+        for (const [w, a] of glowPasses(o.lite, future)) {
           g.lineWidth = (w + (future ? 0 : 3 * t.lvl * (w > 2)) + (focus === t ? 1 : 0)) * k
           g.globalAlpha = a * dim * (future ? 0.28 : 1)
           this.drawPath(g, paths)
@@ -581,12 +606,14 @@ export class Scene {
       if (!t.graph || t.muted) continue
       const c = (t.ink ??= ink(t.color)), paths = this.curve(t, x0, x, X, Yf)
       g.strokeStyle = c
-      g.lineJoin = 'round'
+      g.lineJoin = o.lite ? 'bevel' : 'round'
       g.lineCap = 'round'
-      g.globalAlpha = 0.18
-      g.lineWidth = (5 + 4 * t.lvl) * k
-      this.drawPath(g, paths)
-      g.stroke()
+      if (!o.lite) {
+        g.globalAlpha = 0.18
+        g.lineWidth = (5 + 4 * t.lvl) * k
+        this.drawPath(g, paths)
+        g.stroke()
+      }
       g.globalAlpha = 1
       g.lineWidth = 2 * k
       this.drawPath(g, paths)
@@ -779,21 +806,34 @@ export class Scene {
       }
       const dim = t.muted ? 0.25 : 1
       g.strokeStyle = t.color
-      g.lineJoin = 'round'
+      g.lineJoin = o.lite ? 'bevel' : 'round'
+      // width and fade follow the depth: all the track's segments in one 6 % step of it (15 % at a lower graphics
+      // quality) go as one stroke — a step that small doesn't show, and a phone's GPU pays per stroke
+      const zStep = o.lite ? 0.14 : 0.0583, steps = new Map()
       for (const path of paths) {
-        for (let i = 1; i < path.length; i++) {
-          const [x1, y1, z1] = path[i - 1], [x2, y2] = path[i]
-          const fade = Math.max(0, 1 - z1 / 58), w = Math.max(0.8, 26 / z1) * k
+        for (let i = 1; i < path.length; ) {
+          const step = Math.round(Math.log(path[i - 1][2]) / zStep), run = [path[i - 1]]
+          do run.push(path[i])
+          while (++i < path.length && Math.round(Math.log(path[i - 1][2]) / zStep) === step)
+          if (!steps.has(step)) steps.set(step, [])
+          steps.get(step).push(run)
+        }
+      }
+      for (const [step, runs] of steps) {
+        const z = Math.exp(step * zStep), fade = Math.max(0, 1 - z / 58), w = Math.max(0.8, 26 / z) * k
+        g.beginPath()
+        for (const run of runs) {
+          g.moveTo(run[0][0], run[0][1])
+          for (let i = 1; i < run.length; i++) g.lineTo(run[i][0], run[i][1])
+        }
+        if (!o.lite) {
           g.globalAlpha = 0.15 * fade * dim
           g.lineWidth = w * 4
-          g.beginPath()
-          g.moveTo(x1, y1)
-          g.lineTo(x2, y2)
-          g.stroke()
-          g.globalAlpha = 0.9 * fade * dim
-          g.lineWidth = w
           g.stroke()
         }
+        g.globalAlpha = 0.9 * fade * dim
+        g.lineWidth = w
+        g.stroke()
       }
       const v = this.val(t, Math.round(x * GRID))
       if (v) {

@@ -1,4 +1,4 @@
-// Android: no text selection on a long press (below), and an <a download> of a blob (every export: MP3, WAV, MIDI, MusicXML, stems…) — a WebView downloads nothing
+// Android: no text selection on a long press, the canvas at the screen's resolution (below), and an <a download> of a blob (every export: MP3, WAV, MIDI, MusicXML, stems…) — a WebView downloads nothing
 // itself, so the file goes to the app (MainActivity.Bridge) in base64 pieces and lands in Download/MathMusic.
 // android/build-apk.js puts this in front of the page's own scripts.
 ;(() => {
@@ -9,6 +9,11 @@
   css.textContent = 'body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none } ' +
     'input, textarea, select, [contenteditable], .cm-editor, .cm-content { -webkit-user-select: text; user-select: text }'
   document.head.append(css)
+  // the page is 1600 px wide and shown zoomed out, so a CSS pixel is fewer screen pixels than devicePixelRatio says
+  // (2400 / 1600 = 1.5, not 2.625): the canvas is drawn at the screen's own resolution — the same sharpness, far fewer
+  // pixels for the phone's GPU
+  const real = window.devicePixelRatio
+  Object.defineProperty(window, 'devicePixelRatio', { configurable: true, get: () => Math.min(real, A.width() / innerWidth || real) })
   const click = HTMLAnchorElement.prototype.click
   HTMLAnchorElement.prototype.click = function () {
     if (!this.download || !/^(blob|data):/.test(this.href)) return click.call(this)
