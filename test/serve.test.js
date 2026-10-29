@@ -53,12 +53,22 @@ async function check(root, port) {
     assert.ok(fs.existsSync(path.join(root, 'my_songs', 'Groza.js')))
     assert.equal((await fetch(base + '/api/gen/..%2Fsongs%2Fx.js', { method: 'PUT', headers: H, body: 'x' })).status, 400)
 
-    // videos/: a video in 16 MB pieces (the exe takes 64 MB a request at most), a free name the second time; no scripts there
-    const bytes = new Uint8Array(20 << 20).map((_, i) => (i * 7) & 255), target = { server: true, api: base + '/api/video', name: 'videos' }
-    assert.equal(await gl.writeVideo(target, 'rain-paper-9x16.mp4', new Blob([bytes])), 'videos/rain-paper-9x16.mp4')
-    assert.ok(Buffer.from(bytes).equals(fs.readFileSync(path.join(root, 'videos', 'rain-paper-9x16.mp4'))))
-    assert.equal(await gl.writeVideo(target, 'rain-paper-9x16.mp4', new Blob([bytes.slice(0, 10)])), 'videos/rain-paper-9x16-2.mp4')
-    assert.equal((await fetch(base + '/api/video/x.js', { method: 'PUT', headers: H, body: 'x' })).status, 400)
+    // exports/<kind>/: a video in 16 MB pieces (the exe takes 64 MB a request at most), a free name the second time; no songs
+    // or scripts there; every kind in its own folder
+    const bytes = new Uint8Array(20 << 20).map((_, i) => (i * 7) & 255), target = { server: true, api: base + '/api/export/video', name: 'exports/video' }
+    assert.equal(await gl.writeExport(target, 'rain-paper-9x16.mp4', new Blob([bytes])), 'exports/video/rain-paper-9x16.mp4')
+    assert.ok(Buffer.from(bytes).equals(fs.readFileSync(path.join(root, 'exports', 'video', 'rain-paper-9x16.mp4'))))
+    assert.equal(await gl.writeExport(target, 'rain-paper-9x16.mp4', new Blob([bytes.slice(0, 10)])), 'exports/video/rain-paper-9x16-2.mp4')
+    assert.equal((await fetch(base + '/api/export/video/x.exe', { method: 'PUT', headers: H, body: 'x' })).status, 400)
+    assert.equal((await fetch(base + '/api/export/video/library.json', { method: 'PUT', headers: H, body: 'x' })).status, 400)
+    assert.equal((await fetch(base + '/api/export/flac/x.mp3', { method: 'PUT', headers: H, body: 'x' })).status, 404)
+    assert.equal((await fetch(base + '/api/export/mp3/x.mp3', { method: 'PUT', body: 'x' })).status, 403)
+    const files = { mp3: 'Groza.mp3', wav: 'Groza.wav', ogg: 'Groza.ogg', midi: 'Groza-mpe.mid', stems: 'Groza-stems.zip', tuning: 'Groza-tuning.zip', musicxml: 'Groza.musicxml', code: 'Groza.js' }
+    for (const [kind, f] of Object.entries(files)) {
+      const t = { server: true, api: `${base}/api/export/${kind}`, name: `exports/${kind}` }
+      assert.equal(await gl.writeExport(t, f, new Blob(['x'])), `exports/${kind}/${f}`)
+      assert.ok(fs.existsSync(path.join(root, 'exports', kind, f)), kind)
+    }
   }
 }
 

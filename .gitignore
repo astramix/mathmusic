@@ -21,5 +21,6 @@ node_modules/
 *.aiff
 # the last 20 🎲 songs nobody saved (Ctrl+S moves one to my_songs/)
 generated/
-# exported videos (Экспорт → Видео)
+# every export (Экспорт → MP3, WAV, MIDI, стемы, видео…), each kind in its folder; videos/ = older videos
+exports/
 videos/

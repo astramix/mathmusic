@@ -7,7 +7,7 @@
 // A song saved while the folder isn't connected (or in a browser without File System Access) waits in
 // IndexedDB and moves into the folder as soon as it is. Tabs of the app see each other's changes
 // (a ping through localStorage). Writing a copy into songs/ (render.js / Ableton) stays as it was.
-const DB = 'mathmusic', STORE = 'songs', META = 'meta', PING = 'mm.lib', DIR = 'my_songs', GEN = 'generated', VIDEOS = 'videos', INDEX = 'library.json'
+const DB = 'mathmusic', STORE = 'songs', META = 'meta', PING = 'mm.lib', DIR = 'my_songs', GEN = 'generated', EXPORTS = 'exports', INDEX = 'library.json'
 const RW = { mode: 'readwrite' }
 
 function idb() {
@@ -322,7 +322,7 @@ export class Library {
         gen = chosen.name === DIR ? null : await chosen.getDirectoryHandle(GEN, { create: true })
         await this.setMeta('mineDir', dir)
         await this.setMeta('genDir', gen)
-        await this.setMeta('projectDir', chosen.name === DIR ? null : chosen) // videos/ goes next to them
+        await this.setMeta('projectDir', chosen.name === DIR ? null : chosen) // exports/ goes next to them
       }
       this.denied = false
       await this.attach(dir, 'disk', gen)
@@ -442,37 +442,36 @@ export class Library {
     this.ping(id)
     this.emit(id, null)
   }
-  // ---- videos/ ---------------------------------------------------------------------------------------
-  // Exported videos go into the project's videos/ folder: through the server (Visualizer.bat, the exe), else a folder
-  // handle — videos/ in the project folder chosen for my_songs/, or a folder chosen once for videos (remembered).
-  // → a target for writeVideo, or null (the video is then downloaded). pick: may open the folder dialog (needs a click,
-  // so call it before the long encoding)
-  async videoFolder({ pick = false } = {}) {
-    if (this.server) return { server: true, api: '/api/video', name: VIDEOS }
+  // ---- exports/ --------------------------------------------------------------------------------------
+  // Every export goes into the project's exports/ folder, each kind in its own (EXPORT_KINDS: exports/mp3/, exports/video/…):
+  // through the server (Visualizer.bat, the exe, the APK), else a folder handle — exports/ in the project folder chosen for
+  // my_songs/, or a folder chosen once for exports (remembered). → a target for writeExport, or null (the file is then
+  // downloaded). pick: may open the folder dialog (needs a click, so call it before a long render)
+  async exportFolder(kind, { pick = false } = {}) {
+    const name = `${EXPORTS}/${kind}`
+    if (this.server) return { server: true, api: `/api/export/${kind}`, name }
     if (typeof window === 'undefined' || !window.showDirectoryPicker) return null
     try {
       const ok = async d => !!d && ((await d.queryPermission(RW)) === 'granted' || (pick && (await d.requestPermission(RW)) === 'granted'))
-      let dir = await this.getMeta('videoDir')
-      if (await ok(dir)) return dir
-      const project = await this.getMeta('projectDir')
-      if (await ok(project)) {
-        dir = await project.getDirectoryHandle(VIDEOS, { create: true })
-        await this.setMeta('videoDir', dir)
-        return dir
+      let root = await this.getMeta('exportsDir')
+      if (!(await ok(root))) {
+        const project = await this.getMeta('projectDir')
+        if (await ok(project)) root = await project.getDirectoryHandle(EXPORTS, { create: true })
+        else if (pick) {
+          const chosen = await showDirectoryPicker({ id: 'mathmusic-exports', mode: 'readwrite', startIn: 'documents' })
+          root = chosen.name === EXPORTS ? chosen : await chosen.getDirectoryHandle(EXPORTS, { create: true })
+        } else return null
+        await this.setMeta('exportsDir', root)
       }
-      if (!pick) return null
-      const chosen = await showDirectoryPicker({ id: 'mathmusic-videos', mode: 'readwrite', startIn: 'videos' })
-      dir = chosen.name === VIDEOS ? chosen : await chosen.getDirectoryHandle(VIDEOS, { create: true })
-      await this.setMeta('videoDir', dir)
-      return dir
+      return { dir: await root.getDirectoryHandle(kind, { create: true }), name }
     } catch (e) {
-      if (e.name !== 'AbortError') console.warn('videos/ not connected', e)
+      if (e.name !== 'AbortError') console.warn('exports/ not connected', e)
       return null
     }
   }
-  // writes the video under a free name (<name>.mp4, <name>-2.mp4 …) → 'videos/<file>'. Through the server in
+  // writes the file under a free name (<name>.mp3, <name>-2.mp3 …) → 'exports/<kind>/<file>'. Through the server in
   // 16 MB pieces (the first one makes the file, the rest are appended): the exe takes at most 64 MB a request
-  async writeVideo(target, name, blob) {
+  async writeExport(target, name, blob) {
     const stem = name.replace(/\.\w+$/, ''), ext = name.slice(stem.length)
     const free = async has => { let f = name, i = 2; while (await has(f)) f = `${stem}-${i++}${ext}`; return f }
     if (target.server) {
@@ -482,13 +481,13 @@ export class Library {
       let at = 0
       do {
         const r = await fetch(`${target.api}/${encodeURIComponent(file)}${at ? '?append=1' : ''}`, { method: 'PUT', headers: H, body: blob.slice(at, at + CHUNK) })
-        if (!r.ok) throw new Error(`${VIDEOS}/${file}: ${r.status} ${await r.text()}`)
+        if (!r.ok) throw new Error(`${target.name}/${file}: ${r.status} ${await r.text()}`)
         at += CHUNK
       } while (at < blob.size)
-      return `${VIDEOS}/${file}`
+      return `${target.name}/${file}`
     }
-    const file = await free(async f => { try { await target.getFileHandle(f); return true } catch { return false } })
-    const w = await (await target.getFileHandle(file, { create: true })).createWritable()
+    const file = await free(async f => { try { await target.dir.getFileHandle(f); return true } catch { return false } })
+    const w = await (await target.dir.getFileHandle(file, { create: true })).createWritable()
     await w.write(blob)
     await w.close()
     return `${target.name}/${file}`

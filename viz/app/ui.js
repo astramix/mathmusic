@@ -111,9 +111,17 @@ export function toast(text, { kind = '', ms = 3500, progress = false, action = n
   const close = () => {
     if (el.closing) return
     el.closing = true
-    el.style.transition = 'opacity .3s'
-    el.style.opacity = 0
-    setTimeout(() => el.remove(), 300)
+    // fades and slides out while its height folds away, so the toasts above glide down instead of jumping
+    const H = el.offsetHeight, s = getComputedStyle(el)
+    el.style.overflow = 'hidden'
+    el.style.pointerEvents = 'none'
+    const a = el.animate([
+      { opacity: 1, transform: 'none', height: H + 'px', paddingTop: s.paddingTop, paddingBottom: s.paddingBottom, marginTop: '0px' },
+      { opacity: 0, transform: 'translateX(28px)', height: H + 'px', paddingTop: s.paddingTop, paddingBottom: s.paddingBottom, marginTop: '0px', offset: 0.55 },
+      { opacity: 0, transform: 'translateX(28px)', height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '-8px' },
+    ], { duration: 650, easing: 'ease-in-out', fill: 'forwards' })
+    a.onfinish = () => el.remove()
+    setTimeout(() => el.remove(), 900)
   }
   if (!progress && ms) setTimeout(close, ms)
   return {
@@ -131,7 +139,7 @@ export function toast(text, { kind = '', ms = 3500, progress = false, action = n
         el.title = 'клик — закрыть'
         el.style.cursor = 'pointer'
         el.addEventListener('click', close)
-      } else setTimeout(close, 4000)
+      } else setTimeout(close, 6000)
     },
   }
 }

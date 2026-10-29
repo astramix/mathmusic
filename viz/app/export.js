@@ -1,7 +1,7 @@
 // Export straight from the page: MP3 (320 kbps, LAME in a worker), WAV (24-bit), OGG (Opus 256 kbps
 // via WebCodecs, muxed here), MIDI (type 1, one track per part, General MIDI programs, drums on
 // channel 10), stems (a ZIP of 24-bit WAVs) and the song's source. The mix is normalised to −1 dBFS
-// like render.js; muted tracks are left out.
+// like render.js; muted tracks are left out. Every file lands in the project's exports/<kind>/ (saveExport).
 import { app } from './app.js'
 import { toast, download } from './ui.js'
 import { renderSong, renderSongCached } from './player.js'
@@ -46,6 +46,15 @@ self.onmessage = e => {
   }).finally(() => w.terminate())
   return { ...r, L: o.L, R: o.R, mastered: { lufs: o.lufs, tp: o.tp, gainDb: o.gainDb } }
 }
+// a finished export → exports/<kind>/ of the project (lib.exportFolder: the server, or a folder handle), else downloaded.
+// folder: asked for beforehand (a long render outlives the click that may open the folder dialog) → where it went
+export async function saveExport(kind, name, blob, folder) {
+  folder ??= await app.lib.exportFolder(kind, { pick: true })
+  if (folder) try { return '📁 ' + (await app.lib.writeExport(folder, name, blob)) } catch (e) { console.warn(`exports/${kind} not written, downloading`, e) }
+  download(name, blob)
+  return `⬇ ${name} — в «Загрузки»`
+}
+const KIND = { mp3: 'mp3', wav: 'wav', ogg: 'ogg', mid: 'midi', mpe: 'midi', stems: 'stems' }
 const masteredNote = m => (m.mastered ? ` · ${m.mastered.lufs.toFixed(1)} LUFS, ${m.mastered.tp.toFixed(1)} dBTP` : '')
 
 // ---- WAV -------------------------------------------------------------------------------------------
@@ -253,18 +262,20 @@ export async function exportAudio(fmt) {
   const cur = app.current
   if (!cur?.song) return toast('нет песни')
   const name = fileBase()
+  // the folder now, while the click still allows its dialog
+  const folder = await app.lib.exportFolder(KIND[fmt], { pick: true })
   if (fmt === 'mid') {
-    download(name + '.mid', new Blob([midiFile(cur.song, { muted: mutedSet() })], { type: 'audio/midi' }))
+    const where = await saveExport('midi', name + '.mid', new Blob([midiFile(cur.song, { muted: mutedSet() })], { type: 'audio/midi' }), folder)
     const micro = isMicrotonal(cur.song)
-    return toast('🎼 MIDI: каждая дорожка — отдельный трек, барабаны на 10-м канале' + (mutedSet().size ? ' · заглушённые не вошли' : '') + (micro ? '\nмикротоны и строй округлены до полутонов — для точных нот есть «MIDI · MPE» и файлы строя' : ''), { kind: 'ok', ms: micro ? 8000 : 4000 })
+    return toast(`${where}\n🎼 MIDI: каждая дорожка — отдельный трек, барабаны на 10-м канале` + (mutedSet().size ? ' · заглушённые не вошли' : '') + (micro ? '\nмикротоны и строй округлены до полутонов — для точных нот есть «MIDI · MPE» и файлы строя' : ''), { kind: 'ok', ms: micro ? 9000 : 6000 })
   }
   if (fmt === 'mpe') {
-    download(name + '-mpe.mid', new Blob([midiFile(cur.song, { muted: mutedSet(), mpe: true })], { type: 'audio/midi' }))
-    return toast('🎼 MIDI MPE: каждая нота на своём канале (2–9) со своим питч-бендом ±48 — микротоны и строй до цента. В Ableton — инструмент в режиме MPE, дорожки импортируй по одной', { kind: 'ok', ms: 9000 })
+    const where = await saveExport('midi', name + '-mpe.mid', new Blob([midiFile(cur.song, { muted: mutedSet(), mpe: true })], { type: 'audio/midi' }), folder)
+    return toast(`${where}\n🎼 MIDI MPE: каждая нота на своём канале (2–9) со своим питч-бендом ±48 — микротоны и строй до цента. В Ableton — инструмент в режиме MPE, дорожки импортируй по одной`, { kind: 'ok', ms: 9000 })
   }
   const t = toast(`экспорт ${fmt.toUpperCase()}…`, { progress: true })
   try {
-    if (fmt === 'stems') return await stems(name, t)
+    if (fmt === 'stems') return await stems(name, t, folder)
     const m = await getMix(t)
     let blob
     if (fmt === 'wav') blob = wav24(m.L, m.R)
@@ -275,14 +286,14 @@ export async function exportAudio(fmt) {
       t.set('кодирую Opus…', 0.7)
       blob = await ogg(m.L, m.R, p => t.set(null, 0.7 + 0.3 * p))
     }
-    download(`${name}.${fmt}`, blob)
-    t.done(`⬇ ${name}.${fmt} · ${(blob.size / 1e6).toFixed(1)} МБ${masteredNote(m)}`)
+    const where = await saveExport(fmt, `${name}.${fmt}`, blob, folder)
+    t.done(`${where} · ${(blob.size / 1e6).toFixed(1)} МБ${masteredNote(m)}`)
   } catch (e) {
     console.error(e)
     t.done('не получилось: ' + e.message, 'err')
   }
 }
-async function stems(name, t) {
+async function stems(name, t, folder) {
   const cur = app.current, keys = trackList(cur.song).map(([k]) => k).filter(k => !mutedSet().has(k))
   t.set('рендер микса (общая громкость)…', 0)
   const full = await renderSongCached(app.SRC, cur.source, { muted: mutedSet(), onProgress: f => t.set(null, 0.3 * f) })
@@ -295,8 +306,8 @@ async function stems(name, t) {
   files.push({ name: `${name}/mix.wav`, blob: wav24(full.L, full.R) })
   t.set('упаковываю ZIP…', 0.97)
   const z = await zip(files)
-  download(`${name}-stems.zip`, z)
-  t.done(`🗂 ${keys.length} стемов + микс · ${(z.size / 1e6).toFixed(0)} МБ — в Ableton они складываются ровно в mix.wav`)
+  const where = await saveExport('stems', `${name}-stems.zip`, z, folder)
+  t.done(`${where}\n🗂 ${keys.length} стемов + микс · ${(z.size / 1e6).toFixed(0)} МБ — в Ableton они складываются ровно в mix.wav`)
 }
 // the song's tuning for other programs: Scala .scl + .kbm, Ableton Live 12 .ascl (a temperament: 12 notes from C;
 // a microtonal mode: its own degrees from the tonic) — in one ZIP
@@ -304,12 +315,14 @@ export async function exportTuning() {
   const cur = app.current
   if (!cur?.song) return toast('нет песни')
   const name = fileBase(), mode = cur.song.mode ? MODES[cur.song.mode] : null
+  const folder = await app.lib.exportFolder('tuning', { pick: true })
   const files = Object.entries(tuningFiles(cur.song, { mode, base: name })).map(([f, text]) => ({ name: `${name}-tuning/${f}`, blob: new Blob([text], { type: 'text/plain' }) }))
-  download(`${name}-tuning.zip`, await zip(files))
-  toast('🎚 строй: .scl и .kbm (Scala, Surge, Pianoteq…), .ascl — Ableton Live 12 (Tuning → загрузить). MIDI-ноты остаются обычными', { kind: 'ok', ms: 8000 })
+  const where = await saveExport('tuning', `${name}-tuning.zip`, await zip(files), folder)
+  toast(`${where}\n🎚 строй: .scl и .kbm (Scala, Surge, Pianoteq…), .ascl — Ableton Live 12 (Tuning → загрузить). MIDI-ноты остаются обычными`, { kind: 'ok', ms: 8000 })
 }
-export function exportSource() {
+export async function exportSource() {
   const cur = app.current
   if (!cur) return
-  download(fileBase() + '.js', app.sourceOf(cur), 'text/javascript')
+  const where = await saveExport('code', fileBase() + '.js', new Blob([app.sourceOf(cur)], { type: 'text/javascript' }))
+  toast(`${where}\n📄 исходник песни`, { kind: 'ok', ms: 5000 })
 }

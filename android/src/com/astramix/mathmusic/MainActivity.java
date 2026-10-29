@@ -33,8 +33,9 @@ import java.util.Map;
 
 // MathMusic for Android: the page of MathMusic.exe (assets/index.html, built by android/build-apk.js) in a full-screen
 // WebView, served by Server on http://localhost — so it saves songs exactly as the exe does (my_songs/ and generated/ in
-// the app's folder, videos into Movies/MathMusic). Exports (<a download> of a blob — a WebView downloads nothing itself)
-// come through the MathMusicAndroid bridge (android/bridge.js) into Download/MathMusic.
+// the app's folder, exports into Download/MathMusic/<kind>, videos into Movies/MathMusic). Anything still downloaded
+// (<a download> of a blob — a WebView downloads nothing itself) comes through the MathMusicAndroid bridge
+// (android/bridge.js) into Download/MathMusic.
 public class MainActivity extends Activity {
     WebView web;
     long backAt;
@@ -50,7 +51,10 @@ public class MainActivity extends Activity {
         dirs.put("mine", new File(base, "my_songs"));
         dirs.put("gen", new File(base, "generated"));
         dirs.put("songs", new File(base, "songs"));
-        dirs.put("video", new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "MathMusic"));
+        // exports: Download/MathMusic/<kind>, videos where the gallery finds them
+        File downloads = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MathMusic");
+        for (String k : Server.EXPORT_KINDS) dirs.put("export/" + k, new File(downloads, k));
+        dirs.put("export/video", new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "MathMusic"));
         int port;
         try {
             port = new Server(dirs, new Server.Page() {

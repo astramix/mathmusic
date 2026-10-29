@@ -7,9 +7,9 @@
 //   space    the 3D flight.
 // H.264 video + AAC audio (Opus when the browser has no AAC encoder), muxed with mp4-muxer.
 import { app } from './app.js'
-import { h, toast, modal, seg, download } from './ui.js'
+import { h, toast, modal, seg } from './ui.js'
 import { renderSongCached, BLOCK } from './player.js'
-import { masterIfOn } from './export.js'
+import { masterIfOn, saveExport } from './export.js'
 import { Scene } from './view.js'
 import { themeFor } from './themes.js'
 import { formulaImage } from './formula.js'
@@ -63,8 +63,8 @@ export function videoDialog() {
 }
 
 export async function makeVideo(o) {
-  // the folder first, while the click still allows its dialog: the project's videos/ (else the file is downloaded)
-  const folder = await app.lib.videoFolder({ pick: true })
+  // the folder first, while the click still allows its dialog: the project's exports/video/ (else the file is downloaded)
+  const folder = await app.lib.exportFolder('video', { pick: true })
   const cur = app.current, song = cur.song
   const [W, H] = SIZES[o.aspect], fps = o.fps
   const [b0, b1] = o.range === 'part' ? [(o.from - 1) * 4, Math.min(song.length, (o.to - 1) * 4)] : [0, song.length]
@@ -157,11 +157,9 @@ export async function makeVideo(o) {
     muxer.finalize()
     const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' })
     const name = fileName(song.name || 'song') + `-${o.style}-${o.aspect.replace(':', 'x')}.mp4`
-    let where = null
-    if (folder) try { where = await app.lib.writeVideo(folder, name, blob) } catch (e) { console.warn('videos/ not written, downloading', e) }
-    if (!where) download(name, blob)
+    const where = await saveExport('video', name, blob, folder)
     cancel.remove()
-    t.done(`🎬 ${where ?? name} · ${(blob.size / 1e6).toFixed(1)} МБ${acodec === 'opus' ? ' · звук Opus (AAC в этом браузере нет)' : ''}`)
+    t.done(`${where} · ${(blob.size / 1e6).toFixed(1)} МБ${acodec === 'opus' ? ' · звук Opus (AAC в этом браузере нет)' : ''}`)
   } catch (e) {
     console.error(e)
     cancel.remove()

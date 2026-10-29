@@ -33,7 +33,7 @@ static class App {
     const string TITLE = "MathMusic";
     static string root, page;
     static readonly Regex Host = new Regex(@"^(localhost|127\.0\.0\.1)(:\d+)?$");
-    static readonly Regex Api = new Regex(@"^/api/(mine|gen|songs|video)(?:/([^/]+))?$");
+    static readonly Regex Api = new Regex(@"^/api/(mine|gen|songs|export/(?:mp3|wav|ogg|midi|stems|tuning|musicxml|code|video))(?:/([^/]+))?$");
     static readonly Regex SongFile = new Regex(@"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.js$");
 
     [STAThread]
@@ -195,8 +195,8 @@ static class App {
     static string Mtime(string f) {
         return ((long)(File.GetLastWriteTimeUtc(f) - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds).ToString(CultureInfo.InvariantCulture);
     }
-    static readonly Regex VideoFile = new Regex(@"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(mp4|webm)$");
-    static bool OkName(string f, string g) { return g == "video" ? VideoFile.IsMatch(f) : SongFile.IsMatch(f) || f == "library.json"; }
+    static readonly Regex ExportFile = new Regex(@"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(mp3|wav|ogg|mid|zip|musicxml|js|mp4|webm)$");
+    static bool OkName(string f, string g) { return g.StartsWith("export/") ? ExportFile.IsMatch(f) : SongFile.IsMatch(f) || f == "library.json"; }
 
     static Res Route(string method, string target, Dictionary<string, string> h, byte[] body) {
         string host;
@@ -214,7 +214,7 @@ static class App {
         if (!m.Success) return new Res(404, "not found");
         string mark;
         if (!h.TryGetValue("x-mathmusic", out mark) || mark != "1") return new Res(403, "header");
-        string g = m.Groups[1].Value, dir = Path.Combine(root, g == "mine" ? "my_songs" : g == "gen" ? "generated" : g == "video" ? "videos" : "songs");
+        string g = m.Groups[1].Value, dir = g.StartsWith("export/") ? Path.Combine(root, "exports", g.Substring(7)) : Path.Combine(root, g == "mine" ? "my_songs" : g == "gen" ? "generated" : "songs");
         if (!m.Groups[2].Success) {
             if (method != "GET") return new Res(405, null);
             Directory.CreateDirectory(dir);

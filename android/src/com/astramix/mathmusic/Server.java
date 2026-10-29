@@ -21,18 +21,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 // The app's local server inside the APK — the same as viz/serve.js and the one in MathMusic.exe (viz/launcher.cs):
-// the page on http://localhost:<port>/, my_songs/, generated/, songs/ and videos/ through /api/…, and only for the app
+// the page on http://localhost:<port>/, my_songs/, generated/, songs/ and the exports (export/<kind>) through /api/…, and only for the app
 // (a localhost Host, the x-mathmusic header, plain file names). Plain Java with no Android classes, so test/serve.test.js
 // runs it on the desktop JVM with the same checks:  java -cp <classes> com.astramix.mathmusic.Server <root> <port>
 public final class Server {
     public interface Page { byte[] bytes() throws IOException; }
 
     static final Pattern HOST = Pattern.compile("^(localhost|127\\.0\\.0\\.1)(:\\d+)?$");
-    static final Pattern API = Pattern.compile("^/api/(mine|gen|songs|video)(?:/([^/]+))?$");
+    static final Pattern API = Pattern.compile("^/api/(mine|gen|songs|export/(?:mp3|wav|ogg|midi|stems|tuning|musicxml|code|video))(?:/([^/]+))?$");
     static final Pattern SONG_FILE = Pattern.compile("^[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.js$");
-    static final Pattern VIDEO_FILE = Pattern.compile("^[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.(mp4|webm)$");
+    static final Pattern EXPORT_FILE = Pattern.compile("^[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.(mp3|wav|ogg|mid|zip|musicxml|js|mp4|webm)$");
+    public static final String[] EXPORT_KINDS = { "mp3", "wav", "ogg", "midi", "stems", "tuning", "musicxml", "code", "video" };
 
-    final Map<String, File> dirs; // mine gen songs video → folders
+    final Map<String, File> dirs; // mine gen songs export/<kind> → folders
     final Page page;
     ServerSocket socket;
 
@@ -126,7 +127,7 @@ public final class Server {
     }
 
     static boolean okName(String f, String g) {
-        return g.equals("video") ? VIDEO_FILE.matcher(f).matches() : SONG_FILE.matcher(f).matches() || f.equals("library.json");
+        return g.startsWith("export/") ? EXPORT_FILE.matcher(f).matches() : SONG_FILE.matcher(f).matches() || f.equals("library.json");
     }
 
     Res route(String method, String target, Map<String, String> h, byte[] body) throws IOException {
@@ -192,7 +193,7 @@ public final class Server {
         dirs.put("mine", new File(root, "my_songs"));
         dirs.put("gen", new File(root, "generated"));
         dirs.put("songs", new File(root, "songs"));
-        dirs.put("video", new File(root, "videos"));
+        for (String k : EXPORT_KINDS) dirs.put("export/" + k, new File(root, "exports/" + k));
         Server s = new Server(dirs, new Page() {
             public byte[] bytes() throws IOException { return Files.readAllBytes(new File(root, "MathMusic Live.html").toPath()); }
         });

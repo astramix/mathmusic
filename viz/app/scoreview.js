@@ -4,7 +4,8 @@
 // Dorico, Sibelius. The model is src/score.js (also MusicXML's), drawn here as SVG in the SMuFL font Bravura
 // (Steinberg, SIL Open Font License — viz/vendor/bravura/OFL.txt) with its engraving defaults.
 import { app } from './app.js'
-import { h, toast, download } from './ui.js'
+import { h, toast } from './ui.js'
+import { saveExport } from './export.js'
 import { buildScore, staffStep, guessParts } from './score.js'
 import { musicXml } from './musicxml.js'
 import { MODES } from './modes.js'
@@ -88,11 +89,11 @@ export function createScoreView(root) {
     info.textContent = `${app.tonalityOf?.(cur.song, cur.key) ?? ''} · ${score.bars.length} тактов${score.swing ? ' · swing' : ''}${sig.fifths == null ? ' · ключевые знаки лада' : ''} · ${Math.round(performance.now() - t0)} мс`
     draw()
   }
-  function exportXml() {
+  async function exportXml() {
     if (!score) return
     const name = fileName(nameIn(cur.source ?? '', cur.entry?.name ?? 'song'))
-    download(`${name}.musicxml`, new Blob([musicXml(score)], { type: 'application/vnd.recordare.musicxml+xml' }))
-    toast(`📜 ${name}.musicxml — ${score.parts.length} ${score.parts.length === 1 ? 'партия' : 'партии'}, ${score.bars.length} тактов; микротоны с точным <alter> и знаками SMuFL`, { kind: 'ok', ms: 7000 })
+    const where = await saveExport('musicxml', `${name}.musicxml`, new Blob([musicXml(score)], { type: 'application/vnd.recordare.musicxml+xml' }))
+    toast(`${where}\n📜 ${score.parts.length} ${score.parts.length === 1 ? 'партия' : 'партии'}, ${score.bars.length} тактов; микротоны с точным <alter> и знаками SMuFL`, { kind: 'ok', ms: 7000 })
   }
 
   // ---- layout ------------------------------------------------------------------------------------------------------
