@@ -7,7 +7,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { generate, STYLES, describe } from './src/generate.js'
+import { generate, STYLES, describe, styleGroups } from './src/generate.js'
 import { MELODIES } from './src/melodies.js'
 
 const args = process.argv.slice(2), opt = {}
@@ -17,7 +17,7 @@ for (let i = 0; i < args.length; i++) {
   opt[k] = v
 }
 if (opt.list || !opt.style) {
-  console.log('styles:\n' + Object.entries(STYLES).map(([id, s]) => `  ${id.padEnd(10)} ${s.emoji} ${s.label} · ${s.bpm.join('–')} BPM`).join('\n'))
+  console.log('styles, by family:\n' + styleGroups().map(f => `${f.emoji} ${f.label} — ${f.about}\n` + f.list.map(({ id }) => `  ${id.padEnd(14)} ${STYLES[id].emoji} ${STYLES[id].label} · ${STYLES[id].bpm.join('–')} BPM`).join('\n')).join('\n'))
   console.log('\nmelodies:\n' + MELODIES.map(m => `  ${m.id.padEnd(16)} ${m.title} (${m.key})`).join('\n'))
   if (!opt.style) console.log('\nexample: node generate.js --style bossa --seed 7 --render')
   process.exit(0)

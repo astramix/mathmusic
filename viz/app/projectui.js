@@ -7,7 +7,7 @@ import { app } from './app.js'
 import { h, esc, toast, modal, contextMenu, ask } from './ui.js'
 import * as acorn from './acorn.js'
 import { INSTRUMENTS, INSTRUMENT, GROUPS, MAX_TRACKS, readProject, writeProject, isProject, newProjectSource, readTrackNotes, roleOf, instrumentFor, alignedParts } from './project.js'
-import { generate, STYLES, STYLE_LIST } from './generate.js'
+import { generate, STYLES, STYLE_LIST, styleGroups } from './generate.js'
 import { MODE_GROUPS, keyFor, MODES } from './modes.js'
 import { harmonize } from './harmonize.js'
 import { parentMode } from './modes.js'
@@ -232,7 +232,7 @@ export function rewrite(id) {
 const row = (label, ...kids) => h('div', { class: 'row' }, h('label', {}, label), ...kids)
 function styleSelect(own = true, value = null) {
   const s = h('select')
-  for (const st of STYLE_LIST.filter(st => own || !OWN.includes(st.id))) s.append(new Option(`${st.emoji} ${st.label}`, st.id))
+  for (const f of styleGroups(st => own || !OWN.includes(st.id))) s.append(h('optgroup', { label: `${f.emoji} ${f.label}` }, ...f.list.map(st => new Option(`${st.emoji} ${st.label}`, st.id))))
   s.value = value ?? (app.current?.song?.generator?.style && (own || !OWN.includes(app.current.song.generator.style)) ? app.current.song.generator.style : 'lofi')
   return s
 }
@@ -342,7 +342,7 @@ export function createTrackList(root, pr) {
   function projectMenu(t) {
     const others = refSelect(t.id).options.length > 0
     return [
-      { icon: '🎵', label: 'Сочинить мелодию в стиле', items: () => STYLE_LIST.map(s => ({ icon: s.emoji, label: s.label, action: () => composeMelody(t.id, s.id) })) },
+      { icon: '🎵', label: 'Сочинить мелодию в стиле', items: () => styleGroups().map(f => ({ icon: f.emoji, label: f.label, items: () => f.list.map(s => ({ icon: s.emoji, label: s.label, action: () => composeMelody(t.id, s.id) })) })) },
       { icon: '🎼', label: 'Партия под мелодию другой дорожки…', disabled: !others, action: () => arrangeDialog(t.id), note: others ? 'бас, аккорды, подголосок, барабаны — по роли инструмента' : 'нужна другая дорожка с мелодией' },
       { icon: '🔁', label: 'Переписать', disabled: !t.gen, action: () => rewrite(t.id), note: t.gen ? `${styleLabel(t.gen.style)} — новый вариант` : 'для дорожки, сочинённой стилем' },
       '-',

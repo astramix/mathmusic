@@ -352,6 +352,88 @@ export const MELODIES = [
       [12, -1, 2], [14, 2, 2], [16, 4, 1.5], [17.5, 7, 0.5], [18, 9, 1], [19, 7, 1], [20, 9, 1], [21, 7, 1], [22, 5, 1], [23, 4, 1],
       [24, 2, 2], [26, -1, 1], [27, 2, 1], [28, 0, 4]],
   },
+  // ---- our own themes for the new styles (each `only` its style, so the other styles' seeds keep their songs) ----
+  // "Skyline": the festival hook — 3 + 3 + 2 eighths climbing through vi – IV – I – V, the top note on the "and"
+  {
+    id: 'edm-skyline', from: 'edm', title: 'Skyline (фестивальный хук)', key: 'C', base: 'C5', feel: 'straight', per: 4, modal: true, only: 'edm',
+    moods: ['epic', 'bright', 'pop'], chords: ['vi', 'IV', 'I', 'V'],
+    notes: [[0, -3, 0.75], [0.75, 0, 0.75], [1.5, 4, 1], [2.5, 2, 0.5], [3, 0, 0.5], [3.5, -3, 0.5],
+      [4, -3, 0.75], [4.75, 0, 0.75], [5.5, 5, 1], [6.5, 4, 0.5], [7, 0, 1],
+      [8, -5, 0.75], [8.75, 0, 0.75], [9.5, 4, 1], [10.5, 2, 0.5], [11, 0, 0.5], [11.5, 4, 0.5],
+      [12, 2, 0.75], [12.75, -1, 0.75], [13.5, -5, 1.5], [15, -1, 0.5], [15.5, 2, 0.5]],
+  },
+  // "Afterglow": a long-breathed minor line over i – VII – VI – VII, sung by the supersaw
+  {
+    id: 'edm-afterglow', from: 'edm', title: 'Afterglow (минорный гимн)', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: true, only: 'edm',
+    moods: ['epic', 'night', 'dark'], chords: ['i', 'VII', 'VI', 'VII'],
+    notes: [[0, 12, 1.5], [1.5, 10, 0.5], [2, 7, 1], [3, 5, 0.5], [3.5, 7, 0.5],
+      [4, 10, 1.5], [5.5, 7, 0.5], [6, 5, 1], [7, 2, 1],
+      [8, 8, 2], [10, 3, 1], [11, 5, 0.5], [11.5, 7, 0.5],
+      [12, 10, 1.5], [13.5, 12, 0.5], [14, 14, 2]],
+  },
+  // "Mirrorball": a disco line in syncopated sixteenths and octave leaps over i7 – iv7 – VII7 – IIImaj7
+  {
+    id: 'disco-mirrorball', from: 'disco', title: 'Mirrorball (диско-хук)', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'disco',
+    moods: ['pop', 'bright', 'night'], chords: ['i7', 'iv7', 'VII7', 'IIImaj7'],
+    notes: [[0, 12, 0.5], [0.5, 12, 0.25], [0.75, 10, 0.5], [1.25, 7, 0.75], [2, 7, 0.5], [2.5, 10, 0.5], [3, 12, 0.75], [3.75, 15, 0.25],
+      [4, 17, 0.75], [4.75, 15, 0.5], [5.25, 12, 0.75], [6, 8, 1], [7, 5, 0.5], [7.5, 7, 0.5],
+      [8, 10, 0.5], [8.5, 10, 0.25], [8.75, 14, 0.5], [9.25, 17, 0.75], [10, 14, 1], [11, 12, 0.5], [11.5, 10, 0.5],
+      [12, 7, 1.5], [13.5, 3, 0.5], [14, 7, 0.5], [14.5, 10, 0.5], [15, 14, 1]],
+  },
+  // "Roller Rink": I – vi – ii – V twice round, two chords a bar, each phrase starting on the chord's third or fifth
+  {
+    id: 'disco-rollerrink', from: 'disco', title: 'Roller Rink (мажорный грув)', key: 'F', base: 'F4', feel: 'straight', per: 2, modal: false, only: 'disco',
+    moods: ['pop', 'sunny', 'bright'], chords: ['Imaj7', 'vi7', 'ii7', 'V7', 'iii7', 'vi7', 'ii7', 'V7'],
+    notes: [[0, 4, 0.5], [0.5, 7, 0.5], [1, 11, 0.75], [1.75, 9, 0.25], [2, 7, 1], [3, 4, 0.5], [3.5, 0, 0.5],
+      [4, 2, 0.5], [4.5, 5, 0.5], [5, 9, 0.75], [5.75, 7, 0.25], [6, 5, 1], [7, 4, 0.5], [7.5, 2, 0.5],
+      [8, 4, 0.5], [8.5, 7, 0.5], [9, 11, 0.75], [9.75, 14, 0.25], [10, 12, 1], [11, 11, 0.5], [11.5, 9, 0.5],
+      [12, 9, 1], [13, 7, 0.5], [13.5, 5, 0.5], [14, 4, 1.5], [15.5, 2, 0.5]],
+  },
+  // "Banners": the horns' heroic line over i – VI – III – VII, half notes on the chord tones, the run up between
+  {
+    id: 'epic-banners', from: 'epic', title: 'Banners (тема валторн)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: true, only: 'epic',
+    moods: ['epic', 'dark'], chords: ['i', 'VI', 'III', 'VII'],
+    notes: [[0, 7, 1.5], [1.5, 5, 0.5], [2, 3, 1], [3, 7, 1],
+      [4, 12, 2], [6, 8, 1.5], [7.5, 7, 0.5],
+      [8, 10, 1.5], [9.5, 8, 0.5], [10, 7, 2],
+      [12, 5, 1], [13, 7, 1], [14, 10, 1], [15, 14, 1]],
+  },
+  // "Last Stand": i – iv – VI – V in harmonic minor, climbing a sixth and falling onto the leading tone
+  {
+    id: 'epic-laststand', from: 'epic', title: 'Last Stand (последний бой)', key: 'Cm', base: 'C4', feel: 'straight', per: 4, modal: false, only: 'epic',
+    moods: ['epic', 'dark'], chords: ['i', 'iv', 'VI', 'V'],
+    notes: [[0, 12, 1], [1, 15, 1], [2, 19, 1.5], [3.5, 17, 0.5],
+      [4, 17, 2], [6, 20, 1], [7, 19, 0.5], [7.5, 17, 0.5],
+      [8, 15, 1.5], [9.5, 12, 0.5], [10, 20, 2],
+      [12, 19, 1], [13, 17, 0.5], [13.5, 15, 0.5], [14, 14, 1], [15, 11, 1]],
+  },
+  // "Conveyor Dawn": the town's riff — a broken chord turning like a belt (5–3–5–7–8), I – V – vi – IV
+  {
+    id: 'factory-dawn', from: 'factory', title: 'Conveyor Dawn (город)', key: 'D', base: 'D5', feel: 'straight', per: 4, modal: true, only: ['factory', 'factorycave', 'factorydanger'],
+    moods: ['game', 'bright', 'epic'], chords: ['I', 'V', 'vi', 'IV'],
+    notes: [[0, 7, 0.5], [0.5, 4, 0.25], [0.75, 7, 0.5], [1.25, 11, 0.25], [1.5, 12, 1], [2.5, 11, 0.5], [3, 9, 0.5], [3.5, 7, 0.5],
+      [4, 11, 0.5], [4.5, 7, 0.25], [4.75, 11, 0.5], [5.25, 14, 0.25], [5.5, 16, 1], [6.5, 14, 0.5], [7, 11, 1],
+      [8, 12, 0.5], [8.5, 9, 0.25], [8.75, 12, 0.5], [9.25, 16, 0.25], [9.5, 19, 1], [10.5, 16, 0.5], [11, 14, 0.5], [11.5, 12, 0.5],
+      [12, 12, 0.75], [12.75, 9, 0.75], [13.5, 7, 1], [14.5, 5, 0.5], [15, 4, 0.5], [15.5, 2, 0.5]],
+  },
+  // "Deep Ore": the caves' line — long tones and a turn, i – VI – III – VII, a lot of air between
+  {
+    id: 'factory-deepore', from: 'factory', title: 'Deep Ore (пещеры)', key: 'Em', base: 'E4', feel: 'straight', per: 4, modal: true, only: ['factory', 'factorycave', 'factorydanger'],
+    moods: ['dark', 'space', 'game'], chords: ['i', 'VI', 'III', 'VII'],
+    notes: [[0, 7, 1.5], [1.5, 10, 0.5], [2, 12, 2],
+      [4, 15, 1], [5, 14, 0.5], [5.5, 12, 0.5], [6, 8, 2],
+      [8, 7, 1.5], [9.5, 5, 0.5], [10, 3, 2],
+      [12, 5, 1], [13, 2, 1], [14, 10, 2]],
+  },
+  // "Core Breach": the alarm's riff — driving eighths round the tonic, i – VI – VII – i – iv – V in harmonic minor
+  {
+    id: 'factory-breach', from: 'factory', title: 'Core Breach (опасность)', key: 'Cm', base: 'C5', feel: 'straight', per: 2, modal: false, only: ['factory', 'factorycave', 'factorydanger'],
+    moods: ['epic', 'dark', 'game'], chords: ['i', 'i', 'VI', 'VII', 'i', 'i', 'iv', 'V'],
+    notes: [[0, 0, 0.5], [0.5, 3, 0.5], [1, 7, 0.5], [1.5, 3, 0.5], [2, 0, 0.5], [2.5, 3, 0.5], [3, 8, 0.5], [3.5, 7, 0.5],
+      [4, 8, 0.5], [4.5, 7, 0.5], [5, 3, 0.5], [5.5, 0, 0.5], [6, 10, 0.5], [6.5, 7, 0.5], [7, 5, 0.5], [7.5, 2, 0.5],
+      [8, 0, 0.5], [8.5, 3, 0.5], [9, 7, 0.5], [9.5, 12, 0.5], [10, 15, 1], [11, 12, 0.5], [11.5, 10, 0.5],
+      [12, 8, 1], [13, 5, 0.5], [13.5, 8, 0.5], [14, 11, 1], [15, 7, 0.5], [15.5, 2, 0.5]],
+  },
 ]
 
 // Progressions for sections without a borrowed theme (intro, bridge, breakdown, solo), per mood.

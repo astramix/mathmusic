@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { generate, STYLES } from '../src/generate.js'
+import { generate, STYLES, STYLE_FAMILIES, STYLE_LIST } from '../src/generate.js'
 import { pc, songKey, SCALES } from '../src/theory.js'
 
 const DIR = path.resolve('out/_test_gen')
@@ -15,6 +15,15 @@ const load = async (name, source) => {
   fs.writeFileSync(file, source.replace(/(['"])\.\.\/src\//g, '$1../../src/'))
   return (await import(pathToFileURL(file).href + '?' + Date.now())).default
 }
+
+// the families: every style in exactly one, the menus list the styles in their order
+test('style families hold every style once, in the menu order', () => {
+  const all = STYLE_FAMILIES.flatMap(f => f.styles)
+  assert.deepEqual([...all].sort(), Object.keys(STYLES).sort())
+  assert.equal(new Set(all).size, all.length)
+  assert.deepEqual(STYLE_LIST.map(s => s.id), all)
+  for (const f of STYLE_FAMILIES) assert.ok(f.label && f.emoji && f.about && f.styles.length, f.id)
+})
 
 test('same seeds → the same song; another melody seed → other melodies, same arrangement', () => {
   const a = generate({ style: 'lofi', seed: 42 }), b = generate({ style: 'lofi', seed: 42 })

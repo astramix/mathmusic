@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (18 styles × 3 seeds: loads, renders, lead on its chords), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (24 styles × 3 seeds: loads, renders, lead on its chords; every style in one family), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -110,15 +110,22 @@ breathe, swing})` → events for a solo.
 
 Builders (inside audio()): `poly(tone, {life, release})` → p(), p.hit(f, vel, durSec, delaySec) ·
 `trigger()` → fire(key) true once per new key (use x − τ / note start) · `ar(attackMs, releaseMs)` ·
-`plucker({life, decay})` KS strings, p.hit(f, vel, {bright, at samples}) · `guitarBody()` ·
-`strings({voices, attack, release, cutoff, gain})` → s(freqs[]) ⇒ [l, r] ·
+`plucker({life, decay})` KS strings, p.hit(f, vel, {bright, at samples}) — exactly tuned (fractional delay minus the loop filter's
+and the interpolation's phase delay; it used to round to whole samples: +8…+26 ¢) · `guitarBody()` ·
+`strings({voices, attack, release, cutoff, gain})` → s(freqs[]) ⇒ [l, r] (with the body's resonances 280 Hz, 1.1 / 2.7 kHz) ·
 `flute()` → fl(f, on) · `voice({size, breath, rough})` → v(f, F[3], on) ·
 `meower({size, rough})` → c(n from F5, u|null, tSec) · `bowed({base, body, sec})` → b(note, tSec) ·
 `pulse(duty)`, `triangle4()`, `lfsr({metal})` → n(rateHz) chip channels ·
-drums: `kickDrum()` (τ in BEATS, on), `snareDrum, clapDrum, hatDrum({decay, cutoff}), rimDrum,
+drums: `kickDrum()` (τ in BEATS, on), `snareDrum` (two membrane modes 1 : 1.59 struck sharp, wires, the stick's crack), `clapDrum, hatDrum({decay, cutoff}), rimDrum,
 shakerDrum` (t in SECONDS, on), `brushDrum()` → w(level) · `metal(scale)` 808 cymbal source ·
 hardstyle: `hardKick({tail, drop, drive, bias, tone, sub, crush})` → k(t s, f tail Hz, on) (tune f to the key),
 `reverseBass({drive, open, q})` → r(u ∈ [0,1) | null, f), `duck(t s, depth, release)` sidechain gain ·
+stage: `clubKick({punch, decay, click, drive})` → k(t s, f, on) (two-stage dive onto f — tune it to the tonic) ·
+`crashCymbal({decay})` → c(t s, on) · `clankTone` (struck steel, free-bar modes 1, 2.76, 5.40, 8.93) and `pluckTone` (a saw whose
+harmonics die one by one = a closing filter, additive) and `spiccatoTone` (three players, body resonances) = (f, t, vel) for poly(),
+the last two with .voice · `electricBass({bright, sustain})` → b(), b.hit(f, vel, {slap}), b.mute(τ) · `funkGuitar()` → g(),
+g.strum(freqs, vel, {up, gap, dead}), g.mute(τ) (both exactly tuned KS) · `monoSynth({cutoff, env, res, decay, glide, sub, drive})`
+→ s(f, on, vel) (2 saws + sub square, 24 dB resonant low-pass with an envelope) ·
 textures: `vinyl()`, `rain()` → [l, r] · effects: `chorus({rate, depth, mix})`, `tape({wow, flutter,
 drive, tone})` → (l, r) ⇒ [l, r].
 Middle East (the exactly tuned strings: a quarter tone is a quarter tone): `oud()` / `qanun()` → o() sample, o.hit(f, vel,
@@ -314,7 +321,13 @@ eighth tones of expressive intonation (leading tone +25 ¢, ♭6→5 −25 ¢, g
 tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between notes) wraps hz (imported as hz12), withNow
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic ambient — each: tempo/keys, forms
+**Families** (`STYLE_FAMILIES`, the menus' order, most finished first; `STYLE_LIST` follows it, `styleGroups(keep)` for menus/optgroups,
+`familyOf(id)`): ⚔️ Арена (boss jbattle) · 🎮 Игровой (factory factorycave factorydanger chiptune) · ⚡ Неоновый танцпол (edm
+synthwave) · 📻 Радиоволна (disco kawaii) · 🎬 Большой экран (epic) · 🏛️ Концертный зал (romantic classical fugue) · 🌙 После
+полуночи (jazz bossa lofi) · 🌌 Невесомость (ambient space) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🎈 Разное (meow).
+A new style goes into a family (test/generate.test.js checks every style is in exactly one).
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic ambient
+edm disco epic factory factorycave factorydanger — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -391,6 +404,27 @@ style → bossData, hardstyle kick on the tonic, reverse bass, `pumpAt`, build r
 shakuhachi lead, koto (oshide) or shamisen (tremolo) lead2, horn stabs, timpani as the bass, a koto arp, the taiko
 kit (odaiko/nagado/shime/ka/kane, a roll doubling through builds), thunder/bell/riser fx. Its themes come from the
 five Japanese songs (`only: 'jbattle'`); the solo is an improvised koto/shamisen solo.
+**The stage** (`S.club` / `S.stage` → `stageData`): SEC, sectionEnd, KEY_UP/trAt in the code; a club style also gets KICK_N (the kick's body on
+the tonic, D♯1–D2), `KICK` (16 steps per energy), `kickAt` (none in the bridge unless `club.bridgeKick`, none in a build-up's last bar —
+the silence before the drop), `pumpAt` (duck × `club.pump`, ×0.6 below a drop) and a 'kick' track (`clubKickTrack`, `club.sound`).
+Recipes then get `hard: true` (pumpAt) and `variant`, `pump`, `dark`, `r`; `S.counter` picks the counter-voice, `S.gains` { lead, lead2,
+counter, chords, pad, bass, arp, kick } evens out the mix. No meters (four on the floor). Kits on `stageHits` (a pattern per bar from the
+role and energy, the build-up's roll 1 → ½ → ¼ → ⅛).
+**edm** (⚡ Фестивальный EDM, 124–128): supersaw hook in the drops, LEADS.pluck (pluckTone, dotted-eighth echo), CHORDS.pumpsaw
+(supersaws, low-pass by energy), BASSES.clubbass (off-beat eighths, rolling sixteenths in the final drop), ARPS.pluckarp,
+KITS.edm (clap + snare, off-beat open hats, crash), TEXTURES.sweeps (riser, downlifter, impact). Themes Skyline, Afterglow (`only`).
+**disco** (🪩 Нью-диско и фанк, 112–122): LEADS.moog (monoSynth) / trumpet / sax, CHORDS.funkguitar (16th chicken scratch: X chop muted
+after 0.1 beat, x dead "chk", down/up strokes), BASSES.slapbass (electricBass, slap on the roots, pops on the octaves, staccato),
+ARPS.horns (brass on the "and" of 2 and on 4, a fall every 4th bar), KITS.disco (tambourine = riqDrum jingle, toms). Mirrorball, Roller Rink.
+**epic** (🎬 Эпический трейлер, 84–100, `stage: true`, no club kick): LEADS.hornsection (brass: f, f·1.0017, f/2), CHORDS.ostinato (spiccato
+in 3 + 3 + 2, sixteenths in the action), BASSES.lowstrings (celli + basses in octaves; bowed when calm), KITS.epic (taiko, toms, military
+snare, the boom 70 → 32 Hz, a reversed crash into each drop), TEXTURES.braam. Themes Banners, Last Stand.
+**factory / factorycave / factorydanger** (🎮 конвейер — the music of factory games like Mindustry, Factorio: late-pixel synths ≈ 120 BPM
+with an epic edge; `variant` city / cave / danger): ARPS.conveyor (the belt: 16 chord-tone steps drawn by the instrument seed, rests,
+accents every 3 sixteenths = 3 : 4), LEADS.synthlead (monoSynth + chorus/echo), BASSES.seqbass (sequence R/8/5/♭7 per variant),
+KITS.factory (snare, hats, clank on the off-steps, rim; the caves in half time with a shaker, danger with toms and a crash every 2 bars),
+TEXTURES.machines (hum on the tonic, a piston every 2 beats, steam) / drips (water drops, tunnel wind) / alarm (a siren far away in the
+drops, explosions). Themes Conveyor Dawn, Deep Ore, Core Breach (`only` the three); modes by their own dice (mixolydian / dorian, phrygian).
 
 ## The app (viz/: build.js inlines everything into MathMusic Live.html)
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
@@ -512,3 +546,9 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | misty-harbour | generated celtic (seed 6) | 107 | A mixolydian | jig in 6/8 on the uilleann pipes with drones, rolls and cuts, flute air, harp, bodhrán |
 | tidal-fields | generated ambient (seed 2, harmonic) | 66 | C harmonic series | loops of 17 … 41½ beats, LCM in centuries; overtones 8–15 over their fundamental |
 | kitsune-bi | jbattle: fox chase in 12/8 | 112 (dotted ♩) | Am→Bm | 2.5 min, hirajoshi, triplet grid, hemiola 3:2, celesta fox fires (hash), shakuhachi improvises, two themes at once |
+| thorium-district | generated factory (seed 1): conveyor, town | 121 | C mixolydian | the belt (a seeded 16-step pluck sequence, accents 3 : 4), sequenced analog bass, clanks, plant hum, Conveyor Dawn |
+| echoing-grotto | generated factorycave (seed 1): conveyor, caves | 111 | D phrygian | half-time kick, dark pumping saws, choir pad, water drops and tunnel wind, long echoes, Deep Ore |
+| breach-swarm | generated factorydanger (seed 1): conveyor, danger | 131 | D phrygian | build-ups → drops, supersaw, supersaw stabs, toms, a siren far away, Core Breach |
+| skyline-pulse | generated edm (seed 1) | 125 | Fm | club kick on the tonic, sidechain 0.75, pluck, off-beat bass, riser + impact, breakdown without the kick |
+| funky-fever | generated disco (seed 1) | 115 | Dm | chicken-scratch guitar and slap bass (exactly tuned KS), horn section, Moog lead, Mirrorball |
+| shattered-oath | generated epic (seed 1) | 89 | Cm | spiccato ostinato 3 + 3 + 2, horn section, taiko + boom, braams, reversed cymbals, Last Stand |

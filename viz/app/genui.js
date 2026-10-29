@@ -3,7 +3,7 @@
 // dialog. Generated songs land in "Сгенерированные" (files in generated/, the last 20); Ctrl+S moves one to my_songs/.
 import { app } from './app.js'
 import { h, esc, toast, modal, seg } from './ui.js'
-import { generate, STYLES, STYLE_LIST, describe, METER_LIST } from './generate.js'
+import { generate, STYLES, STYLE_LIST, describe, METER_LIST, styleGroups, familyOf } from './generate.js'
 import { MELODIES } from './melodies.js'
 import { keyLabel, parseKey } from './theory.js'
 import { MODE_GROUPS, keyFor, tonalityLabel } from './modes.js'
@@ -130,7 +130,8 @@ export function menuItems() {
   const g = genOf()
   return [
     { header: 'Новая песня в стиле…' },
-    ...STYLE_LIST.map(s => ({ icon: s.emoji, label: s.label, action: () => { last.style = s.id; remember(); create({ style: s.id }) } })),
+    // a submenu per family, the most finished first
+    ...styleGroups().map(f => ({ icon: f.emoji, label: f.label, note: f.about, items: () => f.list.map(s => ({ icon: s.emoji, label: s.label, checked: s.id === last.style, action: () => { last.style = s.id; remember(); create({ style: s.id }) } })) })),
     { icon: '🎲', label: 'Случайный стиль', action: () => create({ style: STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id }) },
     '-',
     { header: g ? `Эта песня: ${STYLES[g.style]?.emoji ?? ''} ${STYLES[g.style]?.label ?? g.style} · seed ${g.seed}` : 'Мутации — для сгенерированной песни' },
@@ -150,7 +151,7 @@ export function menuItems() {
 function dialog() {
   const box = h('div')
   const style = h('select')
-  for (const s of STYLE_LIST) style.append(new Option(`${s.emoji} ${s.label}`, s.id))
+  for (const f of styleGroups()) style.append(h('optgroup', { label: `${f.emoji} ${f.label}` }, ...f.list.map(s => new Option(`${s.emoji} ${s.label}`, s.id))))
   style.value = last.style
   const key = h('select')
   key.append(new Option('авто — из стиля', ''))
@@ -187,7 +188,8 @@ function dialog() {
   const info = h('div', { class: 'dim' })
   const describeStyle = () => {
     const S = STYLES[style.value]
-    info.innerHTML = S.about ? `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · ${esc(S.about)}` : `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · тональности ${S.keys.join(', ')} · лид: ${S.lead.join(' / ')} · аккорды: ${S.chords.join(' / ')} · бас: ${S.bass.join(' / ')} · барабаны: ${S.kit}`
+    const F = familyOf(style.value)
+    info.innerHTML = `${F.emoji} ${esc(F.label)} — ${esc(F.about)}<br>` + (S.about ? `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · ${esc(S.about)}` : `${esc(S.label)}: ${S.bpm[0]}–${S.bpm[1]} BPM · тональности ${S.keys.join(', ')} · лид: ${S.lead.join(' / ')} · аккорды: ${S.chords.join(' / ')} · бас: ${S.bass.join(' / ')} · барабаны: ${S.kit}`)
   }
   style.onchange = describeStyle
   describeStyle()
@@ -198,7 +200,7 @@ function dialog() {
     h('div', { class: 'row' }, h('label', {}, 'Лад'), mode, h('span', { class: 'dim' }, 'тоника — из тональности')),
     h('div', { class: 'row' }, h('label', {}, 'Строй'), temper, h('span', { class: 'dim' }, 'как звучат 12 нот: темперации, чистый строй')),
     h('div', { class: 'row' }, h('label', {}, 'Микротоны'), micro, h('span', { class: 'dim' }, 'мелодии в четвертях или восьмых тона')),
-    h('div', { class: 'row' }, h('label', {}, 'Размер'), meterSel, h('span', { class: 'dim' }, 'кроме босс-битвы и японской битвы: у них хардстайл-бочка на каждую долю')),
+    h('div', { class: 'row' }, h('label', {}, 'Размер'), meterSel, h('span', { class: 'dim' }, 'кроме битв, EDM, диско и конвейеров: у них бочка на каждую долю')),
     h('div', { class: 'row' }, h('label', {}, 'Модуляции'), h('label', { style: 'display:inline-flex;gap:6px;align-items:center' }, mods, 'тема II и бридж в других тональностях'), h('span', { class: 'dim' }, 'через общий аккорд, Ум7, одноимённую, медианту')),
     h('div', { class: 'row' }, h('label', {}, 'Темп, BPM'), bpm),
     h('div', { class: 'row' }, h('label', {}, 'Длина'), length),

@@ -166,6 +166,8 @@ export const fm = (f, t, { ratio = 3.5, index = 2, decay = 4, idecay = 6 } = {})
 
 // Karplus–Strong strings (guitar, harp, harpsichord). p.hit(f, vel, { bright, at, pos }) plucks
 // (at = delay in samples). bright ∈ (0, 1): 0.5 = nylon, 0.65 = harpsichord.
+// The loop is a delay of D samples read between samples plus the one-zero filter a·y + (1 − a)·y₋₁ (phase delay φ):
+// D = SR/f − φ, so the pitch is exact (A4 = 440 Hz), not rounded to a whole number of samples (≈ 9 ¢ off at C6).
 export function plucker({ life = 4, decay = 0.996 } = {}) {
   const voices = [], queue = []
   const p = () => {
@@ -179,15 +181,24 @@ export function plucker({ life = 4, decay = 0.996 } = {}) {
   }
   p.hit = (f, vel = 0.5, { bright = 0.6, at = 0, pos = 7 } = {}) => {
     const make = () => {
-      const n = Math.max(2, Math.round(SR / f)), buf = new Float32Array(n), q = Math.max(1, floor(n / pos))
-      for (let i = 0; i < n; i++) buf[i] = η()
-      for (let i = n - 1; i >= q; i--) buf[i] = vel * (buf[i] - buf[i - q]) // pluck position comb
-      let i = 0
+      const P = Math.max(2, Math.round(SR / f)), ex = new Float32Array(P), q = Math.max(1, floor(P / pos))
+      for (let i = 0; i < P; i++) ex[i] = η()
+      for (let i = P - 1; i >= q; i--) ex[i] = vel * (ex[i] - ex[i - q]) // pluck position comb
+      const a = bright, ω = (TAU * f) / SR, φ = Math.atan2((1 - a) * sin(ω), a + (1 - a) * cos(ω)) / ω
+      // the linear interpolation (1 − d) + d·z⁻¹ has its own phase delay at f: solve for the fraction d with it
+      let D = Math.max(1.5, SR / f - φ)
+      for (let it = 0; it < 4; it++) { const i0 = floor(D), d = D - i0; D += SR / f - φ - i0 - Math.atan2(d * sin(ω), 1 - d + d * cos(ω)) / ω }
+      const n = Math.ceil(D) + 3, buf = new Float32Array(n)
+      let w = 0, k = 0, prev = 0
       const s = () => {
-        const a = buf[i], j = i + 1 === n ? 0 : i + 1
-        buf[i] = decay * (bright * a + (1 - bright) * buf[j])
-        i = j
-        return a
+        let p = w - D
+        if (p < 0) p += n
+        const i = floor(p), r = buf[i] + (buf[i + 1 === n ? 0 : i + 1] - buf[i]) * (p - i)
+        const y = decay * (a * r + (1 - a) * prev) + (k < P ? ex[k++] : 0)
+        prev = r
+        buf[w] = y
+        w = w + 1 === n ? 0 : w + 1
+        return y
       }
       s.life = life * SR
       return s
@@ -213,6 +224,9 @@ export function strings({ voices = 4, attack = 350, release = 800, cutoff = 3200
     pan: voices > 1 ? 0.7 * ((2 * j) / (voices - 1) - 1) : 0,
   }))
   const lp = [filter('lp'), filter('lp')], hp = [filter('hp'), filter('hp')]
+  // the instruments' bodies: the air and wood resonances (≈ 280 Hz, 1.1 kHz) and the bridge hill (≈ 2.7 kHz)
+  const BODY = [[280, 1.6, 0.45], [1100, 1.8, 0.35], [2700, 2.2, 0.3]], bodies = [BODY.map(() => filter('bp')), BODY.map(() => filter('bp'))]
+  const body = (side, y) => { let s = 0.68 * y; for (let i = 0; i < 3; i++) s += (BODY[i][2] / BODY[i][1]) * bodies[side][i](y, BODY[i][0], BODY[i][1]); return s }
   let t = 0
   return freqs => {
     t += 1 / SR
@@ -226,7 +240,7 @@ export function strings({ voices = 4, attack = 350, release = 800, cutoff = 3200
       l += a * y * Math.sqrt((1 - v.pan) / 2)
       r += a * y * Math.sqrt((1 + v.pan) / 2)
     })
-    return [gain * hp[0](lp[0](l, cutoff), 120), gain * hp[1](lp[1](r, cutoff), 120)]
+    return [gain * hp[0](body(0, lp[0](l, cutoff)), 120), gain * hp[1](body(1, lp[1](r, cutoff)), 120)]
   }
 }
 
@@ -330,12 +344,17 @@ export function kickDrum({ f0 = 48, f1 = 200, sweep = 40, decay = 6, drive = 1.4
     return on ? exp(-decay * τ) * tanh(drive * o(f0 + f1 * exp(-sweep * τ))) : 0
   }
 }
-// Snare: 0.6e^{−kt}·HP(η) + 0.4e^{−2kt}·sin 2π·tone·t
+// Snare: the batter head's two lowest modes (tone and 1.59·tone, the (0,1) and (1,1) membrane modes) struck a little
+// sharp and settling (+40 % → 0 in 6 ms), the wires — noise high-passed at `cutoff`, darkened above 9 kHz, ringing a
+// little longer than the head —, and the stick's crack (a 3 ms burst around 3.5 kHz).
+//   S = 0.78e^{−kt}·LP₉ₖHP(η) + e^{−2kt}(0.4 sin φ + 0.18 sin 1.59φ) + 0.35e^{−t/3ms}·BP₃.₅ₖ(η)
 export function snareDrum({ tone = 190, cutoff = 600, decay = 12 } = {}) {
-  const hp = filter('hp')
+  const hp = filter('hp'), lp = filter('lp'), bp = filter('bp')
   return (t, on = true) => {
-    const n = hp(η(), cutoff)
-    return on ? 0.6 * exp(-decay * t) * n + 0.4 * exp(-2 * decay * t) * sin(TAU * tone * t) : 0
+    const n = η(), wires = lp(hp(n, cutoff), 9000), crack = bp(n, 3500, 1.2)
+    if (!on) return 0
+    const ph = TAU * tone * (t + 0.4 * 0.006 * (1 - exp(-t / 0.006)))
+    return 0.78 * exp(-decay * t) * wires + exp(-2 * decay * t) * (0.4 * sin(ph) + 0.18 * sin(1.59 * ph)) + 0.35 * exp(-t / 0.003) * crack
   }
 }
 // Clap: three bursts 12 ms apart and a tail, band-passed around 1.5 kHz
@@ -994,6 +1013,159 @@ export function choir({ voices = 4, size = 1, breath = 0.06, rough = 0, gain = 0
       r += y * Math.sqrt((1 + v.p) / 2)
     })
     return [gain * l, gain * r]
+  }
+}
+
+// ---- the dance floor and the studio ---------------------------------------------------------------------------
+// Club kick: k(t s, f, on). A sine whose pitch dives from ≈ 7f onto f in two stages (6 ms and 45 ms: the "punch" and the
+// "body"), held 20 ms then dying over `decay` s, soft-clipped by tanh; the beater's click on top (a 2.5 ms burst of
+// noise above 4 kHz and a 3.2 kHz blip). Tune f to the key (≈ 45–60 Hz): the kick then sits under the bass.
+//   φ = 2πf(t + p₁τ₁(1 − e^{−t/τ₁}) + p₂τ₂(1 − e^{−t/τ₂})),  K = tanh(d·a(t) sin φ)/tanh d + c·e^{−t/2.5ms}(…)
+export function clubKick({ punch = 6, body = 1.2, decay = 0.32, click = 0.35, drive = 2.2, seed = 83 } = {}) {
+  const η = noise(seed), hp = filter('hp'), lp = filter('lp')
+  return (t, f = 50, on = true) => {
+    const n = hp(η(), 4000)
+    if (!on || t > 2) return lp(0, 9000)
+    const ph = TAU * f * (t + punch * 0.006 * (1 - exp(-t / 0.006)) + body * 0.045 * (1 - exp(-t / 0.045)))
+    const a = Math.min(1, t / 0.0006) * exp(-Math.max(0, t - 0.02) / decay)
+    const y = tanh(drive * a * sin(ph)) / tanh(drive) + click * exp(-t / 0.0025) * (0.6 * n + 0.4 * sin(TAU * 3200 * t))
+    return lp(y, 9000)
+  }
+}
+// Crash cymbal: two 808 metal sources a tritone-ish apart (inharmonic squares), noise, band-limited 3–14 kHz; a quick
+// first decay (the "smash") and a long wash. c(t s, on)
+export function crashCymbal({ decay = 1.8, seed = 89 } = {}) {
+  const η = noise(seed), m1 = metal(1.71), m2 = metal(2.43), hp = filter('hp'), bp = filter('bp'), lp = filter('lp')
+  return (t, on = true) => {
+    const s = 0.6 * bp(m1() + 0.7 * m2(), 7500, 0.7) + 0.5 * η(), y = lp(hp(s, 3000), 14000)
+    return on && t < 5 * decay ? Math.min(1, t / 0.0008) * (0.45 * exp(-t / 0.05) + 0.55 * exp(-t / decay)) * y : 0
+  }
+}
+// Clank: a struck steel part of a machine — the free bar's modes 1, 2.76, 5.40, 8.93 (each a pair 0.3 % apart: it
+// shimmers), the high ones dying first, and the strike's tick. Pure (f, t, vel) for poly().
+export const clankTone = (f, t, vel = 0.7) => {
+  const R = [1, 2.76, 5.4, 8.93], A = [1, 0.6, 0.35, 0.2], K = [1, 2.2, 4.5, 8]
+  let y = 0
+  for (let k = 0; k < 4; k++) if (R[k] * f < 16000) y += A[k] * vel ** (0.5 + 0.3 * k) * exp((-t * K[k]) / 0.35) * (sin(TAU * R[k] * f * t) + sin(TAU * R[k] * f * 1.003 * t))
+  return 0.5 * Math.min(1, t / 0.0005) * y + 0.4 * vel * exp(-t / 0.0015) * sin(TAU * 7.1 * f * t)
+}
+// Synth pluck: the sound of a saw through a low-pass whose envelope snaps shut — made additively (alias-free): every
+// harmonic k of two saws 7 ¢ apart dies at its own rate e^{−t(d + b·k)}, so the tone darkens as it fades. Pure (f, t, vel)
+// for poly(), and incremental (pluckTone.voice).
+const PLUCK = { d: 2.2, b: 1.1 }
+export function pluckTone(f, t, vel = 0.7) {
+  let y = 0
+  for (let k = 1; k <= 24 && k * f < 12000; k++) {
+    const e = exp(-t * (PLUCK.d + PLUCK.b * k * (1.3 - 0.6 * vel)))
+    if (e < 1e-4) break
+    y += (e / k) * (sin(TAU * k * f * t) + sin(TAU * k * f * 1.004 * t + k))
+  }
+  return 0.3 * vel * Math.min(1, t / 0.001) * y
+}
+pluckTone.voice = (f, vel, t0) => {
+  const P = []
+  for (let k = 1; k <= 24 && k * f < 12000; k++) for (const [r, ph] of [[1, 0], [1.004, k]]) {
+    const d = PLUCK.d + PLUCK.b * k * (1.3 - 0.6 * vel), th = TAU * k * f * r * t0 + ph, de = (TAU * k * f * r) / SR
+    P.push({ s: sin(th), c: cos(th), ds: sin(de), dc: cos(de), e: ((0.3 * vel) / k) * exp(-d * t0), q: exp(-d / SR) })
+  }
+  let t = t0
+  return () => {
+    let y = 0
+    for (const p of P) {
+      if (p.e < 1e-6) continue
+      y += p.e * p.s
+      const s = p.s * p.dc + p.c * p.ds
+      p.c = p.c * p.dc - p.s * p.ds
+      p.s = s
+      p.e *= p.q
+    }
+    t += 1 / SR
+    return Math.min(1, t / 0.001) * y
+  }
+}
+// Spiccato strings: a section of three players bouncing the bow — each a bowed tone (harmonics 1/k^0.9 shaped by the
+// body's resonances ≈ 280 Hz, 1.1 kHz, 2.7 kHz), a few cents apart and a few ms apart, the bow's scratch at the
+// start, a short decay with the highs dying first. Pure (f, t, vel) for poly(), and incremental (.voice).
+const SPICC = { det: [-6, 1, 7], lag: [0, 0.006, 0.011], body: x => 0.35 + exp(-(Math.log2(x / 280) ** 2) / 0.18) + 0.8 * exp(-(Math.log2(x / 1100) ** 2) / 0.25) + 0.6 * exp(-(Math.log2(x / 2700) ** 2) / 0.2) }
+const spiccParts = (f, vel) => {
+  const P = []
+  SPICC.det.forEach((c, j) => {
+    const g = f * 2 ** (c / 1200)
+    for (let k = 1; k <= 16 && k * g < 11000; k++) P.push({ fr: k * g, a: (0.11 * SPICC.body(k * g) * vel ** (0.3 + 0.07 * k)) / k ** 0.9, d: 1 / 0.16 + 0.9 * k, lag: SPICC.lag[j], ph: hash(k, j + 3) * TAU })
+  })
+  return P
+}
+export function spiccatoTone(f, t, vel = 0.7) {
+  let y = 0
+  for (const p of spiccParts(f, vel)) { const u = t - p.lag; if (u > 0) y += p.a * Math.min(1, u / 0.006) * exp(-p.d * u) * sin(TAU * p.fr * u + p.ph) }
+  return y + 0.08 * vel * exp(-t / 0.008) * (hash(floor(t * SR), 7) * 2 - 1)
+}
+spiccatoTone.voice = (f, vel, t0) => {
+  const P = spiccParts(f, vel).map(p => {
+    const de = (TAU * p.fr) / SR, th = TAU * p.fr * Math.max(0, t0 - p.lag) + p.ph
+    return { ...p, s: sin(th), c: cos(th), ds: sin(de), dc: cos(de), e: p.a * exp(-p.d * Math.max(0, t0 - p.lag)), q: exp(-p.d / SR) }
+  })
+  let t = t0, i = floor(t0 * SR)
+  return () => {
+    let y = 0
+    for (const p of P) {
+      const u = t - p.lag
+      if (u < 0 || p.e < 1e-6) continue
+      y += p.e * Math.min(1, u / 0.006) * p.s
+      const s = p.s * p.dc + p.c * p.ds
+      p.c = p.c * p.dc - p.s * p.ds
+      p.s = s
+      p.e *= p.q
+    }
+    t += 1 / SR
+    return y + 0.08 * vel * exp(-t / 0.008) * (hash(i++, 7) * 2 - 1)
+  }
+}
+// Electric bass (a P-bass): an exactly tuned plucked string (the moving-delay Karplus–Strong of the koto) on a long
+// scale, picked near the bridge by the fingers; the pickup and the amp keep 40 Hz – 2.5 kHz with a growl at ≈ 700 Hz.
+// b.hit(f, vel, { slap }) — slap: the thumb bounces off the last fret (bright, a fret click and a thump); b.mute(τ)
+// lifts the fretting finger (staccato). Monophonic like one string under one hand.
+export function electricBass({ bright = 0.42, sustain = 2.6, seed = 97 } = {}) {
+  const set = stringSet({ bright, sustain, pos: 0.17, click: 0.002, thump: 0.3, thumpHz: 95, tension: 0.002 }, { mono: true, max: 3, seed })
+  const hp = filter('hp'), lp = filter('lp'), grr = filter('bp'), fret = filter('bp')
+  const b = () => {
+    const [y, atk] = set(), x = hp(y, 38)
+    return 0.9 * lp(x, 2500) + 0.25 * grr(x, 700, 1.4) + 0.5 * fret(atk, 2600, 1.2)
+  }
+  b.hit = (f, vel = 0.8, o = {}) => set.hit(f, vel, o.slap ? { bright: 0.9, pos: 0.08, thump: 0.9, click: 0.005, ...o } : o)
+  b.mute = set.mute
+  return b
+}
+// Funk guitar (a single-coil Strat in the middle position): six exactly tuned strings, strummed down or up a few ms
+// apart; g.mute(τ) is the fretting hand relaxing (the chord stops — a "chop"), g.strum(…, { dead: true }) the muted
+// "chk" of the chicken scratch. Pickup: 160 Hz – 5.5 kHz with the single coil's resonance near 2.3 kHz.
+export function funkGuitar({ bright = 0.8, seed = 103 } = {}) {
+  const set = stringSet({ bright, sustain: 1.4, pos: 0.12, click: 0.003 }, { max: 12, seed })
+  const hp = filter('hp'), lp = filter('lp'), coil = filter('bp'), pick = filter('bp')
+  const g = () => {
+    const [y, atk] = set(), x = hp(y, 160)
+    return 0.8 * lp(x, 5500) + 0.45 * coil(x, 2300, 1.6) + 0.6 * pick(atk, 2800, 1)
+  }
+  g.strum = (freqs, vel = 0.7, { up = false, gap = 0.007, dead = false } = {}) => {
+    const fs = up ? [...freqs].reverse() : freqs
+    fs.forEach((f, i) => set.hit(f, vel * (up ? 0.75 : 1) * (1 - 0.06 * i), { at: Math.round(i * gap * SR), bright: dead ? 0.55 : bright }))
+    if (dead) set.mute(0.008)
+  }
+  g.mute = set.mute
+  return g
+}
+// Analog mono synth (a Minimoog-like voice): two saws 9 ¢ apart and a square an octave down, through two resonant
+// state-variable low-passes in series (24 dB/oct, the second resonant, driven), the cutoff opening on each new note
+// and settling (filter envelope), glide between notes. s(f, on, vel) → sample
+export function monoSynth({ cutoff = 900, env = 3200, res = 1.6, decay = 0.25, glide = 25, sub = 0.35, drive = 1.6 } = {}) {
+  const a = osc('saw'), b = osc('saw', 0.31), q = osc('square'), f1 = filter('lp'), f2 = filter('lp'), level = ar(4, 90), gl = smooth(glide)
+  let held = 0, cur = 0
+  return (f, on, vel = 0.8) => {
+    if (on && (held === 0 || Math.abs(f / cur - 1) > 0.01)) (held = 0), (cur = f)
+    held = on ? held + 1 / SR : 0
+    const g = gl(cur || f), e = level(on ? vel : 0), fc = cutoff + env * vel * exp(-held / decay)
+    const src = 0.5 * a(g) + 0.5 * b(g * 1.0052) + sub * q(g / 2)
+    return e * tanh(drive * f2(f1(src, fc, 0.6), fc, res)) / drive
   }
 }
 
