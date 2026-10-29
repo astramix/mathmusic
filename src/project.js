@@ -91,6 +91,9 @@ export const INSTRUMENTS = [
   I('sitar', 'Ситар', PLUCK, 'poly', 'lead', [48, 84], 'hall', '#ffb060', 104,
     ['Si = 0.55x + 0.6\\BP_{180}x + 0.35\\BP_{2400}x,\\quad x:\\ D(t) = \\big(\\tfrac{SR}{f} - \\varphi\\big)\\big(1 - 0.03\\max(0, y)\\big)\\ \\text{— джавари'],
     PLUCKED('sitar({})', 0.5, '0.55 + 0.4 * v')),
+  I('funkguitar', 'Фанк-гитара', PLUCK, 'poly', 'keys', [40, 88], 'room', '#ffcf9f', 28,
+    ['G = \\Cho\\Big[0.8\\LP_{5.5\\text{к}}s + 0.45\\BP_{2.3\\text{к}}s\\Big],\\ s = \\HP_{160}\\sum_{j}\\text{струна}_j\\big(f_j,\\ t - 7j\\,\\text{мс}\\big)\\quad\\text{— аккорд одним ударом, приглушён в конце ноты'],
+    `sec => { const g = funkGuitar({ seed: 7 }), ch = chorus({ mix: 0.3, rate: 0.7 }); let q = [], qv = 0, at = -1, end = -1; return { hit: (n, v, d, b) => { q.push(F(n)); qv = Math.max(qv, v); if (b !== at) { at = b; end = b + d } else end = Math.max(end, b + d) }, out: x => { if (q.length) { g.strum(q.sort((a, c) => a - c), 0.45 + 0.5 * qv); q = []; qv = 0 } if (end > 0 && x >= end) { g.mute(0.02); end = -1 } const y = 0.8 * g(); return ch(y, y) } } }`),
 
   I('violin', 'Скрипка', BOWED, 'mono', 'lead', [55, 100], 'hall', '#ffd9a8', 40,
     ['Vn = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{R_i}\\,s\\Big),\\quad s = \\saw\\!\\big(f\\cdot 2^{\\,0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big) + 0.04\\eta', 'R = (300, 520, 1100, 2700)\\ \\text{Гц — резонансы корпуса}'],
@@ -101,6 +104,9 @@ export const INSTRUMENTS = [
   I('strings', 'Струнный оркестр', BOWED, 'chord', 'pad', [28, 96], 'hall', '#d9b8ff', 48,
     ['S = \\HP_{120}\\LP_{3000}\\sum_{j}\\sum_{u=-1}^{1}\\saw\\big(f_j\\,2^{0.09u/12}\\,2^{0.12\\sin(2\\pi r_u T)/12}\\big)\\quad\\text{— смычки, атака 0.35 с'],
     CHORD('const s = strings({ voices: 6, attack: 350, release: 800, cutoff: 3000, gain: 0.045 }), ch = chorus({ mix: 0.4 })', 'ch(...s(fs))')),
+  I('spiccato', 'Струнные спиккато', BOWED, 'poly', 'keys', [28, 96], 'hall', '#e9c46a', 48,
+    ['Sp(f,t,v) = \\sum_{j=1}^{3}\\sum_{k}\\frac{W(kf_j)\\,v^{0.3+0.07k}}{k^{0.9}}\\,e^{-(6.25 + 0.9k)(t - \\ell_j)}\\sin 2\\pi kf_j(t - \\ell_j),\\quad f_j = f\\cdot 2^{(-6, 1, 7)/1200}', 'W(x) \\text{ — резонансы корпуса } 280,\\ 1100,\\ 2700 \\text{ Гц — три музыканта, отскок смычка}'],
+    STRUCK('spiccatoTone', { release: 0.08, life: 1.2, gain: 0.9, max: 24 })),
 
   I('flute', 'Флейта', WINDS, 'mono', 'lead', [60, 96], 'echo', '#e8f4ff', 73,
     ['Fl = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.06\\,\\BP_{2g}\\,\\eta + 0.5e^{-25t}\\,\\HP_{3000}\\,\\eta\\big)', 'g = f\\cdot 2^{\\,0.2\\min(1,\\,t/0.6)\\sin(2\\pi\\cdot 5.2T)/12}'],
@@ -135,6 +141,9 @@ export const INSTRUMENTS = [
   I('brass', 'Медная группа', WINDS, 'chord', 'pad', [40, 84], 'hall', '#f4a261', 61,
     ['Br = \\sum_j \\LP_{c(v)}\\big(\\saw(f_j) + \\saw(1.0023 f_j)\\big)\\quad\\text{— по музыканту на ноту, по сцене'],
     CHORD('const b = brass({ voices: 4, bright: 0.8, gain: 0.3 })', 'b(fs, 0.8)')),
+  I('hornsection', 'Медная секция (унисон + октава)', WINDS, 'mono', 'lead', [41, 84], 'hall', '#f4a261', 61,
+    ['Hn = \\sum_{j=1}^{3}\\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g_j + \\saw 1.0023g_j\\big)\\,e(t),\\quad g = (f, 1.0017f, f/2)\\ \\text{— две валторны в унисон и одна октавой ниже}'],
+    `sec => { const b = brass({ voices: 3, bright: 0.85, gain: 0.5 }); let f = 220; return { out: (x, act) => { const m = act[act.length - 1]; if (m) f = F(m[1]); const on = !!m && x - m[0] < 0.95 * m[2]; return b(on ? [f, f * 1.0017, f / 2] : [], m ? 0.5 + 0.45 * (m[3] ?? 0.8) : 0.8) } } }`),
   I('pipes', 'Волынка', WINDS, 'mono', 'lead', [62, 86], 'room', '#8fd08f', 109,
     ['Pp = \\Pi_{0.12}(f) \\to \\text{форманты трости}\\quad\\text{— чантер'],
     MONO("const r = reed({ kind: 'oboe', breath: 0.05 })", 'r(f, on, 0.4)', 0.42)),
@@ -161,6 +170,18 @@ export const INSTRUMENTS = [
   I('chip12', 'Чип — пульс ⅛', SYNTH, 'mono', 'lead', [48, 96], 'room', '#9fd0ff', 80,
     ['\\Pi_{0.125}(f) = \\tfrac12\\big(\\saw(\\varphi) - \\saw(\\varphi + 0.125)\\big)\\quad\\text{— тоньше и звонче'],
     `sec => { const p = pulse(0.125), lp = filter('lp'), gate = smooth(1.5); let f = 440; return { out: (x, act) => { const m = act[act.length - 1]; if (m) f = F(m[1]); const held = m ? (x - m[0]) * sec : 0; return 0.5 * gate(m && x - m[0] < 0.9 * m[2] ? vol4((0.5 + 0.5 * (m[3] ?? 0.8)) * (1 - 0.35 * Math.min(1, held / 0.4))) : 0) * lp(p(f), 9000) } } }`),
+  I('pluck', 'Плак (EDM)', SYNTH, 'poly', 'lead', [48, 96], 'echo', '#7ff5d0', 84,
+    ['Pl = \\sum_{k}\\tfrac{v}{k}\\,e^{-t(2.2 + 1.1k(1.3 - 0.6v))}\\big(\\sin 2\\pi kft + \\sin(2\\pi\\,1.004kft + k)\\big)\\quad\\text{— пила, чей фильтр захлопывается: гармоника } k \\text{ гаснет со скоростью } \\propto k'],
+    STRUCK('pluckTone', { release: 0.12, life: 2.5, gain: 0.6, max: 16 })),
+  I('synthlead', 'Моно-синт (лид)', SYNTH, 'mono', 'lead', [48, 96], 'echo', '#9be7ff', 81,
+    ['Ld = \\tfrac{1}{d}\\tanh\\!\\Big(d\\,\\LP^{Q=1.4}_{f_c}\\LP_{f_c}\\big(\\tfrac12\\saw f + \\tfrac12\\saw 1.0052f + 0.3\\sq\\tfrac f2\\big)\\Big),\\quad f_c = 1100 + 2600v\\,e^{-t/0.3}\\ \\text{(портаменто 30 мс)}'],
+    MONO('const s = monoSynth({ cutoff: 1100, env: 2600, res: 1.4, decay: 0.3, glide: 30, sub: 0.3 })', 's(f, on, m ? m[3] ?? 0.8 : 0.8)', 0.5)),
+  I('moog', 'Муг (фанк-лид)', SYNTH, 'mono', 'lead', [40, 91], 'room', '#ffd166', 81,
+    ['Mg = \\tfrac1d\\tanh\\!\\Big(d\\,\\LP^{Q=2.2}_{f_c}\\LP_{f_c}\\big(\\tfrac12\\saw f + \\tfrac12\\saw 1.0052f + 0.4\\sq\\tfrac f2\\big)\\Big),\\quad f_c = 700 + 4200v\\,e^{-t/0.18}'],
+    MONO('const s = monoSynth({ cutoff: 700, env: 4200, res: 2.2, decay: 0.18, glide: 18, sub: 0.4, drive: 2 })', 's(f, on, m ? m[3] ?? 0.8 : 0.8)', 0.5)),
+  I('sawchords', 'Суперсо-аккорды (EDM)', SYNTH, 'chord', 'pad', [36, 88], 'hall', '#ff6fd8', 90,
+    ['P = \\LP^{Q=0.9}_{2400}\\sum_{j}\\SS_5(f_j),\\quad a = 1 - e^{-t/40\\text{мс}}\\quad\\text{— аккорд на суперсо, быстрая атака'],
+    CHORD("const saws = [0, 1, 2, 3, 4, 5].map(j => supersaw({ voices: 5, detune: 0.2, width: 0.95, seed: 21 + j })), lp = [filter('lp'), filter('lp')], lvs = saws.map(() => smooth(40)), fz = saws.map(() => 220)", "(() => { let l = 0, r = 0; saws.forEach((s, j) => { if (j < fs.length) fz[j] = fs[j]; const g = lvs[j](j < fs.length ? 1 : 0); if (g < 1e-4) return; const [p, q] = s(fz[j]); l += g * p; r += g * q }); return [0.06 * lp[0](l, 2400, 0.9), 0.06 * lp[1](r, 2400, 0.9)] })()")),
 
   I('upright', 'Контрабас', BASS, 'poly', 'bass', [28, 60], 'room', '#9fd3ff', 32,
     ['U(f,t,v) = v\\,e^{-t/1.4}\\big(\\sin 2\\pi ft + 0.5e^{-3t}\\sin 4\\pi ft + 0.2e^{-8t}\\sin 6\\pi ft\\big) + \\text{щипок},\\quad y = \\LP_{1600}\\,U'],
@@ -174,6 +195,18 @@ export const INSTRUMENTS = [
   I('chiptri', 'Чип — треугольник', BASS, 'mono', 'bass', [28, 72], 'dry', '#5aa7ff', 38,
     ['\\Delta_4(f) = \\tfrac{1}{8}\\big\\lfloor 16\\,\\text{tri}(\\varphi)\\big\\rfloor - 1\\quad\\text{— 4-битный треугольник NES'],
     `sec => { const tri = triangle4(), lp = filter('lp'), gate = smooth(1); let f = 55; return { out: (x, act) => { const m = act[act.length - 1]; if (m) f = F(m[1]); return 0.105 * gate(m && x - m[0] < m[2] ? 1 : 0) * lp(tri(f), 7000) } } }`),
+  I('slapbass', 'Бас-гитара (слэп)', BASS, 'poly', 'bass', [28, 67], 'dry', '#5aa7ff', 36,
+    ['y[n] = e[n] + g\\big(a\\,y[n - D] + (1 - a)\\,y[n - D - 1]\\big),\\quad D = \\tfrac{44100}{f} - \\varphi(a)\\ \\text{— струна с точным строем; слэп большим пальцем, глушение в конце ноты'],
+    `sec => { const e = electricBass({ seed: 5 }); let end = -1; return { hit: (n, v, d, b) => { e.hit(F(n), 0.55 + 0.4 * v, { slap: true }); end = b + d * 0.92 }, out: x => { if (end > 0 && x >= end) { e.mute(0.03); end = -1 } return 0.8 * e() } } }`),
+  I('clubbass', 'Клубный бас', BASS, 'mono', 'bass', [24, 60], 'dry', '#5aa7ff', 38,
+    ['B = a\\Big(0.55\\sin 2\\pi\\!\\int\\! f + 0.3\\tanh\\!\\big(1.5\\,\\LP_{120 + 1800e^{-t/60\\text{мс}}}\\saw f\\big)\\Big)\\quad\\text{— саб и пила, фильтр захлопывается'],
+    `sec => { const saw = osc('saw'), sine = osc('sine'), lp = filter('lp'), gate = smooth(3), glide = smooth(3); let f = 55; return { out: (x, act) => { const m = act[act.length - 1]; if (m) f = F(m[1]); const t = m ? (x - m[0]) * sec : 1, a = gate(m && x - m[0] < 0.92 * m[2] ? 0.45 + 0.7 * (m[3] ?? 0.8) : 0), g = glide(f); return 0.5 * a * (0.55 * sine(g) + 0.3 * tanh(1.5 * lp(saw(g), 120 + 1800 * exp(-t / 0.06)))) } } }`),
+  I('seqbass', 'Аналоговый бас (секвенсор)', BASS, 'mono', 'bass', [24, 60], 'dry', '#5aa7ff', 38,
+    ['B = \\tfrac1d\\tanh\\!\\Big(d\\,\\LP^{Q=1.2}_{f_c}\\LP_{f_c}\\big(\\tfrac12\\saw f + \\tfrac12\\saw 1.0052f + 0.5\\sq\\tfrac f2\\big)\\Big),\\quad f_c = 220 + 1500v\\,e^{-t/0.12}'],
+    MONO('const s = monoSynth({ cutoff: 220, env: 1500, res: 1.2, decay: 0.12, glide: 4, sub: 0.5, drive: 1.8 })', 's(f, on, m ? m[3] ?? 0.8 : 0.8)', 0.3)),
+  I('growl', 'Рычащий бас', BASS, 'mono', 'bass', [24, 60], 'dry', '#5aa7ff', 38,
+    ['y = 0.3\\tanh\\!\\Big(1.5\\Big[\\LP_{180 + 2600e^{-t/70\\text{мс}}}^{\\,Q=2}\\tanh\\!\\big(5(\\saw f + 0.6\\sq 1.003f)\\big) + 0.6\\sin 2\\pi\\!\\int\\! f\\Big]\\Big)'],
+    `sec => { const sw = osc('saw'), sq = osc('square'), sub = osc('sine'), lp = filter('lp'), gate = smooth(3), glide = smooth(4); let f = 55; return { out: (x, act) => { const m = act[act.length - 1]; if (m) f = F(m[1]); const g = glide(f), a = gate(m && x - m[0] < 0.92 * m[2] ? 0.45 + 0.7 * (m[3] ?? 0.8) : 0), t = m ? (x - m[0]) * sec : 1; const y = lp(tanh(5 * (sw(g) + 0.6 * sq(1.003 * g))), 180 + 2600 * exp(-t / 0.07), 2) + 0.6 * sub(g); return 0.3 * a * tanh(1.5 * y) } } }`),
 
   I('saron', 'Сарон', GAMELAN, 'poly', 'keys', [50, 80], 'hall', '#f2d38a', 13,
     ['Sa = v\\big(e^{-t/1.6}\\sin 2\\pi gt + 0.35e^{-t/0.5}\\sin 2\\pi\\,2.71gt + 0.12e^{-t/0.18}\\sin 2\\pi\\,5.34gt\\big),\\ g \\in \\{f, f + 4.5\\}\\ \\text{— омбак'],
@@ -194,6 +227,9 @@ export const INSTRUMENTS = [
   I('drums808', 'Драм-машина 808', DRUMS, 'drums', 'drums', [35, 81], 'dry', '#ff6fd8', -1,
     ['K_{808} = e^{-1.8\\tau}\\tanh\\!\\Big(2.2\\sin 2\\pi\\!\\int\\!\\big(45 + 90e^{-12\\tau}\\big)\\Big),\\quad \\text{клэп: три всплеска через 12 мс}'],
     'kit808'),
+  I('clubkit', 'Клубная установка (EDM)', DRUMS, 'drums', 'drums', [35, 81], 'dry', '#ff7ab8', -1,
+    ['K = \\tanh\\!\\Big(2.2\\sin 2\\pi\\!\\int\\! 50\\big(1 + 6e^{-t/\\ldots}\\big)\\Big)e^{-t/0.32} + \\text{щелчок},\\quad \\text{клэп, малый, хэты, крэш — General MIDI: 36 бочка, 39 клэп, 49 крэш'],
+    'clubKit'),
   I('taiko', 'Тайко', DRUMS, 'drums', 'drums', [35, 81], 'hall', '#e63946', -1,
     ['T(t) = \\sum_k a_k e^{-t/T_k}\\sin 2\\pi\\,r_k f\\big(1 + \\tfrac{b}{12}e^{-t/0.03}\\big)t + \\text{удар бати},\\quad r = (1, 1.52, 1.98, 2.46, 2.92)', '\\text{36 — одайко, 38 — нагадо, 42 — симэ, 37 — «ка», 56 — канэ}'],
     'taikoKit'),
@@ -206,7 +242,8 @@ export const INSTRUMENTS = [
 ]
 // levels evening the instruments out (measured: the same phrase on each, rms against a flute's)
 const LEVEL = { piano: 1.4, harpsichord: 2, organ: 2.5, guitar: 3, harp: 2.2, koto: 0.5, shamisen: 0.7, biwa: 0.8, oud: 1.5, qanun: 2, sitar: 5, strings: 2,
-  whistle: 0.4, shakuhachi: 0.4, trumpet: 1.4, synthpad: 2, chip12: 1.3, upright: 1.8, synthbass: 2, chiptri: 2, gong: 0.5, drums: 1.6, darbuka: 1.5 }
+  whistle: 0.4, shakuhachi: 0.4, trumpet: 1.4, synthpad: 2, chip12: 1.3, upright: 1.8, synthbass: 2, chiptri: 2, gong: 0.5, drums: 1.6, darbuka: 1.5,
+  funkguitar: 1.8, spiccato: 3.5, hornsection: 0.45, pluck: 1.6, sawchords: 2.5, slapbass: 1.8, clubbass: 0.9, seqbass: 1.5, growl: 0.6, clubkit: 0.55 }
 for (const i of INSTRUMENTS) i.level = LEVEL[i.id] ?? 1
 export const INSTRUMENT = Object.fromEntries(INSTRUMENTS.map(i => [i.id, i]))
 export const GROUPS = [...new Set(INSTRUMENTS.map(i => i.group))]
@@ -235,6 +272,17 @@ const KIT_CODE = {
       tomL: [tom(70), 0.42, sec], tomM: [tom(100), 0.4, sec], tomH: [tom(140), 0.36, sec],
     }
     const MAP = { 35: 'kick', 36: 'kick', 37: 'rim', 38: 'snare', 40: 'snare', 39: 'clap', 42: 'hat', 44: 'hat', 46: 'open', 49: 'crash', 52: 'crash', 55: 'crash', 57: 'crash', 51: 'ride', 53: 'ride', 59: 'ride', 41: 'tomL', 43: 'tomL', 45: 'tomM', 47: 'tomM', 48: 'tomH', 50: 'tomH', 54: 'shaker', 69: 'shaker', 70: 'shaker', 75: 'clave', 76: 'clave', 77: 'clave' }
+    return kitOf(D, MAP, 'clap')
+  }`,
+  clubKit: `sec => {
+    const ck = clubKick({ punch: 6, decay: 0.32, click: 0.35, drive: 2.2 })
+    const D = {
+      kick: [(t, on) => ck(t, 50, on), 0.6, sec], snare: [snareDrum({ tone: 190, cutoff: 1500, decay: 15 }), 0.26, sec],
+      clap: [clapDrum({ center: 1300 }), 0.32, sec], rim: [rimDrum(), 0.16, sec], hat: [hatDrum({ decay: 90, cutoff: 9000 }), 0.07, sec],
+      open: [hatDrum({ decay: 8, cutoff: 8000 }), 0.065, sec], ride: [hatDrum({ decay: 3, cutoff: 5500, ring: 0.9 }), 0.05, sec],
+      crash: [crashCymbal({ decay: 1.8 }), 0.16, sec], shaker: [shakerDrum(), 0.08, sec],
+    }
+    const MAP = { 35: 'kick', 36: 'kick', 37: 'rim', 38: 'snare', 40: 'snare', 39: 'clap', 42: 'hat', 44: 'hat', 46: 'open', 49: 'crash', 52: 'crash', 55: 'crash', 57: 'crash', 51: 'ride', 53: 'ride', 59: 'ride', 54: 'shaker', 69: 'shaker', 70: 'shaker' }
     return kitOf(D, MAP, 'clap')
   }`,
   taikoKit: `sec => {
@@ -272,7 +320,7 @@ const INSTRUMENT_NAMES = ['poly', 'pan', 'pianoTone', 'epianoTone', 'vibesTone',
   'flute', 'voice', 'VOWELS', 'blend', 'meower', 'bowed', 'pulse', 'triangle4', 'vol4', 'kickDrum', 'snareDrum', 'clapDrum', 'hatDrum', 'rimDrum',
   'shakerDrum', 'shamisen', 'koto', 'biwa', 'shakuhachi', 'shinobue', 'taikoDrum', 'woodClack', 'kaneDrum', 'templeBellTone', 'oud', 'qanun', 'ney',
   'darbukaDrum', 'riqDrum', 'sitar', 'tablaDrum', 'saronTone', 'bonangTone', 'kenongTone', 'gongTone', 'timpaniTone', 'harpTone', 'celestaTone', 'organ',
-  'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape']
+  'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal']
 const LANES = { lead: [1, 3], keys: [-1, 0.9], pad: [-1.7, -0.5], bass: [-3, -2], drums: [2.2, 4.5] }
 
 const r4 = v => +(+v).toFixed(4)
@@ -534,22 +582,27 @@ export function readTrackNotes(midi, length, { rate = 96, drums = false } = {}) 
 // which instrument plays a part of another song, by the part's name (the generator names a track by its instrument)
 const BY_NAME = [
   [/kick|snare|drum|kit|perc|hat|clap|kendhang/i, 'drums'], [/taiko/i, 'taiko'], [/tabla/i, 'tabla'], [/darbuka|riq/i, 'darbuka'],
-  [/rbass|growl|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
+  [/growl/i, 'growl'], [/slap/i, 'slapbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
   [/cello|cellolead/i, 'cello'], [/bassoon/i, 'bassoon'], [/timp/i, 'timpani'], [/drone|pedal/i, 'organ'],
   [/rhodes|epiano/i, 'epiano'], [/harpsichord|continuo|alberti|prelude/i, 'harpsichord'], [/organ/i, 'organ'], [/nocturne|piano/i, 'piano'],
   [/celesta/i, 'celesta'], [/vibes/i, 'vibes'], [/marimba/i, 'marimba'], [/bell|glass|bonang|peking/i, 'bells'], [/saron|demung/i, 'saron'], [/kenong|kempul/i, 'kenong'], [/gong/i, 'gong'],
-  [/guitar/i, 'guitar'], [/harp/i, 'harp'], [/koto/i, 'koto'], [/shamisen/i, 'shamisen'], [/biwa/i, 'biwa'], [/oud/i, 'oud'], [/qanun/i, 'qanun'], [/sitar|chikari/i, 'sitar'],
-  [/violin|viola/i, 'violin'], [/string/i, 'strings'], [/shinobue|whistle/i, 'whistle'], [/shakuhachi/i, 'shakuhachi'], [/\bney\b/i, 'ney'], [/flute|bansuri|suling/i, 'flute'],
-  [/oboe/i, 'oboe'], [/clarinet/i, 'clarinet'], [/pipes/i, 'pipes'], [/sax/i, 'sax'], [/trumpet/i, 'trumpet'], [/hornstab|brass/i, 'brass'], [/horn/i, 'horn'],
-  [/choir|chant/i, 'choir'], [/scat|voice/i, 'voice'], [/meow|cat/i, 'meow'], [/supersaw|sawlead|saw/i, 'supersaw'], [/pad/i, 'synthpad'],
+  [/funk ?guitar/i, 'funkguitar'], [/guitar/i, 'guitar'], [/harp/i, 'harp'], [/koto/i, 'koto'], [/shamisen/i, 'shamisen'], [/biwa/i, 'biwa'], [/oud/i, 'oud'], [/qanun/i, 'qanun'], [/sitar|chikari/i, 'sitar'],
+  [/violin|viola/i, 'violin'], [/ostinato|spiccato|lowstrings/i, 'spiccato'], [/string/i, 'strings'], [/shinobue|whistle/i, 'whistle'], [/shakuhachi/i, 'shakuhachi'], [/\bney\b/i, 'ney'], [/flute|bansuri|suling/i, 'flute'],
+  [/oboe/i, 'oboe'], [/clarinet/i, 'clarinet'], [/pipes/i, 'pipes'], [/sax/i, 'sax'], [/trumpet/i, 'trumpet'], [/hornsection/i, 'hornsection'], [/hornstab|brass|^horns\b/i, 'brass'], [/horn/i, 'horn'],
+  [/choir|chant/i, 'choir'], [/scat|voice/i, 'voice'], [/meow|cat/i, 'meow'], [/pluck|conveyor/i, 'pluck'], [/synthlead/i, 'synthlead'], [/moog/i, 'moog'],
+  [/pumpsaw|sawchord/i, 'sawchords'], [/supersaw|sawlead|saw/i, 'supersaw'], [/pad/i, 'synthpad'],
   [/pulse12|chip60/i, 'chip12'], [/pulse|chip/i, 'chip'], [/bass/i, 'synthbass'],
 ]
-// (a part named just "bass": a double bass in the acoustic styles, a synth bass in the electronic ones, the NES triangle in chiptune)
+// (a part named just "bass": a double bass in the acoustic styles, a synth bass in the electronic ones, the NES triangle in chiptune,
+// the style's own bass where it has one)
+const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass' }
 const ELECTRONIC = /^(synthwave|boss|hardstyle|dnb|phonk|space|kawaii|jbattle|gothic|minimal|meow)$/
-export function instrumentFor(name, style = null) {
-  const id = BY_NAME.find(([re]) => re.test(name))?.[1] ?? 'piano'
+// fallback: what a name nothing matches gets (null: "don't know")
+export function instrumentFor(name, style = null, fallback = 'piano') {
+  const id = BY_NAME.find(([re]) => re.test(name))?.[1] ?? fallback
+  if (id == null) return null
   if (id !== 'synthbass' || !style || /synth|octbass|warmbass/i.test(name)) return id
-  return style === 'chiptune' ? 'chiptri' : ELECTRONIC.test(style) ? 'synthbass' : 'upright'
+  return STYLE_BASS[style] ?? (ELECTRONIC.test(style) ? 'synthbass' : 'upright')
 }
 // a part's role in an arrangement, by its name and instrument
 export function roleOf(name) {

@@ -37,7 +37,7 @@ async function showMenu(items, x, y, depth = 0) {
     const checked = val(it.checked)
     const row = h('div', { class: 'it' + (val(it.disabled) ? ' dis' : '') },
       h('span', { class: 'ic' }, checked === true ? '✓' : checked === false ? '' : it.icon ?? ''),
-      h('span', {}, val(it.label)),
+      h('span', it.color ? { style: `color:${it.color};font-weight:600` } : {}, val(it.label)),
       h('span', { class: it.items ? 'sub' : 'k' }, it.items ? '▸' : it.kbd ?? ''))
     if (it.items) {
       const open = () => {

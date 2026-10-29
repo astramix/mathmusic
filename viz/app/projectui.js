@@ -236,14 +236,34 @@ function styleSelect(own = true, value = null) {
   s.value = value ?? (app.current?.song?.generator?.style && (own || !OWN.includes(app.current.song.generator.style)) ? app.current.song.generator.style : 'lofi')
   return s
 }
-export function instSelect(value = 'piano') {
+// the instruments the song's tracks play now: id → [{ name, color }] — the project's tracks, and the code's by their names
+// (a generated song's tracks are named after their recipes: "pluck counter" plays the pluck)
+export function usedInstruments() {
+  const out = new Map(), add = (id, name, color) => { if (!id) return; if (!out.has(id)) out.set(id, []); out.get(id).push({ name, color }) }
+  let info
+  try { info = trackInfo() } catch { return out }
+  for (const { t } of info.project) add(t.inst, t.name, t.color ?? INSTRUMENT[t.inst]?.color ?? '#ffffff')
+  const style = app.current?.song?.style ?? app.current?.song?.generator?.style
+  for (const key of info.code) add(instrumentFor(key, style, null), key, app.scene?.tracks.find(x => x.key === key)?.color ?? '#888888')
+  return out
+}
+// an instrument in use: in the colour of the (first) track playing it, with the tracks' names
+const usedLabel = (i, used) => (used.has(i.id) ? `● ${i.label} — ${used.get(i.id).map(u => u.name).join(', ')}` : i.label)
+export function instSelect(value = 'piano', used = usedInstruments()) {
   const s = h('select')
   for (const g of GROUPS) {
     const og = h('optgroup', { label: g })
-    for (const i of INSTRUMENTS.filter(i => i.group === g)) og.append(new Option(i.label, i.id))
+    for (const i of INSTRUMENTS.filter(i => i.group === g)) {
+      const o = new Option(usedLabel(i, used), i.id)
+      if (used.has(i.id)) { o.style.color = used.get(i.id)[0].color; o.style.fontWeight = '600' }
+      og.append(o)
+    }
     s.append(og)
   }
   s.value = value
+  const tint = () => { const u = used.get(s.value); s.style.color = u ? u[0].color : '' }
+  s.addEventListener('change', tint)
+  tint()
   return s
 }
 // the melodies one can arrange under: project tracks with notes, the code's melodic tracks
@@ -346,7 +366,7 @@ export function createTrackList(root, pr) {
       { icon: '🎼', label: 'Партия под мелодию другой дорожки…', disabled: !others, action: () => arrangeDialog(t.id), note: others ? 'бас, аккорды, подголосок, барабаны — по роли инструмента' : 'нужна другая дорожка с мелодией' },
       { icon: '🔁', label: 'Переписать', disabled: !t.gen, action: () => rewrite(t.id), note: t.gen ? `${styleLabel(t.gen.style)} — новый вариант` : 'для дорожки, сочинённой стилем' },
       '-',
-      { icon: '🎻', label: 'Инструмент', items: () => GROUPS.map(g => ({ label: g, items: () => INSTRUMENTS.filter(i => i.group === g).map(i => ({ label: i.label, checked: t.inst === i.id, action: () => updateTrack(t.id, x => { if (x.name === INSTRUMENT[x.inst]?.label) x.name = nameFor(projectOf(), i.label); x.inst = i.id }) })) })) },
+      { icon: '🎻', label: 'Инструмент', items: () => { const used = usedInstruments(); return GROUPS.map(g => ({ label: g, color: used.get(INSTRUMENTS.find(i => i.group === g && used.has(i.id))?.id)?.[0].color, items: () => INSTRUMENTS.filter(i => i.group === g).map(i => ({ label: usedLabel(i, used), color: used.get(i.id)?.[0].color, checked: t.inst === i.id, action: () => updateTrack(t.id, x => { if (x.name === INSTRUMENT[x.inst]?.label) x.name = nameFor(projectOf(), i.label); x.inst = i.id }) })) })) } },
       { icon: '🏛', label: 'Пространство', items: () => [['', 'как у инструмента'], ['hall', 'зал'], ['room', 'комната'], ['echo', 'эхо + зал'], ['dry', 'сухо']].map(([v, l]) => ({ label: l, checked: (t.fx ?? '') === v, action: () => updateTrack(t.id, x => { if (v) x.fx = v; else delete x.fx }) })) },
       { icon: '✎', label: 'Переименовать…', action: () => renameTrack(t) },
       { icon: '⧉', label: 'Дублировать дорожку', action: () => addTrack(t.inst, { name: t.name, notes: t.notes.map(e => [...e]) }) },

@@ -263,10 +263,13 @@ A block in the song file between `// ==== MathMusic project` and `// ==== end of
 mode, length, sections }, removed?: [code track keys], tracks: [{ id, name, inst, vol, pan, fx?, notes: [[beat, MIDI, length,
 vel]], gen?: { style, seed, kind, part?, ref? } }] }` (plain JSON, a bar of notes per line), the instruments used, and
 `__project(song)` — `export default __project({ … })` adds a track per PROJECT track (key = its name, made unique), drops the
-`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (53, in `GROUPS`: keys,
+`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (65, in `GROUPS`: keys,
 mallets, plucked (KS koto/oud/qanun/sitar…), bowed, winds, voices, synths, bass, gamelan, drums): { id, label, group, kind poly |
 mono | chord | drums, role lead | keys | pad | bass | drums, range, fx, color, program (GM, −1 drums), level (evened out by
-measured rms), formula }. Drum kits take General MIDI numbers (36 kick, 38 snare, 42 hat…; tabla by pitch class). A track object
+measured rms), formula }. The generator's own sounds are there too (pluck, synthlead, moog, sawchords, hornsection, spiccato,
+funkguitar, slapbass, clubbass, seqbass, growl, clubkit — its kick at a fixed 50 Hz); `instrumentFor(name, style, fallback)` maps
+a generated track's recipe name to them ("pluck counter" → pluck, a plain "bass" by STYLE_BASS). projectui `usedInstruments()`: the
+pickers (＋ dialog, a track's select, ⋯ → Инструмент) show an instrument in use as «● name — tracks» in that track's colour. Drum kits take General MIDI numbers (36 kick, 38 snare, 42 hat…; tabla by pitch class). A track object
 carries `program` — midi.js / musicxml.js use it before guessing by name. `newProjectSource`, `readProject`, `writeProject(src, p,
 { parse })` (a song that isn't one yet: the block before `export default`, its value wrapped), `trackKeys`, `readTrackNotes(midi,
 length)` (notes back from midi(): gated lengths restored), `instrumentFor(name, style)`, `roleOf`, `alignedParts(parts, melody,
