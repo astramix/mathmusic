@@ -303,6 +303,9 @@ mapped the same way; the copy keeps `export default __retuneSong({ … })` with 
 reads that form) and its parameters in `const __RT = {…}`, so retuning a copy starts from the original. Generated songs are
 made again from their seeds instead (genui `regenerate`). test/retune.test.js retunes every song into two modes.
 A song that writes a pitch some other way (a hand-made phase increment from a variable not built from these) is not moved.
+Drums never move: a track named like `UNPITCHED` (drum kick snare hat perc clap … fx riser taiko) keeps its midi() (GM 36 stays
+the kick) and runs with `__D` set (`__R` = identity), hz() inside a drum-named const/property stays the engine's `__hz`; the
+project's drum tracks are skipped by retuneProject, and its «Транспонировать» is off for them.
 Microtonal targets ({ tonic: 'E𝄳', mode: 'sikah' }) work the same way (`degreeTable` returns fractional shifts, midi()
 reports 63.5); `target.temperament` adds `__RT.tm` (cents per section offset — the tuning follows each modulation) and
 __T in __R; the copy gets a `tuning` field. The prelude ends with `// ---- end of the retune prelude`, so retuning a copy
@@ -446,7 +449,10 @@ LUFS) · pianoroll.js (edits `const NAME = [[beat, n, d], …]` in the code; row
 the notes / the song's mode; «🎹 играть»: Web MIDI input — pitch bend ±2 st gives ¼/⅛ tones on those grids — and the computer's
 keys A W S E D F T G Y H U J K O L P (Z/X octave, Shift +one pitch-grid step), a monitor tone; «⏺ запись»: notes on the song's
 beats while it plays (snapped to the grid), step input from a green cursor when paused (chords: keys together);
-«✨ песня» + a style: genui `fromMelody(notes, style)` → a whole song on the melody; on the left the track list of
+«✨ песня» + a style: genui `fromMelody(notes, style)` → a whole song on the melody; drag on empty space = area selection
+(Ctrl adds), Ctrl+A, the selected notes drag together; a project track has a velocity lane (a selected stem moves all selected,
+else paint), Alt+↑↓ ±5 %, MIDI velocity recorded; drum tracks: whole-note rows only (a row is a drum); reloads wait for the mouse
+(`pendingLoad`), the selection kept by note, not index; on the left the track list of
 projectui.js: every song's tracks — the project's (edited here: absolute MIDI, the others faint behind, drum rows named), the
 code's (read only, ❄ = into notes, 🗑 = `removed`, ↶) — M/S, instrument, volume, pan, room, ⋯ menu; ＋ a track (empty, a melody in a
 style, a part under another track's melody), 🎼 arrangement (the generator on the melody as userTheme, `alignedParts`, the bass on

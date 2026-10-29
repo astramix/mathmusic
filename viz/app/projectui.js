@@ -350,7 +350,10 @@ export function createTrackList(root, pr) {
       { icon: '🏛', label: 'Пространство', items: () => [['', 'как у инструмента'], ['hall', 'зал'], ['room', 'комната'], ['echo', 'эхо + зал'], ['dry', 'сухо']].map(([v, l]) => ({ label: l, checked: (t.fx ?? '') === v, action: () => updateTrack(t.id, x => { if (v) x.fx = v; else delete x.fx }) })) },
       { icon: '✎', label: 'Переименовать…', action: () => renameTrack(t) },
       { icon: '⧉', label: 'Дублировать дорожку', action: () => addTrack(t.inst, { name: t.name, notes: t.notes.map(e => [...e]) }) },
-      { icon: '↕', label: 'Транспонировать', items: () => [[12, '+ октава'], [7, '+ квинта'], [1, '+ полутон'], [0.5, '+ ¼ тона'], [-0.5, '− ¼ тона'], [-1, '− полутон'], [-7, '− квинта'], [-12, '− октава']].map(([s, l]) => ({ label: l, action: () => updateTrack(t.id, x => { x.notes = x.notes.map(([b, n, d, v]) => [b, n + s, d, v]) }) })) },
+      // drums: a note is a drum (GM 36 = kick), not a pitch — moved only by hand in the piano roll
+      INSTRUMENT[t.inst]?.kind === 'drums'
+        ? { icon: '↕', label: 'Транспонировать', disabled: true, note: 'ударные не транспонируются: нота — это барабан; перетащи в пианоролле' }
+        : { icon: '↕', label: 'Транспонировать', items: () => [[12, '+ октава'], [7, '+ квинта'], [1, '+ полутон'], [0.5, '+ ¼ тона'], [-0.5, '− ¼ тона'], [-1, '− полутон'], [-7, '− квинта'], [-12, '− октава']].map(([s, l]) => ({ label: l, action: () => updateTrack(t.id, x => { x.notes = x.notes.map(([b, n, d, v]) => [b, n + s, d, v]) }) })) },
       { icon: '🧹', label: 'Очистить ноты', disabled: !t.notes.length, action: () => updateTrack(t.id, x => { x.notes = [] }) },
       { icon: '🗑', label: 'Удалить дорожку', action: () => removeTrack(t.id) },
     ]

@@ -1,9 +1,12 @@
 // The piano roll: finds the melody arrays of the song — any `const NAME = [[beat, n, length], …]`
 // — and lets you draw them with the mouse. Every change rewrites that array in the code, so the
 // song plays the new melody at once.
-//   click — a note (length = the last one used) · drag — move · drag the right edge — length
-//   right click / double click / Del — delete · ↑↓ — a row (Shift: octave) · ←→ — by the grid
+//   click — a note (length = the last one used) · drag on empty space — select by area (Ctrl: add to it) · Ctrl+A — all
+//   drag a note — move (the selected ones together) · drag the right edge — length · right click / double click / Del —
+//   delete · ↑↓ — a row (Shift: octave) · ←→ — by the grid · Alt+↑↓ — louder / softer
 //   wheel — scroll · Ctrl+wheel — zoom · Shift — no snapping
+//   A project track has a velocity lane at the bottom: drag a stem (a selected one moves all selected), or paint across.
+//   Drum tracks: a row is a drum (General MIDI), so their pitch grid is whole notes only; nothing transposes them.
 //   🎹 играть — a MIDI keyboard (Web MIDI; pitch bend ±2 semitones makes quarter and eighth tones on those pitch grids) or
 //   the computer's keys (A W S E D F T G Y H U J K O L P = C … E′, Z / X an octave down / up, Shift = one step of the pitch
 //   grid higher: E𝄳 on the ¼-tone grid); ⏺ запись — while the song plays, notes land on its beats (snapped to the grid);
@@ -101,16 +104,19 @@ export function createPianoRoll(root) {
   const songBtn = h('button', { title: 'сочинить целую песню на эту мелодию: тональность и гармония — по ней (гармонизатор), мелодия — тема A' }, '✨ песня')
   root.append(h('div', { class: 'pr-head' }, h('span', { class: 'title' }, '🎹 пианоролл'), sel, baseSel, gridSel, resSel, play,
     h('button', { title: 'новая мелодия в коде', onclick: () => newMelody() }, '＋ новая'), kbBtn, recBtn, styleSel, songBtn, info, h('span', { class: 'sp' }),
-    h('span', { class: 'dim' }, 'клик — нота · тяни — сдвиг/длина · ПКМ — удалить · ↑↓←→ · ¼ и ⅛ тона — шаг по высоте'),
+    h('span', { class: 'dim' }, 'клик — нота · тяни по пустому — выделить область · тяни ноту — сдвиг/длина · ПКМ — удалить · ↑↓←→ · Alt+↑↓ — громкость'),
     h('button', { onclick: () => app.togglePianoRoll(false), title: 'закрыть (P)' }, '✕')))
   const body = h('div', { class: 'pr-body', tabindex: 0 }), cv = h('canvas'), side = h('div', { class: 'pr-tracks' })
   body.append(cv)
   root.append(h('div', { class: 'pr-main' }, side, body))
   const g = cv.getContext('2d')
   let W = 0, H = 0, mels = [], cur = null, notes = [], base = 69, px = 48, row = 14, scrollX = 0, top = 84, selIdx = new Set(), lastDur = 0.5, res = 1
-  let drag = null, hover = null, playing = null, ghosts = [], wanted = null
+  let drag = null, hover = null, playing = null, ghosts = [], wanted = null, marquee = null, velDrag = null, lastVel = 0.8, pendingLoad = false
   const tl = createTrackList(side, { current: () => cur, want: v => want(v) })
   const drumsNow = () => cur?.kind === 'project' && INSTRUMENT[cur.inst]?.kind === 'drums'
+  // the velocity lane under a project track's notes (the code's melodies are [beat, n, length]: no velocity)
+  const VEL_H = 72, velOn = () => cur?.kind === 'project', laneTop = () => H - (velOn() ? VEL_H : 0)
+  const velOf = e => e[3] ?? 0.8, velY = v => H - 6 - v * (VEL_H - 18), yVel = sy => Math.round(Math.max(0.05, Math.min(1, (H - 6 - sy) / (VEL_H - 18))) * 100) / 100
 
   function resize() {
     const r = body.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1)
@@ -169,8 +175,15 @@ export function createPianoRoll(root) {
     body.focus()
   }
   function select(m, keepView) {
+    // the same notes stay selected after a reload (a project writes its notes back sorted: the indices change)
+    const was = keepView ? [...selIdx].map(i => notes[i]).filter(Boolean).map(e => e.slice(0, 3).join()) : []
     cur = m
     notes = m.notes.map(e => [...e])
+    hover = null
+    if (keepView) {
+      selIdx = new Set()
+      notes.forEach((e, i) => { const k = was.indexOf(e.slice(0, 3).join()); if (k >= 0) { selIdx.add(i); was.splice(k, 1) } })
+    }
     baseSel.style.display = m.kind === 'code' ? '' : 'none'
     if (m.kind !== 'code') {
       base = 0
@@ -179,9 +192,12 @@ export function createPianoRoll(root) {
         top = (ns.length ? Math.max(...ns) : d ? Math.round((d.range[0] + d.range[1]) / 2) + 6 : 72) + 6
         scrollX = notes.length ? Math.max(0, Math.floor(Math.min(...notes.map(e => e[0])) / 4) * 4) : 0 // from its first note
         selIdx.clear()
-        setRes(fineness(ns))
+        setRes(drumsNow() ? 1 : fineness(ns))
         if (drumsNow()) lastDur = 0.25
       }
+      if (drumsNow() && res !== 1) setRes(1)
+      resSel.disabled = drumsNow()
+      resSel.title = drumsNow() ? 'ударные: строка — это барабан, их высота не дробится и не транспонируется' : 'шаг по высоте: полутон, четверть тона, восьмая тона'
       info.textContent = m.kind === 'project' ? `${INSTRUMENT[m.inst]?.label ?? m.inst} · ${notes.length} нот` : 'дорожка из кода — только просмотр: ⋯ → ❄ «в ноты», чтобы править'
       tl.render()
       draw()
@@ -195,6 +211,7 @@ export function createPianoRoll(root) {
       scrollX = 0
       selIdx.clear()
     }
+    resSel.disabled = false
     info.textContent = m.base ? `n от ${m.base}` : 'база не указана в коде — выбери'
     if (!keepView) setRes(fineness(notes.map(e => e[1])))
     tl.render()
@@ -241,6 +258,7 @@ export function createPianoRoll(root) {
   const grid = () => +gridSel.value
   const snap = (b, e) => (e?.shiftKey ? b : Math.round(b / grid()) * grid())
   const noteAt = (sx, sy) => {
+    if (sy >= laneTop()) return null
     for (let i = notes.length - 1; i >= 0; i--) {
       const [b, n, d] = notes[i], x0 = X(b), x1 = X(b + d), y0 = Yr(base + n)
       if (sx >= x0 && sx <= x1 && sy >= y0 && sy < y0 + row) return { i, edge: x1 - sx < Math.min(8, (x1 - x0) / 3) }
@@ -255,6 +273,10 @@ export function createPianoRoll(root) {
     const pcf = m => ((m % 12) + 12) % 12, isIn = m => scale.some(p => Math.abs(pcf(m) - p) < 0.13 * Math.min(1, res * 2) || Math.abs(pcf(m) - p - 12) < 0.01)
     g.fillStyle = '#100d22'
     g.fillRect(0, 0, W, H)
+    g.save()
+    g.beginPath()
+    g.rect(0, 0, W, laneTop())
+    g.clip()
     // rows (microtonal rows a little darker, so the semitones still read)
     for (const m of rows()) {
       const y = Yr(m), on12 = Math.abs(m - Math.round(m)) < 1e-6
@@ -288,7 +310,9 @@ export function createPianoRoll(root) {
     notes.forEach(([b, n, d], i) => {
       const x0 = X(b), y0 = Yr(base + n), w = Math.max(3, d * px - 1), s = selIdx.has(i)
       g.fillStyle = ro ? '#8a86a8' : s ? '#ffd479' : hover?.i === i ? '#d9c9ff' : cur?.kind === 'project' ? INSTRUMENT[cur.inst]?.color ?? '#b9a2ff' : '#b9a2ff'
+      g.globalAlpha = velOn() ? 0.4 + 0.6 * velOf(notes[i]) : 1 // softer notes paler
       g.fillRect(x0, y0 + 1, w, row - 2)
+      g.globalAlpha = 1
       g.fillStyle = '#ffffff55'
       g.fillRect(x0 + w - 3, y0 + 2, 2, row - 4)
       if (w > 26 && row >= 12) {
@@ -321,6 +345,41 @@ export function createPianoRoll(root) {
         g.fillText(drumsNow() ? (DRUM_NAMES[m] ?? spell(m, key)).slice(0, 8) : spell(m, key).replace(/[+−]\d+¢$/, ''), on12 ? 4 : 12, y + row - 2)
       }
     }
+    g.restore()
+    // the area being selected
+    if (marquee?.moved) {
+      const x = Math.min(marquee.sx, marquee.x), y = Math.min(marquee.sy, marquee.y)
+      g.fillStyle = '#ffd47922'
+      g.strokeStyle = '#ffd479cc'
+      g.lineWidth = 1
+      g.fillRect(x, y, Math.abs(marquee.x - marquee.sx), Math.abs(marquee.y - marquee.sy))
+      g.strokeRect(x + 0.5, y + 0.5, Math.abs(marquee.x - marquee.sx), Math.abs(marquee.y - marquee.sy))
+    }
+    // the velocity lane: a stem per note, its height the note's loudness
+    if (velOn()) {
+      const t0 = laneTop()
+      g.fillStyle = '#0b0918'
+      g.fillRect(0, t0, W, VEL_H)
+      g.fillStyle = '#ffffff30'
+      g.fillRect(0, t0, W, 1)
+      for (const v of [0.25, 0.5, 0.75, 1]) { g.fillStyle = '#ffffff0d'; g.fillRect(KEYS, Math.round(velY(v)), W - KEYS, 1) }
+      g.fillStyle = '#ffffff80'
+      g.font = '10px system-ui'
+      g.fillText('громк.', 4, t0 + 14)
+      const color = INSTRUMENT[cur.inst]?.color ?? '#b9a2ff'
+      notes.forEach((e, i) => {
+        const x0 = X(e[0])
+        if (x0 < KEYS - 2 || x0 > W) return
+        const y = velY(velOf(e)), s = selIdx.has(i)
+        g.fillStyle = s ? '#ffd479' : color
+        g.fillRect(x0, y, 2, H - 6 - y)
+        g.beginPath()
+        g.arc(x0 + 1, y, s ? 3.5 : 2.5, 0, 2 * Math.PI)
+        g.fill()
+      })
+      const shown = velDrag ? velDrag.show : hover?.vel
+      if (shown != null) { g.fillStyle = '#ffffffcc'; g.fillText(`${Math.round(shown * 100)} %`, 4, t0 + 28) }
+    }
     if (!cur) {
       g.fillStyle = '#ffffff99'
       g.font = '14px system-ui'
@@ -329,7 +388,7 @@ export function createPianoRoll(root) {
   }
 
   // ---- audition ----
-  function beep(m, dur = 0.35, when = 0) {
+  function beep(m, dur = 0.35, when = 0, vel = 0.8) {
     const a = app.player.actx
     if (!a) return
     const t = a.currentTime + when, o = a.createOscillator(), o2 = a.createOscillator(), gn = a.createGain()
@@ -337,7 +396,7 @@ export function createPianoRoll(root) {
     o2.frequency.value = 2 * freq(m)
     o2.type = 'triangle'
     gn.gain.setValueAtTime(0, t)
-    gn.gain.linearRampToValueAtTime(0.18, t + 0.008)
+    gn.gain.linearRampToValueAtTime(0.06 + 0.15 * vel, t + 0.008)
     gn.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.15, dur))
     o.connect(gn)
     const g2 = a.createGain()
@@ -361,9 +420,9 @@ export function createPianoRoll(root) {
       const now = app.player.actx.currentTime, horizon = now + 0.3
       while (playing && playing.t0 + playing.next * sec < horizon) {
         const loopStart = Math.floor(playing.next / len) * len
-        for (const [b, n, d] of notes) {
+        for (const [b, n, d, v] of notes) {
           const at = loopStart + b
-          if (at >= playing.next && at < playing.next + 0.25) beep(base + n, d * sec * 0.95, playing.t0 + at * sec - now)
+          if (at >= playing.next && at < playing.next + 0.25) beep(base + n, d * sec * 0.95, playing.t0 + at * sec - now, v ?? 0.8)
         }
         playing.next += 0.25
       }
@@ -423,56 +482,133 @@ export function createPianoRoll(root) {
   }
 
   // ---- mouse & keys ----
-  cv.addEventListener('contextmenu', e => {
-    e.preventDefault()
+  // right click / double click: delete the note (and the others selected with it)
+  const remove = e => {
     const r = cv.getBoundingClientRect(), hit = noteAt(e.clientX - r.left, e.clientY - r.top)
-    if (hit && cur?.kind !== 'view') { notes.splice(hit.i, 1); selIdx.clear(); commit(); draw() }
-  })
-  cv.addEventListener('dblclick', e => {
-    const r = cv.getBoundingClientRect(), hit = noteAt(e.clientX - r.left, e.clientY - r.top)
-    if (hit && cur?.kind !== 'view') { notes.splice(hit.i, 1); selIdx.clear(); commit(); draw() }
-  })
+    if (!hit || cur?.kind === 'view') return
+    if (selIdx.has(hit.i) && selIdx.size > 1) notes = notes.filter((_, i) => !selIdx.has(i))
+    else notes.splice(hit.i, 1)
+    selIdx.clear()
+    commit()
+    draw()
+  }
+  cv.addEventListener('contextmenu', e => { e.preventDefault(); remove(e) })
+  cv.addEventListener('dblclick', remove)
+  // the notes whose velocity stem is at sx (the nearest within 6 px)
+  const stemsAt = sx => {
+    let best = Infinity
+    const out = []
+    notes.forEach((e, i) => {
+      const d = Math.abs(X(e[0]) + 1 - sx)
+      if (d > 6) return
+      if (d < best - 0.5) { best = d; out.length = 0 }
+      if (d <= best + 0.5) out.push(i)
+    })
+    return out
+  }
   cv.addEventListener('mousedown', e => {
     if (e.button !== 0 || !cur) return
     body.focus()
     if (cur.kind === 'view') { const r0 = cv.getBoundingClientRect(); if (e.clientX - r0.left < KEYS) beep(M(e.clientY - r0.top)); else toast('это дорожка из кода — ⋯ слева → ❄ «в ноты», и её можно править', { ms: 3000 }); return }
     const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top
+    // the velocity lane: a selected stem moves all the selected ones (by the same amount), else paint the stems under the mouse
+    if (velOn() && sy >= laneTop()) {
+      const at = stemsAt(sx), group = at.some(i => selIdx.has(i)) && selIdx.size > 1
+      velDrag = group ? { group: [...selIdx].map(i => [i, velOf(notes[i])]), sy, show: velOf(notes[at[0]]) } : { paint: true, show: yVel(sy) }
+      if (!group) for (const i of at) notes[i][3] = yVel(sy)
+      draw()
+      return
+    }
     if (sx < KEYS) { beep(M(sy)); return }
-    let hit = noteAt(sx, sy)
-    if (!hit) {
-      const b = Math.max(0, e.shiftKey ? B(sx) : Math.floor(B(sx) / grid() + 1e-9) * grid()), n = M(sy) - base
-      notes.push([+b.toFixed(4), n, lastDur])
-      hit = { i: notes.length - 1, edge: false, fresh: true }
-      beep(base + n)
-    } else beep(base + notes[hit.i][1])
-    if (!e.ctrlKey) selIdx.clear()
+    const hit = noteAt(sx, sy)
+    if (!hit) { // empty space: a click writes a note, a drag selects an area
+      marquee = { sx, sy, x: sx, y: sy, moved: false, keep: e.ctrlKey ? new Set(selIdx) : new Set(), shift: e.shiftKey }
+      if (!e.ctrlKey) selIdx.clear()
+      draw()
+      return
+    }
+    beep(base + notes[hit.i][1], 0.35, 0, velOf(notes[hit.i]))
+    if (e.ctrlKey && selIdx.has(hit.i)) { selIdx.delete(hit.i); draw(); return }
+    if (!e.ctrlKey && !selIdx.has(hit.i)) selIdx.clear()
     selIdx.add(hit.i)
     const [b0, n0, d0] = notes[hit.i]
-    drag = { i: hit.i, edge: hit.edge, sx, sy, b0, n0, d0, moved: !!hit.fresh }
+    drag = { i: hit.i, edge: hit.edge, sx, sy, b0, n0, d0, moved: false, group: [...selIdx].map(i => [i, ...notes[i].slice(0, 3)]) }
     draw()
   })
   addEventListener('mousemove', e => {
     const r = cv.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top
+    if (velDrag) {
+      if (velDrag.paint) { const v = yVel(sy); for (const i of stemsAt(sx)) notes[i][3] = v; velDrag.show = v }
+      else {
+        const dv = (velDrag.sy - sy) / (VEL_H - 18)
+        for (const [i, v0] of velDrag.group) notes[i][3] = Math.round(Math.max(0.05, Math.min(1, v0 + dv)) * 100) / 100
+        velDrag.show = notes[velDrag.group[0][0]][3]
+      }
+      velDrag.moved = true
+      draw()
+      return
+    }
+    if (marquee) {
+      marquee.x = Math.max(KEYS, Math.min(W, sx))
+      marquee.y = Math.max(0, Math.min(laneTop(), sy))
+      if (Math.abs(sx - marquee.sx) + Math.abs(sy - marquee.sy) > 4) marquee.moved = true
+      if (marquee.moved) {
+        const bA = B(Math.min(marquee.sx, marquee.x)), bB = B(Math.max(marquee.sx, marquee.x))
+        const yA = Math.min(marquee.sy, marquee.y), yB = Math.max(marquee.sy, marquee.y)
+        selIdx = new Set(marquee.keep)
+        notes.forEach(([b, n, d], i) => { const y0 = Yr(base + n); if (b < bB && b + d > bA && y0 + row > yA && y0 < yB) selIdx.add(i) })
+      }
+      draw()
+      return
+    }
     if (!drag) {
       if (e.target === cv) {
-        const hit = noteAt(sx, sy)
-        cv.style.cursor = hit ? (hit.edge ? 'ew-resize' : 'grab') : sx < KEYS ? 'pointer' : 'crosshair'
-        if (hit?.i !== hover?.i) { hover = hit; draw() }
+        const hit = noteAt(sx, sy), stem = velOn() && sy >= laneTop() ? stemsAt(sx)[0] : undefined
+        cv.style.cursor = hit ? (hit.edge ? 'ew-resize' : 'grab') : stem != null ? 'ns-resize' : sx < KEYS ? 'pointer' : 'crosshair'
+        const h1 = hit ?? (stem != null ? { i: stem, vel: velOf(notes[stem]) } : null)
+        if (h1?.i !== hover?.i || h1?.vel !== hover?.vel) { hover = h1; draw() }
       }
       return
     }
-    const db = (sx - drag.sx) / px, dn = Math.round(-(sy - drag.sy) / row) * res, e0 = notes[drag.i]
-    if (drag.edge) e0[2] = Math.max(grid() / (e.shiftKey ? 4 : 1), snap(drag.d0 + db, e))
-    else {
-      const nb = Math.max(0, snap(drag.b0 + db, e)), nn = Math.round((drag.n0 + dn) * 4) / 4
-      if (nn !== e0[1]) beep(base + nn, 0.2)
-      e0[0] = +nb.toFixed(4)
-      e0[1] = nn
+    // the selected notes move together, by the dragged note's snapped step
+    const db = (sx - drag.sx) / px, dn = Math.round(-(sy - drag.sy) / row) * res
+    if (drag.edge) {
+      const dd = Math.max(grid() / (e.shiftKey ? 4 : 1), snap(drag.d0 + db, e)) - drag.d0
+      for (const [i, , , d0] of drag.group) notes[i][2] = +Math.max(grid() / (e.shiftKey ? 4 : 1), d0 + dd).toFixed(4)
+    } else {
+      const lo = Math.min(...drag.group.map(g0 => g0[1])), step = Math.max(-lo, snap(drag.b0 + db, e) - drag.b0)
+      const was = notes[drag.i][1]
+      for (const [i, b0, n0] of drag.group) {
+        notes[i][0] = +(b0 + step).toFixed(4)
+        notes[i][1] = Math.round((n0 + dn) * 4) / 4
+      }
+      if (notes[drag.i][1] !== was) beep(base + notes[drag.i][1], 0.2, 0, velOf(notes[drag.i]))
     }
     drag.moved = true
     draw()
   })
-  addEventListener('mouseup', () => {
+  addEventListener('mouseup', e => {
+    if (pendingLoad) setTimeout(() => { if (pendingLoad && !drag && !velDrag && !marquee) { pendingLoad = false; load(app.current, true) } }, 0)
+    if (velDrag) {
+      if (velDrag.show != null) lastVel = velDrag.show
+      velDrag = null
+      commit()
+      draw()
+      return
+    }
+    if (marquee) {
+      const m = marquee
+      marquee = null
+      if (!m.moved) { // a click: a note here
+        const b = Math.max(0, m.shift ? B(m.sx) : Math.floor(B(m.sx) / grid() + 1e-9) * grid()), n = M(m.sy) - base
+        notes.push(velOn() ? [+b.toFixed(4), n, lastDur, lastVel] : [+b.toFixed(4), n, lastDur])
+        selIdx = new Set([notes.length - 1])
+        beep(base + n, 0.35, 0, lastVel)
+        commit()
+      }
+      draw()
+      return
+    }
     if (!drag) return
     const e0 = notes[drag.i]
     lastDur = e0[2]
@@ -487,13 +623,26 @@ export function createPianoRoll(root) {
     draw()
   }, { passive: false })
   body.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA' && cur && cur.kind !== 'view') {
+      selIdx = new Set(notes.map((_, i) => i))
+      e.preventDefault()
+      e.stopPropagation()
+      return draw()
+    }
+    if (e.key === 'Escape' && selIdx.size) { selIdx.clear(); e.stopPropagation(); return draw() }
     if (!selIdx.size) return
     const sel = [...selIdx].map(i => notes[i])
-    if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (e.altKey && velOn() && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { // louder / softer
+      const d = e.key === 'ArrowUp' ? 0.05 : -0.05
+      sel.forEach(n => (n[3] = Math.round(Math.max(0.05, Math.min(1, velOf(n) + d)) * 100) / 100))
+      lastVel = sel[0][3]
+      beep(base + sel[0][1], 0.3, 0, sel[0][3])
+      hover = { i: [...selIdx][0], vel: sel[0][3] }
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
       notes = notes.filter((_, i) => !selIdx.has(i))
       selIdx.clear()
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : res)
+      const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : res) // drums: res is 1, a row is the next drum
       sel.forEach(n => (n[1] = Math.round((n[1] + d) * 4) / 4))
       beep(base + sel[0][1])
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -545,7 +694,8 @@ export function createPianoRoll(root) {
       const live = app.player.playing, now = performance.now()
       const b = live ? Math.max(0, Math.round(app.player.x / grid()) * grid()) : (now - lastOnAt < 60 ? held.size ? [...held.values()].find(h => h.rec)?.rec.b ?? stepAt : stepAt : stepAt)
       lastOnAt = now
-      notes.push([+b.toFixed(4), Math.round((midi - base) * 4) / 4, live ? grid() : lastDur])
+      const n = Math.round((midi - base) * 4) / 4, d = live ? grid() : lastDur
+      notes.push(velOn() ? [+b.toFixed(4), n, d, Math.round(vel * 100) / 100] : [+b.toFixed(4), n, d])
       rec = { b, i: notes.length - 1, live, x0: app.player.x }
       if (!live && b === stepAt) stepAt = +(stepAt + lastDur).toFixed(4)
       if (b < scrollX || b > B(W) - 1) scrollX = Math.max(0, b - 2)
@@ -629,7 +779,8 @@ export function createPianoRoll(root) {
 
   const pr = {
     visible: true,
-    load: c => load(c, true),
+    // a reload while the mouse is down (a drag, an area, the velocity lane) waits for its release: it would swap the notes under it
+    load: c => { if (drag || velDrag || marquee) pendingLoad = true; else load(c, true) },
     want,
     current: () => cur,
     resize,

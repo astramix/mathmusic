@@ -7,7 +7,9 @@
 //     between the notes it is continuous, so bends, vibrato and glides keep their shape;
 //   · a section that modulates (its notes fit the scale a few semitones away much better) is mapped in its
 //     own key and keeps its modulation;
-//   · the tracks' midi() go through the same map (note names, MIDI export), name/key/mode are the new ones.
+//   · the tracks' midi() go through the same map (note names, MIDI export), name/key/mode are the new ones;
+//   · drums (and effects, textures: a track or a const named like UNPITCHED) stay as they are — their midi() is a drum
+//     (GM 36 = kick), their pitch the drum's own, not the key's.
 // The prelude keeps its parameters (__RT), so a copy can be retuned again from the original's scale.
 // Microtonal modes work the same way (C major → C Rast: E → E𝄳, B → B𝄳; to a measured slendro: the nearest of its
 // five notes) and midi() then reports the microtones (63.5). A temperament (src/tuning.js) re-tunes the twelve notes
@@ -20,7 +22,7 @@ import { MODES, modeOf, tonicPc, keyFor, tonalityLabel, isMicro } from './modes.
 import { songKey, parseKey } from './theory.js'
 import { temperOf, temperOffsets } from './tuning.js'
 
-const UNPITCHED = /drum|kick|snare|hat|perc|clap|paw|hiss|claw|beat|fx|sfx|noise|ambience|rain|vinyl|riser|taiko|tsuzumi|kane/i
+export const UNPITCHED = /drum|kick|snare|hat|perc|clap|paw|hiss|claw|beat|fx|sfx|noise|ambience|rain|vinyl|riser|taiko|tsuzumi|kane/i
 const pcOf = n => ((n % 12) + 12) % 12
 const parentOf = iv => (iv.includes(3) && !iv.includes(4) ? 'minor' : 'major')
 const r4 = v => Math.round(v * 1e4) / 1e4
@@ -139,11 +141,25 @@ const __T = m => {
   const T = __RT.tm[__off()] ?? __RT.tm[0], at = k => T[((k % 12) + 12) % 12] / 100, a = Math.floor(m), u = m - a
   return m + (u <= 0.35 ? at(a) : u >= 0.65 ? at(a + 1) : at(a) + ((at(a + 1) - at(a)) * (u - 0.35)) / 0.3)
 }
-const __R = f => (f > 0 && Number.isFinite(f) ? 440 * 2 ** ((__T(__N(69 + 12 * Math.log2(f / 440))) - 69) / 12) : f)
+let __D = 0 // > 0 while a drum track runs: its pitches are its own
+const __R = f => (!__D && f > 0 && Number.isFinite(f) ? 440 * 2 ** ((__T(__N(69 + 12 * Math.log2(f / 440))) - 69) / 12) : f)
 const __Nrel = (n, base) => { const b = 69 + 12 * Math.log2(base / 440); return __T(__N(n + b)) - b }
+const __UNPITCHED = ${UNPITCHED}
 const __retuneSong = s => {
-  for (const t of Object.values(s.tracks ?? {})) {
+  for (const [k, t] of Object.entries(s.tracks ?? {})) {
     if (!t || typeof t !== 'object' || t.project) continue // a project's notes were moved as data
+    if (__UNPITCHED.test(k)) { // drums: midi() untouched, hz() inside them as written
+      if (typeof t.audio === 'function') {
+        const a = t.audio
+        t.audio = ctx => {
+          __D++
+          const f = a(ctx)
+          __D--
+          return typeof f === 'function' ? x => { __D++; const y = f(x); __D--; return y } : f
+        }
+      }
+      continue
+    }
     if (typeof t.midi === 'function') {
       const m = t.midi, one = (n, x) => (Number.isFinite(n) ? ((__X = x), Math.round(__N(n) * 100) / 100) : n)
       t.midi = x => { const v = m(x); return Array.isArray(v) ? v.map(n => one(n, x)) : one(v, x) }
@@ -252,12 +268,21 @@ export function retuneSource(source, song, target, { parse, theme = null }) {
       }
     }
   }
+  // inside a drum's (or an effect's) own definition no pitch moves: hz() there is the engine's own
+  const drumName = up => up.some(a => {
+    const k = a.type === 'Property' ? a.key.name ?? a.key.value : a.type === 'VariableDeclarator' && a.id.type === 'Identifier' ? a.id.name : null
+    return k && UNPITCHED.test(k)
+  })
+  if (wrapped.includes('hz')) walkUp(ast, (n, up) => {
+    if (n.type === 'CallExpression' && n.callee.type === 'Identifier' && n.callee.name === 'hz' && drumName(up)) edits.push([n.callee.start, n.callee.end, '__hz'])
+  })
   // BASE * 2 ** (n / 12): the whole product is a frequency; a product already made of hz() is left alone
   const products = new Set()
-  walk(ast, (n, parent) => {
+  walkUp(ast, (n, up) => {
+    const parent = up[up.length - 1]
     if (!isNoteRatio(n) || !parent || parent.type !== 'BinaryExpression' || parent.operator !== '*') return
     const other = parent.left === n ? parent.right : parent.left
-    if (callsHz(other)) return
+    if (callsHz(other) || drumName(up)) return
     products.add(parent)
     edits.push([parent.start, '__R('], [parent.end, ')'])
   })

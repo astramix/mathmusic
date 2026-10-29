@@ -8,7 +8,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import * as acorn from '../viz/vendor/acorn.min.mjs'
-import { retuneSource, degreeTable, modulations } from '../src/retune.js'
+import { retuneSource, degreeTable, modulations, UNPITCHED } from '../src/retune.js'
 import { songKey } from '../src/theory.js'
 import { MODES } from '../src/modes.js'
 import { render } from '../src/engine.js'
@@ -58,7 +58,8 @@ for (const target of [{ tonic: 'D', mode: 'dorian' }, { tonic: 'B♭', mode: 'ma
         if (typeof t?.midi !== 'function') continue
         for (let x = 0.5; x < song.length; x += 3.7) {
           const a = [].concat(t.midi(x) ?? []), b = [].concat(copy.tracks[k].midi(x) ?? [])
-          a.forEach((v, i) => Number.isFinite(v) && assert.equal(b[i], want(Math.round(v), x), `${f} ${k} at ${x}`))
+          // drums keep their notes (GM: 36 stays the kick)
+          a.forEach((v, i) => Number.isFinite(v) && assert.equal(b[i], UNPITCHED.test(k) ? v : want(Math.round(v), x), `${f} ${k} at ${x}`))
         }
       }
       const stems = render({ ...copy, length: Math.min(copy.length, 8) })
@@ -66,6 +67,24 @@ for (const target of [{ tonic: 'D', mode: 'dorian' }, { tonic: 'B♭', mode: 'ma
     }
   })
 }
+
+// a kick tuned with hz() (at the top and inside audio) stays where it was; the lead moves
+const TUNED = `import { hz, sin, TAU } from '../src/engine.js'
+const KICK_F = hz(-21)
+const kick = { midi: x => [36], audio({ bpm }) { const f2 = hz(-9); let p = 0, q = 0; return x => { p += KICK_F / 44100; q += f2 / 44100; return sin(TAU * p) + sin(TAU * q) } } }
+const lead = { midi: x => [64], audio({ bpm }) { const f = hz(7); let p = 0; return x => { p += f / 44100; return sin(TAU * p) } } }
+export default { name: 'tuned', bpm: 120, length: 8, key: 'C', tracks: { kick, lead } }
+`
+test('drums keep their notes and their own pitch', async () => {
+  const song = await load(TUNED), r = retuneSource(TUNED, song, { tonic: 'D', mode: 'major' }, { parse: acorn.parse }), copy = await load(r.source)
+  assert.deepEqual(copy.tracks.kick.midi(1), [36])
+  assert.deepEqual(copy.tracks.lead.midi(1), [66])
+  const one = (s, k) => render({ ...s, tracks: { [k]: s.tracks[k] } })[k][0]
+  const a = one(song, 'kick'), b = one(copy, 'kick')
+  assert.ok(a.every((y, i) => y === b[i]), 'the kick moved')
+  const la = one(song, 'lead'), lb = one(copy, 'lead')
+  assert.ok(!la.every((y, i) => y === lb[i]), 'the lead stayed')
+})
 
 test('a copy retuned again starts from the original', async () => {
   const src = fs.readFileSync('songs/raiden.js', 'utf8'), song = (await import(pathToFileURL(path.resolve('songs/raiden.js')).href)).default
