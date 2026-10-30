@@ -6,7 +6,7 @@
 import { app } from './app.js'
 import { h, esc, toast, modal, contextMenu, ask } from './ui.js'
 import * as acorn from './acorn.js'
-import { INSTRUMENTS, INSTRUMENT, GROUPS, GEN_INSTRUMENTS, genId, MAX_TRACKS, readProject, writeProject, isProject, newProjectSource, readTrackNotes, roleOf, instrumentFor, alignedParts } from './project.js'
+import { INSTRUMENTS, INSTRUMENT, GROUPS, GEN_INSTRUMENTS, genId, frozenPart, MAX_TRACKS, readProject, writeProject, isProject, newProjectSource, readTrackNotes, roleOf, instrumentFor, alignedParts } from './project.js'
 import { generate, generatedPart, STYLES, STYLE_LIST, styleGroups } from './generate.js'
 import { MODE_GROUPS, keyFor, MODES } from './modes.js'
 import { harmonize } from './harmonize.js'
@@ -95,14 +95,15 @@ export function removeCode(key, on = true) {
   setProject(p)
 }
 // ❄ a code track into notes: a project track with what it plays — a generated song's voice or kit on its very recipe ("как в
-// песне": the same sound, the same level and side), any other on the instrument its name suggests; the code's track goes
+// песне": the same sound, the same level and side), its chords, bass, pad or arp on the instrument for its recipe (frozenPart),
+// any other on the instrument its name suggests; the code's track goes
 export function freeze(key) {
   const notes = codeNotes(key)
   if (!notes.length) return toast(`«${key}» не отдаёт ноты (у неё нет midi()) — её можно только удалить`, { kind: 'err', ms: 6000 })
   const p = projectOf()
   if (p.tracks.length >= MAX_TRACKS) return toast(`в проекте уже ${MAX_TRACKS} дорожки`, { kind: 'err' })
-  const part = generatedPart(app.current.song.generator, key)
-  const t = part ? { id: nextId(p), name: nameFor(p, key + ' ♪'), inst: genId(part), vol: +part.vol.toFixed(3), pan: part.pan, notes }
+  const part = frozenPart(app.current.song.generator, key)
+  const t = part ? { id: nextId(p), name: nameFor(p, key + ' ♪'), inst: part.inst, vol: +part.vol.toFixed(3), pan: part.pan, notes }
     : { id: nextId(p), name: nameFor(p, key + ' ♪'), inst: instrumentFor(key, app.current.song.style ?? app.current.song.generator?.style), vol: 1, pan: 0, notes }
   p.tracks.push(t)
   p.removed = [...new Set([...(p.removed ?? []), key])]
@@ -247,7 +248,7 @@ export function usedInstruments() {
   try { info = trackInfo() } catch { return out }
   for (const { t } of info.project) add(t.inst, t.name, t.color ?? INSTRUMENT[t.inst]?.color ?? '#ffffff')
   const style = app.current?.song?.style ?? app.current?.song?.generator?.style
-  for (const key of info.code) { const part = generatedPart(app.current?.song?.generator, key); add(part ? genId(part) : instrumentFor(key, style, null), key, app.scene?.tracks.find(x => x.key === key)?.color ?? '#888888') }
+  for (const key of info.code) { const part = frozenPart(app.current?.song?.generator, key); add(part ? part.inst : instrumentFor(key, style, null), key, app.scene?.tracks.find(x => x.key === key)?.color ?? '#888888') }
   return out
 }
 // an instrument in use: in the colour of the (first) track playing it, with the tracks' names

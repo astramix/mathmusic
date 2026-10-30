@@ -448,7 +448,9 @@ export class Library {
   // my_songs/, or a folder chosen once for exports (remembered). → a target for writeExport, or null (the file is then
   // downloaded). pick: may open the folder dialog (needs a click, so call it before a long render)
   async exportFolder(kind, { pick = false } = {}) {
-    const name = `${EXPORTS}/${kind}`
+    // (the APK's server writes into the phone's Download/MathMusic/<kind>, videos into Movies/MathMusic: the toast says so)
+    const android = typeof window !== 'undefined' && window.MathMusicAndroid
+    const name = android ? (kind === 'video' ? 'Фильмы/MathMusic' : `Загрузки/MathMusic/${kind}`) : `${EXPORTS}/${kind}`
     if (this.server) return { server: true, api: `/api/export/${kind}`, name }
     if (typeof window === 'undefined' || !window.showDirectoryPicker) return null
     try {

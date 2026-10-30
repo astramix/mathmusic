@@ -201,8 +201,9 @@ export function roman(sym, key) {
   const m = sym.match(/^([b#♭♯]?)(iv|i{1,3}|vi{0,2}|IV|I{1,3}|VI{0,2})(.*)$/)
   if (!m) throw new Error(`bad roman numeral ${sym}`)
   const [, acc, num, rest] = m, minorChord = num === num.toLowerCase()
-  // degrees are counted in the major scale (♭VI = a minor sixth above), as in common usage
-  const deg = ROMAN[num.toLowerCase()], scale = key.mode === 'minor' && !acc ? SCALES.minor : SCALES.major
+  // degrees are counted in the major scale (♭VI = a minor sixth above), as in common usage — but a sharp in minor raises
+  // the minor's own degree (♯vii°7 in D minor = C♯°7, the leading tone; ♯vi = B♮), and no accidental is the minor's
+  const deg = ROMAN[num.toLowerCase()], scale = key.mode === 'minor' && (!acc || acc === '#' || acc === '♯') ? SCALES.minor : SCALES.major
   const root = (key.tonic + scale[deg] + (acc === 'b' || acc === '♭' ? -1 : acc ? 1 : 0) + 12) % 12
   let q = rest.replace(/ø7?/, 'm7b5').replace(/°7/, 'dim7').replace('°', 'dim')
   if (minorChord && !/^(m|dim)/.test(q)) q = 'm' + q

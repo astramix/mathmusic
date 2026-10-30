@@ -1169,18 +1169,20 @@ function ampCab({ gain = 18, tight = 90, scoop = 0.45 } = {}) {
   }
 }
 // Metal rhythm guitar: exactly tuned strings (the plucked-string model above) into ampCab, double-tracked — two takes
-// panned left and right, the second 9 ms late and 1.4 ¢ apart, as two guitarists play it. A power chord is root, fifth
+// panned left and right, the second 9 ms late, 0.7 ¢ under and over the note (the middle exactly in tune), as two
+// guitarists play it. A power chord is root, fifth
 // and octave; the palm mute damps the strings at the bridge (a short, dark "chug"). g.hit(freqs, vel, { mute }) ·
 // g.choke(τ) the fretting hand lets go · g() → [l, r]
 export function metalGuitar({ gain = 18, tight = 90, scoop = 0.45, seed = 131 } = {}) {
+  const DT = 2 ** (0.7 / 1200) // the two takes: 0.7 ¢ either side of the note
   const take = s => ({ set: stringSet({ bright: 0.85, sustain: 3.5, pos: 0.1, click: 0.002 }, { max: 6, seed: s }), amp: ampCab({ gain, tight, scoop }) })
   const L = take(seed), R = take(seed + 1)
   const g = () => { const [a, ka] = L.set(), [b, kb] = R.set(); return [L.amp(a + 0.3 * ka), R.amp(b + 0.3 * kb)] }
   g.hit = (freqs, vel = 0.8, { mute = false, at = 0 } = {}) => {
     const o = mute ? { sustain: 0.16, bright: 0.5 } : {}
     ;[].concat(freqs).forEach((f, i) => {
-      L.set.hit(f, vel, { ...o, at: at + Math.round(i * 0.003 * SR) })
-      R.set.hit(f * 1.0008, vel, { ...o, at: at + Math.round((0.009 + i * 0.004) * SR) })
+      L.set.hit(f / DT, vel, { ...o, at: at + Math.round(i * 0.003 * SR) })
+      R.set.hit(f * DT, vel, { ...o, at: at + Math.round((0.009 + i * 0.004) * SR) })
     })
   }
   g.choke = (τ = 0.02) => (L.set.mute(τ), R.set.mute(τ))

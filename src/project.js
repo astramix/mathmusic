@@ -11,7 +11,7 @@
 // MIDI numbers may be fractional (63.5 = E𝄳4): every pitch is 440 · 2^((n − 69)/12), exactly.
 // Shared by the app (viz/app/projectui.js), the generator's helpers there and test/project.test.js — not imported by songs.
 
-import { partInstrument, PART_IDS } from './generate.js'
+import { partInstrument, PART_IDS, generatedPart, generatedRecipes } from './generate.js'
 
 export const MAX_TRACKS = 32
 export const START = '// ==== MathMusic project'
@@ -98,7 +98,7 @@ export const INSTRUMENTS = [
     `sec => { const g = funkGuitar({ seed: 7 }), ch = chorus({ mix: 0.3, rate: 0.7 }); let q = [], qv = 0, at = -1, end = -1; return { hit: (n, v, d, b) => { q.push(F(n)); qv = Math.max(qv, v); if (b !== at) { at = b; end = b + d } else end = Math.max(end, b + d) }, out: x => { if (q.length) { g.strum(q.sort((a, c) => a - c), 0.45 + 0.5 * qv); q = []; qv = 0 } if (end > 0 && x >= end) { g.mute(0.02); end = -1 } const y = 0.8 * g(); return ch(y, y) } } }`),
 
   I('metalgtr', 'Метал-гитара (ритм, даблтрек)', PLUCK, 'poly', 'keys', [28, 76], 'dry', '#b0b0b8', 30,
-    ['G = \\text{Cab}\\Big(\\tanh\\!\\big(2.5\\tanh(18(\\LP_{4.5\\text{к}}\\HP_{90}s + 1.2\\BP_{900}s) + 0.15)\\big) - 0.45\\BP_{500}\\Big),\\quad \\text{две дорожки L/R: } +9\\text{ мс},\\ +1.4\\text{ ¢}', '\\text{ноты одной доли — один удар; короткая нота (} \\le \\tfrac14 \\text{) — глушение ладонью}'],
+    ['G = \\text{Cab}\\Big(\\tanh\\!\\big(2.5\\tanh(18(\\LP_{4.5\\text{к}}\\HP_{90}s + 1.2\\BP_{900}s) + 0.15)\\big) - 0.45\\BP_{500}\\Big),\\quad \\text{две дорожки L/R: } +9\\text{ мс},\\ \\pm 0.7\\text{ ¢}', '\\text{ноты одной доли — один удар; короткая нота (} \\le \\tfrac14 \\text{) — глушение ладонью}'],
     `sec => { const g = metalGuitar({ seed: 131 }); let q = [], qv = 0, mute = false, at = -1, end = -1; return { hit: (n, v, d, b) => { q.push(F(n)); qv = Math.max(qv, v); mute = d <= 0.26; if (b !== at) { at = b; end = b + d } else end = Math.max(end, b + d) }, out: x => { if (q.length) { g.hit(q.sort((a, c) => a - c), 0.6 + 0.4 * qv, { mute }); q = []; qv = 0 } if (end > 0 && x >= end) { g.choke(0.015); end = -1 } const [l, r] = g(); return [0.4 * l, 0.4 * r] } } }`),
   I('leadgtr', 'Метал-гитара (соло)', PLUCK, 'poly', 'lead', [40, 88], 'echo', '#e0e0e8', 30,
     ['L = \\text{Cab}\\big(\\tanh(30\\ldots)\\big),\\quad \\text{струна с точным строем: } D(t) = \\tfrac{SR}{f(t)} - \\varphi;\\quad \\text{длинная нота — бенд на тон снизу}'],
@@ -115,6 +115,9 @@ export const INSTRUMENTS = [
   I('strings', 'Струнный оркестр', BOWED, 'chord', 'pad', [28, 96], 'hall', '#d9b8ff', 48,
     ['S = \\HP_{120}\\LP_{3000}\\sum_{j}\\sum_{u=-1}^{1}\\saw\\big(f_j\\,2^{0.09u/12}\\,2^{0.12\\sin(2\\pi r_u T)/12}\\big)\\quad\\text{— смычки, атака 0.35 с}'],
     CHORD('const s = strings({ voices: 6, attack: 350, release: 800, cutoff: 3000, gain: 0.045 }), ch = chorus({ mix: 0.4 })', 'ch(...s(fs))')),
+  I('tremolo', 'Струнные тремоло (у подставки)', BOWED, 'chord', 'pad', [36, 96], 'hall', '#a8a0c8', 44,
+    ['T = \\big(0.55 + 0.45\\sin^2 2\\pi\\,8x\\big)\\big(S + 0.8\\HP_{2500}S\\big),\\quad S = \\sum_j\\sum_u \\saw\\big(f_j\\,2^{0.09u/12}\\big)\\ \\text{— тремоло тридцать вторыми у подставки}'],
+    CHORD("const s = strings({ voices: 4, attack: 120, release: 500, cutoff: 4200, gain: 0.05 }), hpL = filter('hp'), hpR = filter('hp')", '(() => { const [l, r] = s(fs), k = 1.2 * (0.55 + 0.45 * sin(TAU * 8 * x) ** 2); return [k * (l + 0.8 * hpL(l, 2500)), k * (r + 0.8 * hpR(r, 2500))] })()')),
   I('spiccato', 'Струнные спиккато', BOWED, 'poly', 'keys', [28, 96], 'hall', '#e9c46a', 48,
     ['Sp(f,t,v) = \\sum_{j=1}^{3}\\sum_{k}\\frac{W(kf_j)\\,v^{0.3+0.07k}}{k^{0.9}}\\,e^{-(6.25 + 0.9k)(t - \\ell_j)}\\sin 2\\pi kf_j(t - \\ell_j),\\quad f_j = f\\cdot 2^{(-6, 1, 7)/1200}', 'W(x) \\text{ — резонансы корпуса } 280,\\ 1100,\\ 2700 \\text{ Гц — три музыканта, отскок смычка}'],
     STRUCK('spiccatoTone', { release: 0.08, life: 1.2, gain: 0.9, max: 24 })),
@@ -644,7 +647,7 @@ const BY_NAME = [
   [/rhodes|epiano/i, 'epiano'], [/harpsichord|continuo|alberti|prelude/i, 'harpsichord'], [/organ/i, 'organ'], [/nocturne|piano/i, 'piano'],
   [/celesta/i, 'celesta'], [/vibes/i, 'vibes'], [/marimba/i, 'marimba'], [/bell|glass|bonang|peking/i, 'bells'], [/saron|demung/i, 'saron'], [/kenong|kempul/i, 'kenong'], [/gong/i, 'gong'],
   [/funk ?guitar/i, 'funkguitar'], [/metalgtr|power ?chord/i, 'metalgtr'], [/leadgtr|lead ?guitar/i, 'leadgtr'], [/kantele|lyre/i, 'kantele'], [/guitar/i, 'guitar'], [/harp/i, 'harp'], [/koto/i, 'koto'], [/shamisen/i, 'shamisen'], [/biwa/i, 'biwa'], [/oud/i, 'oud'], [/qanun/i, 'qanun'], [/sitar|chikari/i, 'sitar'],
-  [/violin|viola/i, 'violin'], [/ostinato|spiccato|lowstrings/i, 'spiccato'], [/string/i, 'strings'], [/shinobue|whistle/i, 'whistle'], [/shakuhachi/i, 'shakuhachi'], [/\bney\b/i, 'ney'], [/flute|bansuri|suling/i, 'flute'],
+  [/violin|viola/i, 'violin'], [/tremolo/i, 'tremolo'], [/ostinato|spiccato|lowstrings/i, 'spiccato'], [/string/i, 'strings'], [/shinobue|whistle/i, 'whistle'], [/shakuhachi/i, 'shakuhachi'], [/\bney\b/i, 'ney'], [/flute|bansuri|suling/i, 'flute'],
   [/oboe/i, 'oboe'], [/clarinet/i, 'clarinet'], [/pipes/i, 'pipes'], [/sax/i, 'sax'], [/trumpet/i, 'trumpet'], [/hornsection/i, 'hornsection'], [/hornstab|brass|^horns\b/i, 'brass'], [/horn/i, 'horn'],
   [/malechoir|male ?choir/i, 'malechoir'], [/choir|chant/i, 'choir'], [/scat|voice/i, 'voice'], [/meow|cat/i, 'meow'], [/pluck|conveyor/i, 'pluck'], [/synthlead/i, 'synthlead'], [/moog/i, 'moog'],
   [/pumpsaw|sawchord/i, 'sawchords'], [/supersaw|sawlead|saw/i, 'supersaw'], [/pad/i, 'synthpad'],
@@ -704,6 +707,33 @@ export function alignedParts(tracks, melody, len, { starts = null } = {}) {
     if (ns.length) parts.push({ name, role, inst: instrumentFor(name), notes: ns })
   }
   return { at: best.at, by: best.by, tr: best.tr, occurrences: occ, parts }
+}
+
+// ❄ a generated song's track into notes: a voice or a kit on its very recipe ("как в песне"); a part made from the chords
+// (chords, bass, pad, arp) on the library's instrument for its recipe — the recipe, not the name: the bass is just "bass" —
+// at the level it had (RECIPE_LEVEL: measured, the song's part against the instrument on the same notes). → { inst, vol, pan }
+const RECIPE_INST = { chords: { sawpad: 'sawchords', brass: 'sawchords', chiparp: 'chip' }, bass: {}, pad: {}, arp: { sawarp: 'supersaw' } }
+export function frozenPart(gen, key) {
+  const part = generatedPart(gen, key)
+  if (part) return { inst: genId(part), vol: part.vol, pan: part.pan }
+  const r = generatedRecipes(gen)
+  if (!r) return null
+  const role = key === r.chords ? 'chords' : key === 'bass' ? 'bass' : r.pad && key === (r.pad === 'strings' ? 'strings' : r.pad) ? 'pad' : r.arp && key === r.arp + ' arp' ? 'arp' : null
+  if (!role) return null
+  const id = r[role], inst = RECIPE_INST[role][id] ?? instrumentFor(id, gen.style, null)
+  return inst && INSTRUMENT[inst] ? { inst, vol: RECIPE_LEVEL[role + ':' + id] ?? 1, pan: 0 } : null
+}
+// measured once (two seeds of every style, the median of the level difference): the song's part over the same notes on the instrument
+const RECIPE_LEVEL = {
+  'arp:bells': 0.14, 'arp:celesta': 0.36, 'arp:chip60': 0.98, 'arp:conveyor': 0.39, 'arp:harp': 0.36, 'arp:harpsichordarp': 0.32,
+  'arp:horns': 1.48, 'arp:kantele': 0.47, 'arp:kotoarp': 0.76, 'arp:marimba': 0.4, 'arp:piano': 0.59, 'arp:pluckarp': 0.23,
+  'arp:pulsearp': 0.27, 'arp:sawarp': 0.32, 'arp:vibes': 0.31, 'bass:cello': 0.62, 'bass:chiptri': 1.91, 'bass:clubbass': 1.48,
+  'bass:drone': 0.68, 'bass:lowstrings': 1.08, 'bass:metalbass': 0.77, 'bass:octbass': 0.51, 'bass:seqbass': 1.78,
+  'bass:slapbass': 0.9, 'bass:timpani': 1, 'bass:triangle': 0.63, 'bass:upright': 0.79, 'bass:warmbass': 0.72,
+  'chords:brass': 1.58, 'chords:brasschoir': 0.78, 'chords:chiparp': 0.61, 'chords:funkguitar': 0.32, 'chords:guitar': 0.23,
+  'chords:harpsichord': 0.42, 'chords:hornstabs': 1.76, 'chords:metalgtr': 1.93, 'chords:nocturne': 0.54, 'chords:organ': 0.35,
+  'chords:ostinato': 0.46, 'chords:piano': 0.36, 'chords:pipeorgan': 0.51, 'chords:prelude': 0.79, 'chords:pumpsaw': 0.43,
+  'chords:rhodes': 0.28, 'chords:sawpad': 0.46, 'chords:tremolo': 0.85, 'pad:choirpad': 0.56, 'pad:strings': 0.53,
 }
 
 registerRecipes()

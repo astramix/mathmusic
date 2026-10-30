@@ -138,7 +138,7 @@ round, heavy jawari) · `tablaDrum({ f: Sa })` → d(t s, bol, on): na/ta, tin, 
 1700 / 2900 Hz, a scoop into each note, a late vibrato, a growl when loud).
 Metal: `metalGuitar({ gain, tight, scoop })` → g() ⇒ [l, r], g.hit(freqs, vel, { mute }), g.choke(τ) — exactly tuned strings into
 `ampCab` (high-pass 90 Hz, pickup roll-off 4.5 kHz, a 900 Hz push into two tanh stages, the first biased, a 500 Hz scoop, a 4×12 cab:
-low-passes 5.2 / 6.5 kHz, the box near 120 Hz, presence 2.5 kHz), double-tracked (+9 ms, +1.4 ¢ on the right), palm mute = sustain
+low-passes 5.2 / 6.5 kHz, the box near 120 Hz, presence 2.5 kHz), double-tracked (+9 ms, ±0.7 ¢ either side), palm mute = sustain
 0.16 s · `leadGuitar({ gain })` → l(), l.hit(f, vel, { from, bend, bendAt, bendTime, back }), l.choke(τ) (more gain, one string).
 Gamelan tones for poly() (each a pair a few Hz apart: the ombak beats): `saronTone, bonangTone, kenongTone, kempulTone,
 kethukTone, gongTone` = (f, t s, vel).
@@ -163,7 +163,7 @@ the 48-EDO grid — 𝄳/𝄲 quarter tones, ♭𝄳/♯𝄲 three quarters, an 
 (𝄮 ♮↑ +25 ¢, 𝄱 ♯↓ +75 ¢, 𝄬 ♭↑, 𝄯 ♮↓, 𝄰 ♯↑, 𝄭 ♭↓); a key with `steps` (its mode's degrees) spells degree by
 degree (C rast: E𝄳, B𝄳); `system: 'aeu'` Turkish commas above the Pythagorean natural (♭¹ koma, ♭⁴ bakiye, ♭⁵
 küçük, ♭⁸ büyük mücenneb), 'persian' koron/sori, 'cents' a measured scale: the nearest note + cents (F4−37¢) · `songKey(song)` (song.key or
-Krumhansl–Kessler, bass-weighted) · `SCALES` · `QUALITIES` · `roman('V7/V', key)` → {root, quality, tones, ivs} ·
+Krumhansl–Kessler, bass-weighted) · `SCALES` · `QUALITIES` · `roman('V7/V', key)` → {root, quality, tones, ivs} (degrees in the major scale, ♭VI; in minor no accidental = the minor's degree, ♯ raises it: ♯vii°7 in Dm = C♯°7) ·
 `chordName(ch, key)` · `voiceLead(pcs, prev, {lo, hi, voices})` smooth compact voicings · `snap(n, pcs)`.
 
 ## modes.js (shared by the app, the generator, the tests — not imported by songs)
@@ -267,7 +267,7 @@ A block in the song file between `// ==== MathMusic project` and `// ==== end of
 mode, length, sections }, removed?: [code track keys], tracks: [{ id, name, inst, vol, pan, fx?, notes: [[beat, MIDI, length,
 vel]], gen?: { style, seed, kind, part?, ref? } }] }` (plain JSON, a bar of notes per line), the instruments used, and
 `__project(song)` — `export default __project({ … })` adds a track per PROJECT track (key = its name, made unique), drops the
-`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (70, in `GROUPS`: keys,
+`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (71, in `GROUPS`: keys,
 mallets, plucked (KS koto/oud/qanun/sitar…), bowed, winds, voices, synths, bass, gamelan, drums): { id, label, group, kind poly |
 mono | chord | drums, role lead | keys | pad | bass | drums, range, fx, color, program (GM, −1 drums), level (evened out by
 measured rms), formula }. The generator's own sounds are there too (pluck, synthlead, moog, sawchords, hornsection, spiccato,
@@ -281,7 +281,10 @@ a kit's lastHit from HITS (the notes by the kit's own GM map, `drumNames` for th
 pumpAt, energy, chordAt… standing still) and passes N as make's third argument. `generatedPart(song.generator, key)` says which
 recipe a generated song's track is (lead / lead2 / counter / drums, from the instrument seed) and its level and side — ❄ «в ноты»
 uses it, so a part sounds as it did (test/project.test.js: notes back, level within 2 dB); pickers: «Звуки этой песни» first,
-«Звуки генератора» last. Parts made from the chords (chords, bass, arp, pad) still go to the nearest library instrument. Drum kits take General MIDI numbers (36 kick, 38 snare, 42 hat…; tabla by pitch class). A track object
+«Звуки генератора» last. Parts made from the chords (chords, bass, arp, pad): `frozenPart(gen, key)` → the library instrument for
+the song's recipe (`generatedRecipes(gen)`: the instrument seed's picks — the bass is just "bass"; RECIPE_INST for sawpad / brass
+stabs → sawchords, tremolo → the `tremolo` instrument), at RECIPE_LEVEL (measured: the song's part over the same notes, two seeds of
+every style, the median) — within 4 dB in the test, the voices on their recipe within 2. Drum kits take General MIDI numbers (36 kick, 38 snare, 42 hat…; tabla by pitch class). A track object
 carries `program` — midi.js / musicxml.js use it before guessing by name. `newProjectSource`, `readProject`, `writeProject(src, p,
 { parse })` (a song that isn't one yet: the block before `export default`, its value wrapped), `trackKeys`, `readTrackNotes(midi,
 length)` (notes back from midi(): gated lengths restored), `instrumentFor(name, style)`, `roleOf`, `alignedParts(parts, melody,

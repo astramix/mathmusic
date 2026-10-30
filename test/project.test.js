@@ -199,16 +199,16 @@ test('the generator recipes play from notes: every voice and every stage kit', a
 })
 // ❄ a generated song's part into notes: the same recipe, the same notes back, the same sound (an octave-down voice too)
 test('a generated part turned into notes keeps its recipe, notes and sound', async () => {
-  const { generatedPart } = await import('../src/generate.js')
-  const { genId } = await import('../src/project.js')
+  const { frozenPart } = await import('../src/project.js')
   const { source, meta } = generate({ style: 'epic', seed: 1 })
   const song = await load(source)
   const sec = 60 / song.bpm
   for (const key of Object.keys(song.tracks)) {
-    const part = generatedPart(song.generator, key)
+    const part = frozenPart(song.generator, key)
     if (!part) continue
-    const notes = readTrackNotes(song.tracks[key].midi, song.length, { drums: part.kind === 'kit' })
-    const p = await load(newProjectSource({ name: 'frozen', bpm: song.bpm, key: song.key, bars: Math.ceil(song.length / 4), tracks: [{ id: 't1', name: 'x', inst: genId(part), vol: part.vol, pan: 0, notes }] }))
+    const recipe = part.inst.startsWith('gen:'), kit = part.inst.startsWith('gen:kit')
+    const notes = readTrackNotes(song.tracks[key].midi, song.length, { drums: kit })
+    const p = await load(newProjectSource({ name: 'frozen', bpm: song.bpm, key: song.key, bars: Math.ceil(song.length / 4), tracks: [{ id: 't1', name: 'x', inst: part.inst, vol: part.vol, pan: 0, notes }] }))
     const t = Object.values(p.tracks)[0]
     // every note read back sounds in the song at its middle, and the frozen track says the same
     assert.ok(notes.length > 4, key)
@@ -217,10 +217,11 @@ test('a generated part turned into notes keeps its recipe, notes and sound', asy
       assert.ok(song.tracks[key].midi(x).some(m => Math.abs(m - n) < 0.01), `${key}: ${n} at ${b} not in the song`)
       assert.ok(t.midi(x).includes(n), `${key}: ${n} at ${b} not in the notes`)
     }
-    if (part.kind !== 'lead') continue
+    if (kit) continue
     const rms = tr => { const f = tr.audio({ bpm: song.bpm }); let s2 = 0; const n = Math.round(song.length * sec * SR); for (let s = 0; s < n; s++) { const y = f(s / SR / sec); s2 += (typeof y === 'number' ? y : y[0] + y[1]) ** 2 } return 10 * Math.log10(s2 / n + 1e-20) }
     const a = rms(song.tracks[key]), b = rms(t)
-    if (a > -90) assert.ok(Math.abs(a - b) < 2, `${key} (${part.id}): ${a.toFixed(1)} dB in the song, ${b.toFixed(1)} dB in notes`)
+    // a voice on its own recipe within 2 dB; a part made from the chords, on the instrument for its recipe, within 4
+    if (a > -90) assert.ok(Math.abs(a - b) < (recipe ? 2 : 4), `${key} (${part.inst}): ${a.toFixed(1)} dB in the song, ${b.toFixed(1)} dB in notes`)
   }
   assert.ok(meta.instruments.lead)
 })

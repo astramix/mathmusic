@@ -22,6 +22,8 @@ test('Roman numerals', () => {
   assert.deepEqual(['ii7', 'V7', 'Imaj7', 'vi7', 'bVI', 'iv', 'V/V', 'viiø7'].map(c), ['Dm7', 'G7', 'Cmaj7', 'Am7', 'A♭', 'Fm', 'D', 'Bø7'])
   const d = s => chordName(roman(s, K('Dm')), K('Dm'))
   assert.deepEqual(['i', 'iv', 'V7', 'VI', 'VII', 'bII'].map(d), ['Dm', 'Gm', 'A7', 'B♭', 'C', 'E♭'])
+  // a sharp in minor raises the minor's own degree (the leading tone), a flat counts from the major scale
+  assert.deepEqual(['#vii°7', '#vii°', '#iv°7', 'bVI', 'bVII'].map(d), ['C♯°7', 'C♯°', 'G♯°7', 'B♭', 'C'])
 })
 test('voice leading keeps common tones and stays compact', () => {
   const c = voiceLead([0, 4, 7], null)

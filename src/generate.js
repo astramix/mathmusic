@@ -3848,7 +3848,7 @@ CHORDS.metalgtr = o => {
   color: '#b0b0b8',
   graph: x => { const g = gtrAt(x); return g ? powerChord(g.c).map(n => ${o.lane[0]} + (n - 40) / 14) : null },
   midi: x => { const g = gtrAt(x); return g && x - g.at < (g.mute ? 0.2 : 0.9) ? powerChord(g.c) : [] },
-  formula: ${JSON.stringify(['G = \\text{Cab}\\Big(\\tanh\\!\\big(2.5\\tanh(18(\\LP_{4.5\\text{к}}\\HP_{90}s + 1.2\\BP_{900}s) + 0.15)\\big) - 0.45\\BP_{500}\\Big),\\quad s = \\sum_{j}\\text{струна}(f_j)', 'f = (r,\\ r\\cdot 2^{5/12\\ldots 7/12},\\ 2r)\\ \\text{— квинтаккорд; P — глушение ладонью (сустейн 0.16 с); две дорожки L/R: } +9\\text{ мс},\\ +1.4\\text{ ¢}'])},
+  formula: ${JSON.stringify(['G = \\text{Cab}\\Big(\\tanh\\!\\big(2.5\\tanh(18(\\LP_{4.5\\text{к}}\\HP_{90}s + 1.2\\BP_{900}s) + 0.15)\\big) - 0.45\\BP_{500}\\Big),\\quad s = \\sum_{j}\\text{струна}(f_j)', 'f = (r,\\ r\\cdot 2^{5/12\\ldots 7/12},\\ 2r)\\ \\text{— квинтаккорд; P — глушение ладонью (сустейн 0.16 с); две дорожки L/R: } +9\\text{ мс},\\ \\pm 0.7\\text{ ¢}'])},
   audio({ bpm }) {
     const g = metalGuitar({ seed: 131 }), fire = trigger(), verb = reverb({ room: 0.55, damp: 0.6, wet: 0.1 })
     let on = false
@@ -5541,12 +5541,19 @@ export const PART_IDS = () => ({
 })
 // which part of a generated song (its `generator` field) a track is, by its key in song.tracks: the recipe, and the
 // level and side it had there — or null (a part made from the chords, not from a voice)
-export function generatedPart(gen, key) {
+// the recipes a generated song (its `generator` field) was made with — drawn as generate() draws them, from the instrument seed
+export function generatedRecipes(gen) {
   const S = STYLES[gen?.style]
-  if (!S?.lead) return null
+  // (the fugue, maqam, raga, gamelan and ambient styles write their own ensembles)
+  if (!S?.lead || !S.chords || ['fugue', 'maqam', 'raga', 'gamelan', 'ambient'].includes(gen.style)) return null
   const seed = (gen.seed ?? 1) >>> 0, RI = rng((gen.seeds?.instruments ?? seed * 104729 + 3) >>> 0)
-  const inst = { lead: pick(RI, S.lead), lead2: pick(RI, S.lead2) }
+  const inst = { lead: pick(RI, S.lead), lead2: pick(RI, S.lead2), chords: pick(RI, S.chords), bass: pick(RI, S.bass), pad: pick(RI, S.pad), arp: pick(RI, S.arp), texture: pick(RI, S.texture) }
   if (inst.lead2 === inst.lead) inst.lead2 = S.lead2.find(x => x !== inst.lead) ?? inst.lead2
+  return inst
+}
+export function generatedPart(gen, key) {
+  const S = STYLES[gen?.style], inst = generatedRecipes(gen)
+  if (!inst) return null
   const boss = gen.style === 'boss', louder = boss ? 1.6 : 1, counter = S.counter ?? COUNTER_VOICE[inst.lead] ?? inst.lead2
   const clean = t => t.replace(/[^\w ]/g, '').trim()
   if (key === clean(inst.lead)) return { kind: 'lead', id: inst.lead, vol: S.gains?.lead ?? 1, pan: 0.12 }
