@@ -3467,8 +3467,16 @@ ARPS.conveyor = o => {
 }})()`
 }
 
-// ---- kits of the stage: a pattern per bar from the section's role and energy (as the hardstyle kit does)
-const stageHits = body => `const barCache = new Map()
+// ---- kits of the stage: a pattern per bar from the section's role and energy (as the hardstyle kit does) — or, when
+// the kit is written as an instrument of a project (partInstrument), its hits from the notes: HITS = { drum: [[beat, vel]] }
+let NOTE_HITS = false, KIT_MAP = null
+const stageHits = body => NOTE_HITS ? `function lastHit(x, drum) {
+    const L = HITS[drum]
+    if (!L) return null
+    let lo = 0, hi = L.length
+    while (lo < hi) { const m = (lo + hi) >> 1; if (L[m][0] <= x) lo = m + 1; else hi = m }
+    return lo ? { τ: x - L[lo - 1][0], vel: L[lo - 1][1] } : null
+  }` : `const barCache = new Map()
   function barHits(b) {
     if (barCache.has(b)) return barCache.get(b)
     const x = 4 * b, hits = []
@@ -3496,7 +3504,7 @@ const stageGraph = drums => `graph: x => {
     ${drums.map(([d, y, h]) => `{ const q = lastHit(x, '${d}'); if (q && q.τ < 0.3) return ${y} + ${h} * q.vel * exp(-8 * q.τ) }`).join('\n    ')}
     return null
   },`
-const stageMidi = map => `midi: x => (x >= END ? [] : ${JSON.stringify(map)}.filter(([d]) => lastHit(x, d)?.τ < 0.1).map(([, n]) => n)),`
+const stageMidi = map => (KIT_MAP = map, `midi: x => (x >= END ? [] : ${JSON.stringify(map)}.filter(([d]) => lastHit(x, d)?.τ < 0.1).map(([, n]) => n)),`)
 
 // the festival kit around the club kick: a clap layered on a snare on 2 and 4, off-beat open hats, sixteenth hats in a
 // drop, a crash every 16 beats of a drop; a snare roll doubling (1, ½, ¼, ⅛) through every build-up
@@ -5491,3 +5499,60 @@ const DRONE = ${round((harmonic ? tonic - 36 : tonic - 24) - 60)} // the low dro
 }
 
 export const describe = meta => `${STYLES[meta.style]?.emoji ?? ''} ${meta.title} · ${meta.key}${meta.modeName ? ' ' + meta.modeName.toLowerCase() : ''} · ${meta.bpm} BPM · темы: ${meta.themes.A.title} + ${meta.themes.B.title}`
+
+// ---- a generated part as an instrument of a project (src/project.js) --------------------------------------------------
+// The piano roll plays the very recipe a song was made with: a lead recipe reads its voice from NOTE_AT (the project
+// track's notes), a stage kit its hits from HITS (the notes by the kit's own General MIDI map), so a part turned into
+// notes (❄) sounds as it did. → { code (a track object literal), names: { engine, instruments }, color, formula, map? }
+// or null (a recipe that isn't played from a voice or a kit of the stage)
+const PART_CACHE = new Map()
+export function partInstrument(kind, id, variant = null) {
+  const k = `${kind}:${id}:${variant}`
+  if (PART_CACHE.has(k)) return PART_CACHE.get(k)
+  const used = { engine: new Set(['mod', 'floor', 'exp', 'sin', 'TAU', 'hz', 'filter', 'reverb', 'delay', 'smooth']), instruments: new Set(['notesAt', 'hash', 'pan', 'trigger', 'poly']) }
+  const need = (mod, ...n) => n.forEach(x => used[mod].add(x))
+  const extra = { variant, pump: 0, dark: variant === 'cave', r: rng(7) }
+  let out = null
+  try {
+    if (kind === 'lead' && LEADS[id]) out = { code: LEADS[id]({ at: 'NOTE_AT', lane: lane.lead, gain: 1, pan: 0, need, sw: 0.5, hard: false, tonic: 0, ...extra }) }
+    else if (kind === 'kit' && KITS[id]) {
+      NOTE_HITS = true
+      KIT_MAP = null
+      const code = KITS[id]({ need, drums: {}, ...extra })
+      if (code.includes('const L = HITS[drum]') && KIT_MAP) out = { code, map: Object.fromEntries([...KIT_MAP].reverse().map(([d, n]) => [n, d])) }
+    }
+  } finally {
+    NOTE_HITS = false
+  }
+  if (out) {
+    out.names = { engine: [...used.engine], instruments: [...used.instruments] }
+    // the MIDI note its midi() reports for n = 0 (a recipe an octave down says 48 + n): the notes are read back by it
+    out.base = +(out.code.match(/midi: x => [^\n]*?\[(\d+) \+ m\.n/)?.[1] ?? 60)
+    out.color = out.code.match(/color: '(#[0-9a-f]{3,8})'/i)?.[1] ?? '#cccccc'
+    try { out.formula = JSON.parse(out.code.match(/formula: (\[.*?\]),\n/)?.[1] ?? 'null') } catch { out.formula = null }
+  }
+  PART_CACHE.set(k, out)
+  return out
+}
+// the recipes that can be instruments: every lead recipe, the kits of the stage (the factory's in its three variants)
+export const PART_IDS = () => ({
+  lead: Object.keys(LEADS).filter(id => partInstrument('lead', id)),
+  kit: [...new Set(Object.values(STYLES).filter(S => S.kit).map(S => `${S.kit}${S.variant && S.kit === 'factory' ? ':' + S.variant : ''}`))].filter(k => partInstrument('kit', ...k.split(':'))),
+})
+// which part of a generated song (its `generator` field) a track is, by its key in song.tracks: the recipe, and the
+// level and side it had there — or null (a part made from the chords, not from a voice)
+export function generatedPart(gen, key) {
+  const S = STYLES[gen?.style]
+  if (!S?.lead) return null
+  const seed = (gen.seed ?? 1) >>> 0, RI = rng((gen.seeds?.instruments ?? seed * 104729 + 3) >>> 0)
+  const inst = { lead: pick(RI, S.lead), lead2: pick(RI, S.lead2) }
+  if (inst.lead2 === inst.lead) inst.lead2 = S.lead2.find(x => x !== inst.lead) ?? inst.lead2
+  const boss = gen.style === 'boss', louder = boss ? 1.6 : 1, counter = S.counter ?? COUNTER_VOICE[inst.lead] ?? inst.lead2
+  const clean = t => t.replace(/[^\w ]/g, '').trim()
+  if (key === clean(inst.lead)) return { kind: 'lead', id: inst.lead, vol: S.gains?.lead ?? 1, pan: 0.12 }
+  if (key === clean(inst.lead2 === inst.lead ? inst.lead2 + ' II' : inst.lead2)) return { kind: 'lead', id: inst.lead2, vol: 0.9 * louder * ({ bells: 0.45 }[inst.lead2] ?? 1) * (S.gains?.lead2 ?? 1), pan: -0.3 }
+  if (key === clean(counter + ' counter')) return { kind: 'lead', id: counter, vol: 0.5 * louder * (boss ? 2 : 1) * (S.gains?.counter ?? 1), pan: -0.4 }
+  const variant = S.kit === 'factory' ? S.variant ?? null : null
+  if (key === 'drums' && partInstrument('kit', S.kit, variant)) return { kind: 'kit', id: S.kit, variant, vol: 1, pan: 0 }
+  return null
+}

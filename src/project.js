@@ -11,6 +11,8 @@
 // MIDI numbers may be fractional (63.5 = E𝄳4): every pitch is 440 · 2^((n − 69)/12), exactly.
 // Shared by the app (viz/app/projectui.js), the generator's helpers there and test/project.test.js — not imported by songs.
 
+import { partInstrument, PART_IDS } from './generate.js'
+
 export const MAX_TRACKS = 32
 export const START = '// ==== MathMusic project'
 export const END = '// ==== end of the project'
@@ -160,7 +162,7 @@ export const INSTRUMENTS = [
   I('choir', 'Хор «а»', VOICES, 'chord', 'pad', [40, 84], 'hall', '#c9b6ff', 52,
     ['Ch = \\sum_j \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\,\\BP_{F_i}\\big(\\saw(f_j) + 0.06\\eta\\big),\\quad F:\\ \\text{«а»} \\leftrightarrow \\text{«о»}'],
     CHORD('const c = choir({ voices: 4, gain: 0.3 })', 'c(fs, blend(VOWELS.a, VOWELS.o, 0.5 + 0.5 * sin(TAU * x / 16)))')),
-  I('malechoir', 'Мужской хор «о»', VOICES, 'chord', 'pad', [36, 69], 'hall', '#b8a6f0', 52,
+  I('malechoir', 'Мужской хор «о» (аккорды)', VOICES, 'chord', 'pad', [36, 69], 'hall', '#b8a6f0', 52,
     ['Ch = \\sum_j \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\,\\BP_{0.9F_i}\\tanh\\!\\big(1.35\\saw(f_j)\\big),\\quad F:\\ \\text{«о»} \\leftrightarrow \\text{«у»} \\text{ — низкие мужские голоса'],
     CHORD('const c = choir({ voices: 4, size: 0.9, rough: 0.35, breath: 0.04, gain: 0.3 })', 'c(fs, blend(VOWELS.o, VOWELS.u, 0.5 + 0.5 * sin(TAU * x / 12)))')),
   I('voice', 'Голос «а–о»', VOICES, 'mono', 'lead', [48, 84], 'echo', '#e0c8ff', 53,
@@ -262,6 +264,36 @@ const LEVEL = { piano: 1.4, harpsichord: 2, organ: 2.5, guitar: 3, harp: 2.2, ko
   metalgtr: 0.55, leadgtr: 0.9, kantele: 2.3, malechoir: 0.7, metalbass: 2.6 }
 for (const i of INSTRUMENTS) i.level = LEVEL[i.id] ?? 1
 export const INSTRUMENT = Object.fromEntries(INSTRUMENTS.map(i => [i.id, i]))
+// The generator's own recipes as instruments: 'gen:lead:<recipe>' (a voice — the theme, the second voice, the counter-melody)
+// and 'gen:kit:<kit>[:<variant>]' (a kit of the stage) play from the notes exactly as they play in a generated song (make:
+// { lead } / { kit }: the recipe's code goes into the project's block). Not in the menus by themselves: ❄ «в ноты» of a
+// generated song's part picks them, and the pickers offer the song's own ("как в песне").
+export const genId = part => `gen:${part.kind}:${part.id}${part.variant ? ':' + part.variant : ''}`
+function registerRecipes() { // (called at the end of the module: it names them by instrumentFor)
+  const ids = PART_IDS()
+  for (const id of ids.lead) {
+    const q = partInstrument('lead', id), like = INSTRUMENT[instrumentFor(id, null, null)]
+    GEN_INSTRUMENTS.push(INSTRUMENT['gen:lead:' + id] = { id: 'gen:lead:' + id, label: `${like?.label ?? id} · ${id} (как в песне)`, group: 'Как в песне', kind: 'mono', role: 'lead', range: like?.range ?? [48, 96], fx: 'dry', color: q.color, program: like?.program ?? 0, level: 1, formula: q.formula ?? [id], make: { lead: id } })
+  }
+  for (const k of ids.kit) {
+    const [kit, variant = null] = k.split(':'), q = partInstrument('kit', kit, variant)
+    const drumNames = Object.fromEntries(Object.entries(q.map).map(([n, d]) => [n, DRUM_RU[d] ?? d]))
+    GEN_INSTRUMENTS.push(INSTRUMENT['gen:kit:' + k] = { id: 'gen:kit:' + k, label: `Ударные «${k}» (как в песне)`, group: 'Как в песне', kind: 'drums', role: 'drums', range: [35, 81], fx: 'dry', color: q.color, program: -1, level: 1, formula: q.formula ?? [k], make: { kit, variant }, drumNames })
+  }
+}
+// an instrument made from a recipe: its code, played from the track's notes N (make gets them as its third argument)
+function recipeMake(m) {
+  if (m.lead) return `(sec, o, N) => { const NOTE_AT = voiceOf(N, ${partInstrument('lead', m.lead).base}), t = ${partInstrument('lead', m.lead).code}, f = t.audio({ bpm: 60 / sec }); return { out: x => f(x) } }`
+  const q = partInstrument('kit', m.kit, m.variant ?? null)
+  return `(sec, o, N) => { const HITS = hitsOf(N, ${JSON.stringify(q.map)}), t = ${q.code}, f = t.audio({ bpm: 60 / sec }); return { out: x => f(x) } }`
+}
+// the kits' own drums, for the piano roll's rows
+const DRUM_RU = { kick: 'бочка', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
+  toms: 'томы', rim: 'римшот', shaker: 'шейкер', tamb: 'бубен', china: 'китайская', taiko: 'тайко', boom: 'бум', far: 'далёкий барабан', heart: 'сердце',
+  clank: 'сталь', chain: 'цепь', low: 'большой барабан', frame: 'рамочный', tick: 'тик', swell: 'свелл' }
+// all of them (registered at the end of the module)
+export const GEN_INSTRUMENTS = []
+const recipeNames = m => (m.lead ? partInstrument('lead', m.lead) : partInstrument('kit', m.kit, m.variant ?? null)).names
 export const GROUPS = [...new Set(INSTRUMENTS.map(i => i.group))]
 
 // the drum kits' code (make functions) — `hits` per drum: the last hit's beat and velocity
@@ -362,12 +394,21 @@ function dataText(p) {
   return L.join('\n')
 }
 
+// what a generator's recipe asks of the song around it, for its sound alone: the voice from the notes (NOTE_AT), a kit's hits
+// (HITS), and quiet stand-ins for the song's sections, chords and sidechain
+const RECIPE_STAGE = `  // the generator's recipes (instruments "как в песне"): their voice from the notes, the song around them standing still
+  const C4 = 440 * 2 ** (-9 / 12), SW = 0.5, END = Infinity, SEC = 0.5, pumpAt = () => 1, energy = () => 2, role = () => 'theme', chordAt = () => null, trAt = () => 0, SCALE = [0, 2, 4, 5, 7, 9, 11]
+  const voiceOf = (N, base) => { const at = finder(N); return x => { const a = at(x), m = a[a.length - 1]; return m ? { n: m[1] - base, d: m[2], τ: x - m[0], u: (x - m[0]) / m[2], at: m[0] } : null } }
+  const hitsOf = (N, MAP) => { const H = {}; for (const e of N) { const d = MAP[Math.round(e[1])]; if (d) (H[d] ??= []).push([e[0], e[3] ?? 0.8]) } return H }
+`
 // the block for a project: the data, the instruments its tracks use, __project
 export function projectBlock(p) {
   const used = [...new Set(p.tracks.map(t => (INSTRUMENT[t.inst] ? t.inst : 'piano')))]
+  const recipes = used.map(id => INSTRUMENT[id].make).filter(m => typeof m === 'object')
+  const names = (base, mod) => [...new Set([...base, ...recipes.flatMap(m => recipeNames(m)[mod])])]
   const inst = used.map(id => {
-    const d = INSTRUMENT[id], make = KIT_CODE[d.make] ?? d.make
-    return `    ${id}: { kind: '${d.kind}', role: '${d.role}', fx: '${d.fx}', color: '${d.color}', program: ${d.program}, level: ${d.level}, formula: ${JSON.stringify(d.formula)},\n      make: ${make} },`
+    const d = INSTRUMENT[id], make = typeof d.make === 'object' ? recipeMake(d.make) : KIT_CODE[d.make] ?? d.make
+    return `    ${JSON.stringify(id)}: { kind: '${d.kind}', role: '${d.role}', fx: '${d.fx}', color: '${d.color}', program: ${d.program}, level: ${d.level}, formula: ${JSON.stringify(d.formula)},\n      make: ${make} },`
   })
   return `${START}: the tracks below are notes (PROJECT, plain data — the app's piano roll writes it; edit freely), played by
 // instruments of the library; __project(song) adds them to the song and leaves out the song's own tracks listed in "removed".
@@ -376,9 +417,9 @@ import * as __PI from '../src/instruments.js'
 const PROJECT = ${dataText(p)}
 ${DATA_END}
 const __project = (() => {
-  const { ${ENGINE_NAMES.join(', ')} } = __PE
-  const { ${INSTRUMENT_NAMES.join(', ')} } = __PI
-  // A4 = 440 exactly; n may be fractional: 63.5 = E𝄳4. A temperament (PROJECT.tuning: cents of C … B) moves each note by its own
+  const { ${names(ENGINE_NAMES, 'engine').join(', ')} } = __PE
+  const { ${names(INSTRUMENT_NAMES, 'instruments').join(', ')} } = __PI
+${recipes.length ? RECIPE_STAGE : ''}  // A4 = 440 exactly; n may be fractional: 63.5 = E𝄳4. A temperament (PROJECT.tuning: cents of C … B) moves each note by its own
   const TUNE = PROJECT.tuning?.offsets ?? null, F = n => 440 * 2 ** ((n + (TUNE && Math.abs(n - Math.round(n)) < 0.01 ? TUNE[mod(Math.round(n), 12)] / 100 : 0) - 69) / 12)
   // a drum kit: D = { drum: [d(t, on), gain, time scale (1: τ in beats, sec: t in seconds)] }, MAP: note → drum
   const kitOf = (D, MAP, other) => {
@@ -424,7 +465,7 @@ ${inst.join('\n')}
       midi: x => at(x).filter(e => x < e[0] + (drums ? Math.min(0.1, e[2]) : e[2] - Math.min(0.03, 0.06 * e[2]))).map(e => e[1]),
       formula: def.formula,
       audio({ bpm }) {
-        const sec = 60 / bpm, I = def.make(sec, o), fx = (FX[t.fx] ?? FX[def.fx])(sec), vol = (t.vol ?? 1) * (def.level ?? 1), p = clamp(t.pan ?? 0, -1, 1), gl = Math.min(1, 1 - p), gr = Math.min(1, 1 + p)
+        const sec = 60 / bpm, I = def.make(sec, o, N), fx = (FX[t.fx] ?? FX[def.fx])(sec), vol = (t.vol ?? 1) * (def.level ?? 1), p = clamp(t.pan ?? 0, -1, 1), gl = Math.min(1, 1 - p), gr = Math.min(1, 1 + p)
         let i = -1, act = [], end = Infinity
         return x => {
           if (i < 0) for (i = 0; i < N.length && N[i][0] < x - 1e-9; i++) if (N[i][0] + N[i][2] > x) act.push(N[i]), (end = Math.min(end, N[i][0] + N[i][2])) // starting late (the player's pre-roll): what still sounds
@@ -664,3 +705,5 @@ export function alignedParts(tracks, melody, len, { starts = null } = {}) {
   }
   return { at: best.at, by: best.by, tr: best.tr, occurrences: occ, parts }
 }
+
+registerRecipes()

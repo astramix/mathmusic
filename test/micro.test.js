@@ -222,3 +222,11 @@ test('tuning files: Scala .scl/.kbm and Ableton .ascl', () => {
   assert.match(r['tuning.ascl'], /@ABL NOTE_NAMES "C" "D" "E𝄳" "F" "G" "A" "B𝄳"/)
   assert.ok(r['tuning.scl'].includes(' 350.'))
 })
+
+// an improvised solo over a theme with quarter tones: its range (8.5 … 30) is taken in whole notes — it used to find no note
+// of the scale and play NaN
+test('generator: a solo over a microtonal theme plays notes, not NaN', async () => {
+  const { source } = generate({ style: 'darkecho', seed: 202626, melody: 1604595311, arrangement: 202626, instruments: 4040949173, key: 'Ebm', micro: 'quarter', modulations: true })
+  const song = await load(source)
+  for (const [k, t] of Object.entries(song.tracks)) if (t.midi) for (let x = 0; x < song.length; x += 0.25) assert.ok(t.midi(x).every(Number.isFinite), `${k} at ${x}`)
+})

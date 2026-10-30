@@ -1330,6 +1330,9 @@ export function voiceChords(chords, { lo = 55, hi = 76, voices = 4 } = {}) {
 //   notes pulled toward a phrase arch c(t) = mid + span·sin(πt/phrase); notes on the beat snap to
 //   chord(x) tones; the last `breathe` beats of every phrase rest; some notes are held longer.
 export function improvise({ start, length, rate = 2, seed = 1, scale, chord, lo, hi, phrase = 8, rest = 0.2, breathe = 1.5, hold = 0.3, swing = 0.5 }) {
+  // the range in whole notes (a theme with quarter tones gives 8.5: the walk would find no note of the scale)
+  lo = Math.ceil(lo - 1e-9)
+  hi = Math.floor(hi + 1e-9)
   const mid = (lo + hi) / 2, span = (hi - lo) / 3, events = []
   const inScale = (pcs, n) => pcs.includes(((n % 12) + 12) % 12)
   let n = Math.round(mid)

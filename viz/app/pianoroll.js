@@ -114,6 +114,8 @@ export function createPianoRoll(root) {
   let drag = null, hover = null, playing = null, ghosts = [], wanted = null, marquee = null, velDrag = null, lastVel = 0.8, pendingLoad = false
   const tl = createTrackList(side, { current: () => cur, want: v => want(v) })
   const drumsNow = () => cur?.kind === 'project' && INSTRUMENT[cur.inst]?.kind === 'drums'
+  // a row's drum: the kit's own (a generator's kit names its drums), else General MIDI's
+  const drumName = n => (INSTRUMENT[cur?.inst]?.drumNames ?? DRUM_NAMES)[Math.round(n)] ?? (INSTRUMENT[cur?.inst]?.drumNames ? null : DRUM_NAMES[Math.round(n)])
   // the velocity lane under a project track's notes (the code's melodies are [beat, n, length]: no velocity)
   const VEL_H = 72, velOn = () => cur?.kind === 'project', laneTop = () => H - (velOn() ? VEL_H : 0)
   const velOf = e => e[3] ?? 0.8, velY = v => H - 6 - v * (VEL_H - 18), yVel = sy => Math.round(Math.max(0.05, Math.min(1, (H - 6 - sy) / (VEL_H - 18))) * 100) / 100
@@ -318,7 +320,7 @@ export function createPianoRoll(root) {
       if (w > 26 && row >= 12) {
         g.fillStyle = '#1b1238'
         g.font = '10px system-ui'
-        g.fillText(drumsNow() ? DRUM_NAMES[Math.round(n)] ?? String(n) : spell(base + n, key, true), x0 + 3, y0 + row - 4)
+        g.fillText(drumsNow() ? drumName(n) ?? String(n) : spell(base + n, key, true), x0 + 3, y0 + row - 4)
       }
     })
     // the step-input cursor
@@ -342,7 +344,7 @@ export function createPianoRoll(root) {
       if (pc(m) === 0 && on12 || tonic || row >= 13 || (!on12 && row >= 9 && isIn(m))) {
         g.fillStyle = black || !on12 ? '#e4e0f2' : '#2b2840'
         g.font = `${tonic ? 'bold ' : ''}${row >= 12 ? 10 : 8}px system-ui`
-        g.fillText(drumsNow() ? (DRUM_NAMES[m] ?? spell(m, key)).slice(0, 8) : spell(m, key).replace(/[+−]\d+¢$/, ''), on12 ? 4 : 12, y + row - 2)
+        g.fillText(drumsNow() ? (drumName(m) ?? spell(m, key)).slice(0, 8) : spell(m, key).replace(/[+−]\d+¢$/, ''), on12 ? 4 : 12, y + row - 2)
       }
     }
     g.restore()

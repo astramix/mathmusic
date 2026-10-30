@@ -106,7 +106,7 @@ Pure: `notesAt(list, t)` (list of [start, n, d], sorted) → {n, d, τ, u, at} |
 `fm(f, t, {ratio, index, decay, idecay})` bell · `pianoTone, epianoTone, vibesTone, marimbaTone,
 uprightTone` = (f, t s, vel) ⇒ y · `meowBend(u)` · `vol4(v)` 4-bit volume · `VOWELS{a,e,i,o,u}`, `blend` ·
 `improvise({start, length, rate, seed, scale: x⇒pcs, chord: x⇒pcs, lo, hi, phrase, rest, hold,
-breathe, swing})` → events for a solo.
+breathe, swing})` → events for a solo (lo/hi taken in whole notes: a microtonal theme's 8.5 used to give NaN).
 
 Builders (inside audio()): `poly(tone, {life, release})` → p(), p.hit(f, vel, durSec, delaySec) ·
 `trigger()` → fire(key) true once per new key (use x − τ / note start) · `ar(attackMs, releaseMs)` ·
@@ -273,7 +273,15 @@ mono | chord | drums, role lead | keys | pad | bass | drums, range, fx, color, p
 measured rms), formula }. The generator's own sounds are there too (pluck, synthlead, moog, sawchords, hornsection, spiccato,
 funkguitar, slapbass, clubbass, seqbass, growl, clubkit — its kick at a fixed 50 Hz); `instrumentFor(name, style, fallback)` maps
 a generated track's recipe name to them ("pluck counter" → pluck, a plain "bass" by STYLE_BASS). projectui `usedInstruments()`: the
-pickers (＋ dialog, a track's select, ⋯ → Инструмент) show an instrument in use as «● name — tracks» in that track's colour. Drum kits take General MIDI numbers (36 kick, 38 snare, 42 hat…; tabla by pitch class). A track object
+pickers (＋ dialog, a track's select, ⋯ → Инструмент) show an instrument in use as «● name — tracks» in that track's colour.
+**Как в песне**: the generator's recipes themselves as instruments — `gen:lead:<recipe>` (33 voices) and `gen:kit:<kit>[:<variant>]`
+(the 10 stage kits), `GEN_INSTRUMENTS`, make `{ lead } | { kit }`: generate.js `partInstrument(kind, id, variant)` emits the recipe with
+its voice from NOTE_AT (the track's notes; `base` = the MIDI its midi() says for n = 0 — 48 for an octave-down voice) or, NOTE_HITS,
+a kit's lastHit from HITS (the notes by the kit's own GM map, `drumNames` for the piano roll's rows); the block adds RECIPE_STAGE (C4,
+pumpAt, energy, chordAt… standing still) and passes N as make's third argument. `generatedPart(song.generator, key)` says which
+recipe a generated song's track is (lead / lead2 / counter / drums, from the instrument seed) and its level and side — ❄ «в ноты»
+uses it, so a part sounds as it did (test/project.test.js: notes back, level within 2 dB); pickers: «Звуки этой песни» first,
+«Звуки генератора» last. Parts made from the chords (chords, bass, arp, pad) still go to the nearest library instrument. Drum kits take General MIDI numbers (36 kick, 38 snare, 42 hat…; tabla by pitch class). A track object
 carries `program` — midi.js / musicxml.js use it before guessing by name. `newProjectSource`, `readProject`, `writeProject(src, p,
 { parse })` (a song that isn't one yet: the block before `export default`, its value wrapped), `trackKeys`, `readTrackNotes(midi,
 length)` (notes back from midi(): gated lengths restored), `instrumentFor(name, style)`, `roleOf`, `alignedParts(parts, melody,

@@ -175,3 +175,52 @@ test('a project in another tonic and mode: its notes move degree by degree, the 
   assert.equal(rs2.mode, 'dorian')
   assert.deepEqual(readProject(r2.source).tracks[0].notes.map(e => e[1]), [53, 60])
 })
+
+// the generator's recipes as instruments ("как в песне"): every voice and every kit of the stage plays from notes
+test('the generator recipes play from notes: every voice and every stage kit', async () => {
+  const { GEN_INSTRUMENTS } = await import('../src/project.js')
+  assert.ok(GEN_INSTRUMENTS.length >= 40)
+  const tracks = GEN_INSTRUMENTS.map((d, i) => {
+    const mid = Math.round((d.range[0] + d.range[1]) / 2)
+    const notes = d.kind === 'drums' ? Object.keys(d.drumNames).map((n, j) => [j * 0.25, +n, 0.25, 0.9]) : [[0, mid, 1, 0.8], [1, mid + 2, 0.5, 0.7], [1.5, mid + 3.5, 0.5, 0.7]]
+    return { id: 't' + i, name: d.id.replace(/:/g, ' '), inst: d.id, notes }
+  })
+  const song = await load(newProjectSource({ name: 'gen', bpm: 120, key: 'C', bars: 1, tracks }))
+  for (const [k, t] of Object.entries(song.tracks)) {
+    const f = t.audio({ bpm: 120 })
+    let peak = 0
+    for (let s = 0; s < 2 * SR; s++) {
+      const y = f(s / SR / 0.5), [l, r] = typeof y === 'number' ? [y, y] : y
+      assert.ok(Number.isFinite(l) && Number.isFinite(r), `${k}: not finite at ${s}`)
+      peak = Math.max(peak, Math.abs(l), Math.abs(r))
+    }
+    assert.ok(peak > 1e-3 && peak < 4, `${k}: peak ${peak}`)
+  }
+})
+// ❄ a generated song's part into notes: the same recipe, the same notes back, the same sound (an octave-down voice too)
+test('a generated part turned into notes keeps its recipe, notes and sound', async () => {
+  const { generatedPart } = await import('../src/generate.js')
+  const { genId } = await import('../src/project.js')
+  const { source, meta } = generate({ style: 'epic', seed: 1 })
+  const song = await load(source)
+  const sec = 60 / song.bpm
+  for (const key of Object.keys(song.tracks)) {
+    const part = generatedPart(song.generator, key)
+    if (!part) continue
+    const notes = readTrackNotes(song.tracks[key].midi, song.length, { drums: part.kind === 'kit' })
+    const p = await load(newProjectSource({ name: 'frozen', bpm: song.bpm, key: song.key, bars: Math.ceil(song.length / 4), tracks: [{ id: 't1', name: 'x', inst: genId(part), vol: part.vol, pan: 0, notes }] }))
+    const t = Object.values(p.tracks)[0]
+    // every note read back sounds in the song at its middle, and the frozen track says the same
+    assert.ok(notes.length > 4, key)
+    for (const [b, n, d] of notes) {
+      const x = b + Math.min(d / 2, 0.05)
+      assert.ok(song.tracks[key].midi(x).some(m => Math.abs(m - n) < 0.01), `${key}: ${n} at ${b} not in the song`)
+      assert.ok(t.midi(x).includes(n), `${key}: ${n} at ${b} not in the notes`)
+    }
+    if (part.kind !== 'lead') continue
+    const rms = tr => { const f = tr.audio({ bpm: song.bpm }); let s2 = 0; const n = Math.round(song.length * sec * SR); for (let s = 0; s < n; s++) { const y = f(s / SR / sec); s2 += (typeof y === 'number' ? y : y[0] + y[1]) ** 2 } return 10 * Math.log10(s2 / n + 1e-20) }
+    const a = rms(song.tracks[key]), b = rms(t)
+    if (a > -90) assert.ok(Math.abs(a - b) < 2, `${key} (${part.id}): ${a.toFixed(1)} dB in the song, ${b.toFixed(1)} dB in notes`)
+  }
+  assert.ok(meta.instruments.lead)
+})

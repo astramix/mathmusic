@@ -6,8 +6,8 @@
 import { app } from './app.js'
 import { h, esc, toast, modal, contextMenu, ask } from './ui.js'
 import * as acorn from './acorn.js'
-import { INSTRUMENTS, INSTRUMENT, GROUPS, MAX_TRACKS, readProject, writeProject, isProject, newProjectSource, readTrackNotes, roleOf, instrumentFor, alignedParts } from './project.js'
-import { generate, STYLES, STYLE_LIST, styleGroups } from './generate.js'
+import { INSTRUMENTS, INSTRUMENT, GROUPS, GEN_INSTRUMENTS, genId, MAX_TRACKS, readProject, writeProject, isProject, newProjectSource, readTrackNotes, roleOf, instrumentFor, alignedParts } from './project.js'
+import { generate, generatedPart, STYLES, STYLE_LIST, styleGroups } from './generate.js'
 import { MODE_GROUPS, keyFor, MODES } from './modes.js'
 import { harmonize } from './harmonize.js'
 import { parentMode } from './modes.js'
@@ -94,13 +94,16 @@ export function removeCode(key, on = true) {
   p.removed = [...r]
   setProject(p)
 }
-// ❄ a code track into notes: a project track with what it plays, on the instrument its name suggests; the code's track goes
+// ❄ a code track into notes: a project track with what it plays — a generated song's voice or kit on its very recipe ("как в
+// песне": the same sound, the same level and side), any other on the instrument its name suggests; the code's track goes
 export function freeze(key) {
   const notes = codeNotes(key)
   if (!notes.length) return toast(`«${key}» не отдаёт ноты (у неё нет midi()) — её можно только удалить`, { kind: 'err', ms: 6000 })
   const p = projectOf()
   if (p.tracks.length >= MAX_TRACKS) return toast(`в проекте уже ${MAX_TRACKS} дорожки`, { kind: 'err' })
-  const t = { id: nextId(p), name: nameFor(p, key + ' ♪'), inst: instrumentFor(key, app.current.song.style ?? app.current.song.generator?.style), vol: 1, pan: 0, notes }
+  const part = generatedPart(app.current.song.generator, key)
+  const t = part ? { id: nextId(p), name: nameFor(p, key + ' ♪'), inst: genId(part), vol: +part.vol.toFixed(3), pan: part.pan, notes }
+    : { id: nextId(p), name: nameFor(p, key + ' ♪'), inst: instrumentFor(key, app.current.song.style ?? app.current.song.generator?.style), vol: 1, pan: 0, notes }
   p.tracks.push(t)
   p.removed = [...new Set([...(p.removed ?? []), key])]
   setProject(p)
@@ -244,16 +247,26 @@ export function usedInstruments() {
   try { info = trackInfo() } catch { return out }
   for (const { t } of info.project) add(t.inst, t.name, t.color ?? INSTRUMENT[t.inst]?.color ?? '#ffffff')
   const style = app.current?.song?.style ?? app.current?.song?.generator?.style
-  for (const key of info.code) add(instrumentFor(key, style, null), key, app.scene?.tracks.find(x => x.key === key)?.color ?? '#888888')
+  for (const key of info.code) { const part = generatedPart(app.current?.song?.generator, key); add(part ? genId(part) : instrumentFor(key, style, null), key, app.scene?.tracks.find(x => x.key === key)?.color ?? '#888888') }
   return out
 }
 // an instrument in use: in the colour of the (first) track playing it, with the tracks' names
 const usedLabel = (i, used) => (used.has(i.id) ? `● ${i.label} — ${used.get(i.id).map(u => u.name).join(', ')}` : i.label)
+// the generator's recipes this song plays (a generated song's voices and kit), as instruments "как в песне"
+export function songSounds() {
+  const song = app.current?.song
+  if (!song?.generator) return []
+  let keys = []
+  try { keys = [...trackInfo().code, ...(projectOf().removed ?? [])] } catch {}
+  return [...new Set(keys.map(k => generatedPart(song.generator, k)).filter(Boolean).map(genId))].map(id => INSTRUMENT[id]).filter(Boolean)
+}
+// the menus' groups: the song's own sounds, the library's groups, the generator's sounds
+export const pickerGroups = () => [...(songSounds().length ? [['Звуки этой песни', songSounds()]] : []), ...GROUPS.map(g => [g, INSTRUMENTS.filter(i => i.group === g)]), ['Звуки генератора (как в песнях)', GEN_INSTRUMENTS]]
 export function instSelect(value = 'piano', used = usedInstruments()) {
   const s = h('select')
-  for (const g of GROUPS) {
+  for (const [g, list] of pickerGroups()) {
     const og = h('optgroup', { label: g })
-    for (const i of INSTRUMENTS.filter(i => i.group === g)) {
+    for (const i of list) {
       const o = new Option(usedLabel(i, used), i.id)
       if (used.has(i.id)) { o.style.color = used.get(i.id)[0].color; o.style.fontWeight = '600' }
       og.append(o)
@@ -366,7 +379,7 @@ export function createTrackList(root, pr) {
       { icon: '🎼', label: 'Партия под мелодию другой дорожки…', disabled: !others, action: () => arrangeDialog(t.id), note: others ? 'бас, аккорды, подголосок, барабаны — по роли инструмента' : 'нужна другая дорожка с мелодией' },
       { icon: '🔁', label: 'Переписать', disabled: !t.gen, action: () => rewrite(t.id), note: t.gen ? `${styleLabel(t.gen.style)} — новый вариант` : 'для дорожки, сочинённой стилем' },
       '-',
-      { icon: '🎻', label: 'Инструмент', items: () => { const used = usedInstruments(); return GROUPS.map(g => ({ label: g, color: used.get(INSTRUMENTS.find(i => i.group === g && used.has(i.id))?.id)?.[0].color, items: () => INSTRUMENTS.filter(i => i.group === g).map(i => ({ label: usedLabel(i, used), color: used.get(i.id)?.[0].color, checked: t.inst === i.id, action: () => updateTrack(t.id, x => { if (x.name === INSTRUMENT[x.inst]?.label) x.name = nameFor(projectOf(), i.label); x.inst = i.id }) })) })) } },
+      { icon: '🎻', label: 'Инструмент', items: () => { const used = usedInstruments(); return pickerGroups().map(([g, list]) => ({ label: g, color: used.get(list.find(i => used.has(i.id))?.id)?.[0].color, items: () => list.map(i => ({ label: usedLabel(i, used), color: used.get(i.id)?.[0].color, checked: t.inst === i.id, action: () => updateTrack(t.id, x => { if (x.name === INSTRUMENT[x.inst]?.label) x.name = nameFor(projectOf(), i.label); x.inst = i.id }) })) })) } },
       { icon: '🏛', label: 'Пространство', items: () => [['', 'как у инструмента'], ['hall', 'зал'], ['room', 'комната'], ['echo', 'эхо + зал'], ['dry', 'сухо']].map(([v, l]) => ({ label: l, checked: (t.fx ?? '') === v, action: () => updateTrack(t.id, x => { if (v) x.fx = v; else delete x.fx }) })) },
       { icon: '✎', label: 'Переименовать…', action: () => renameTrack(t) },
       { icon: '⧉', label: 'Дублировать дорожку', action: () => addTrack(t.inst, { name: t.name, notes: t.notes.map(e => [...e]) }) },
