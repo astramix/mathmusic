@@ -198,7 +198,7 @@ const track0 = {
   color: '#ffc46b',
   graph: x => { const m = leadAt(x); return m ? 1.1 + (m.n + 5) * 0.0559 : null },
   midi: x => { const m = leadAt(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
-  formula: ["Sx = a\\big(0.35\\,\\LP_{f_c}s + 0.8\\BP_{600}s + 0.55\\BP_{1700}s + 0.3\\BP_{2900}s\\big) + 0.07\\BP_{2g}\\eta,\\quad s = \\saw(g) + 0.3\\sin 2\\pi g t","f_c = 600 + 3800a^{1.5}\\ \\text{(громче — ярче)},\\quad g = f\\cdot 2^{(-0.35e^{-t/40\\text{мс}} + 0.16\\,s(t)\\sin 2\\pi\\cdot5.4T)/12}\\ \\text{— тенор-саксофон"],
+  formula: ["Sx = a\\big(0.35\\,\\LP_{f_c}s + 0.8\\BP_{600}s + 0.55\\BP_{1700}s + 0.3\\BP_{2900}s\\big) + 0.07\\BP_{2g}\\eta,\\quad s = \\saw(g) + 0.3\\sin 2\\pi g t","f_c = 600 + 3800a^{1.5}\\ \\text{(громче — ярче)},\\quad g = f\\cdot 2^{(-0.35e^{-t/40\\text{мс}} + 0.16\\,s(t)\\sin 2\\pi\\cdot5.4T)/12}\\ \\text{— тенор-саксофон}"],
   audio({ bpm }) {
     const sec = 60 / bpm, inst = sax(), verb = reverb({ room: 0.7, damp: 0.5, wet: 0.22 })
     let n = 0
@@ -233,7 +233,7 @@ const track2 = {
   color: '#ffe08a',
   graph: x => { const m = counterAt(x); return m ? 0.8 + (m.n + 5) * 0.0471 : null },
   midi: x => { const m = counterAt(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
-  formula: ["Tp = 0.7y + 0.5\\,\\BP_{450}y,\\quad y = \\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g + \\saw 1.0023g\\big)e(t),\\quad f_c = 250 + 9200\\,e(t)^{1.6}\\ \\text{— труба"],
+  formula: ["Tp = 0.7y + 0.5\\,\\BP_{450}y,\\quad y = \\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g + \\saw 1.0023g\\big)e(t),\\quad f_c = 250 + 9200\\,e(t)^{1.6}\\ \\text{— труба}"],
   audio({ bpm }) {
     const sec = 60 / bpm, inst = horn({ bright: 2.2 }), verb = reverb({ room: 0.7, damp: 0.5, wet: 0.22 })
     let n = 0
@@ -393,7 +393,7 @@ function lastHit(x, drum) {
     }
     return notes
   },
-  formula: ["Ride = e^{-t/0.9}\\BP_{6.5\\text{к}}\\,m(t) + 0.4e^{-t/0.015}\\HP_{9\\text{к}}\\eta + 0.3e^{-t/0.6}\\sin 2\\pi\\,3.2\\text{к}t,\\quad m \\text{ — шесть квадратных волн 808 (металл)}","\\text{райд «динг — динг-а — динг» со свингом 0.66, хай-хэт ногой на 2 и 4; в обмене квадратами — соло барабанов триолями"],
+  formula: ["Ride = e^{-t/0.9}\\BP_{6.5\\text{к}}\\,m(t) + 0.4e^{-t/0.015}\\HP_{9\\text{к}}\\eta + 0.3e^{-t/0.6}\\sin 2\\pi\\,3.2\\text{к}t,\\quad m \\text{ — шесть квадратных волн 808 (металл)}","\\text{райд «динг — динг-а — динг» со свингом 0.66, хай-хэт ногой на 2 и 4; в обмене квадратами — соло барабанов триолями}"],
   audio({ bpm }) {
     const sec = 60 / bpm, kick = kickDrum({ f0: 52, f1: 90, decay: 9, drive: 1.2 }), snare = snareDrum({ tone: 210, cutoff: 1500, decay: 16 })
     const hat = hatDrum({ decay: 55, cutoff: 7000 }), brush = brushDrum(), cym = metal(1), cym2 = metal(0.83), bp = filter('bp'), hp = filter('hp'), bp2 = filter('bp')
@@ -423,7 +423,7 @@ function lastHit(x, drum) {
 const track6 = {
   color: '#8f7f6a',
   graph: x => (x < END ? -2.95 + 0.03 * sin(TAU * x / 2) : null),
-  formula: ["\text{клуб: } BP_{F_1(T)}eta + BP_{F_2(T)}eta \text{(гул голосов)} + sum e^{-t/0.3}sin 2pi,(2.6\text{к}, 4.1\text{к}),t \text{(бокалы)"],
+  formula: ["\\text{клуб: } \\BP_{F_1(T)}\\eta + \\BP_{F_2(T)}\\eta\\ \\text{(гул голосов)} + \\sum e^{-t/0.3}\\sin 2\\pi\\,(2.6\\text{к}, 4.1\\text{к})\\,t\\ \\text{(бокалы)}"],
   audio({ bpm }) {
     const sec = 60 / bpm, η = noise(5), b1 = filter('bp'), b2 = filter('bp'), lp = filter('lp')
     return x => {

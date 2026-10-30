@@ -45,7 +45,7 @@ const track0 = {
   color: '#ffffff',
   graph: x => { const s = strikes('piano', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => 0.4 + (e.n + 12) * 0.04) : null },
   midi: x => strikes('piano', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
-  formula: ["\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{37, 34.5\\}","T \\text{ — рояль (тихо, педаль); НОК периодов — 22910302875 долей"],
+  formula: ["\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{37, 34.5\\}","T \\text{ — рояль (тихо, педаль); НОК периодов — 22910302875 долей}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(pianoTone, { release: 2, life: 9, max: 16 }), seen = new Set(), echo = delay({ time: sec * 1.5, feedback: 0.45, wet: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 })
     return x => {
@@ -63,7 +63,7 @@ const track1 = {
   color: '#fff3b0',
   graph: x => { const s = strikes('bells', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => 1.2 + (e.n + 12) * 0.04) : null },
   midi: x => strikes('bells', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
-  formula: ["\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{31.25, 20.5\\}","T \\text{ — FM-колокольчик; НОК периодов — 22910302875 долей"],
+  formula: ["\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{31.25, 20.5\\}","T \\text{ — FM-колокольчик; НОК периодов — 22910302875 долей}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly((f, t, v) => v * fm(f, t, { ratio: 3.5, index: 1.4, decay: 0.7, idecay: 3 }), { release: 2, life: 9, max: 16 }), seen = new Set(), echo = delay({ time: sec * 1.5, feedback: 0.45, wet: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 })
     return x => {
@@ -81,7 +81,7 @@ const track2 = {
   color: '#b8f0ff',
   graph: x => { const s = strikes('glass', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => 1.6 + (e.n + 12) * 0.04) : null },
   midi: x => strikes('glass', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
-  formula: ["\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{17\\}","T \\text{ — челеста; НОК периодов — 22910302875 долей"],
+  formula: ["\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{17\\}","T \\text{ — челеста; НОК периодов — 22910302875 долей}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(celestaTone, { release: 2, life: 9, max: 16 }), seen = new Set(), echo = delay({ time: sec * 1.5, feedback: 0.45, wet: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 })
     return x => {
@@ -99,7 +99,7 @@ const track3 = {
   color: '#e0c8ff',
   graph: x => { const s = strikes('choir', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => -0.8 + (e.n + 24) * 0.04) : null },
   midi: x => strikes('choir', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
-  formula: ["Ch = \\sum_{i} \\tfrac{G_i}{Q_i}\\BP_{F_i}\\big(\\saw f\\big),\\quad F:\\ \\text{«а» → «о» — хор, долгие ноты петель"],
+  formula: ["Ch = \\sum_{i} \\tfrac{G_i}{Q_i}\\BP_{F_i}\\big(\\saw f\\big),\\quad F:\\ \\text{«а» → «о» — хор, долгие ноты петель}"],
   audio({ bpm }) {
     const sec = 60 / bpm, c = choir({ voices: 2, size: 1, gain: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 }), level = smooth(600)
     return x => {
@@ -116,7 +116,7 @@ const track4 = {
   color: '#9fb8ff',
   graph: x => { const p = padAt(x); return p ? p[2].map(n => -1.2 + (n + 24) * 0.03) : null },
   midi: x => { const p = padAt(x); return p && x < END - 8 ? p[2].map(n => 60 + Math.round(n * 100) / 100) : [] },
-  formula: ["Pad = \\LP_{f_c(x)}\\,O(f_1 \\ldots f_4),\\quad f_c = 900 + 2600\\,\\tfrac{1 - \\cos(2\\pi x/64)}{2}\\ \\text{— фильтр дышит раз в 64 доли"],
+  formula: ["Pad = \\LP_{f_c(x)}\\,O(f_1 \\ldots f_4),\\quad f_c = 900 + 2600\\,\\tfrac{1 - \\cos(2\\pi x/64)}{2}\\ \\text{— фильтр дышит раз в 64 доли}"],
   audio({ bpm }) {
     const o = organ({ voices: 4, stops: [[1, 1], [2, 0.3], [4, 0.1]], chiff: 0.02, gain: 0.025 })
     const lpL = filter('lp'), lpR = filter('lp'), verb = reverb({ room: 0.95, damp: 0.35, wet: 0.55 })
@@ -148,7 +148,7 @@ const track5 = {
 const track6 = {
   color: '#7f8fa6',
   graph: x => (x < END ? -2.95 + 0.04 * sin(TAU * x / 8) : null),
-  formula: ["W = \\BP_{f(T)}\\eta,\\quad f(T) \\text{ блуждает — ветер"],
+  formula: ["W = \\BP_{f(T)}\\eta,\\quad f(T) \\text{ блуждает — ветер}"],
   audio({ bpm }) {
     const sec = 60 / bpm, n = noise(77), bl = filter('bp'), br = filter('bp'), level = smooth(800)
     return x => {

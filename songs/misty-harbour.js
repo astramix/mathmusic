@@ -281,7 +281,7 @@ const track4 = {
   color: '#6fa86f',
   graph: x => (x < END - 1 && energy(x) >= 1 ? -3 + 0.3 : null),
   midi: x => (x < END - 1 && energy(x) >= 1 && mod(x - sectionOf(x)[0], 8) < 7.8 ? [9 + 36, 9 + 43] : []),
-  formula: ["D = \\sum_{s=1}^{5} a_s\\big(\\sin 2\\pi s f_1 t + \\sin 2\\pi s f_5 t\\big)\\quad\\text{— бурдон: тоника и квинта"],
+  formula: ["D = \\sum_{s=1}^{5} a_s\\big(\\sin 2\\pi s f_1 t + \\sin 2\\pi s f_5 t\\big)\\quad\\text{— бурдон: тоника и квинта}"],
   audio() {
     const o = organ({ voices: 2, stops: [[1, 1], [2, 0.6], [3, 0.35], [4, 0.2], [5, 0.15]], chiff: 0.02, gain: 0.11 }), level = smooth(400)
     return x => {
@@ -386,7 +386,7 @@ function lastHit(x, drum) {
     }
     return notes
   },
-  formula: ["B(t) = \\sum_k a_k e^{-t k/d}\\sin r_k\\varphi(t),\\ \\varphi = 2\\pi\\cdot 72\\,(t + \\ldots)\\ \\text{(дон, открытая кожа)};\\quad \\text{тип — 190 Гц, рука гасит кожу"],
+  formula: ["B(t) = \\sum_k a_k e^{-t k/d}\\sin r_k\\varphi(t),\\ \\varphi = 2\\pi\\cdot 72\\,(t + \\ldots)\\ \\text{(дон, открытая кожа)};\\quad \\text{тип — 190 Гц, рука гасит кожу}"],
   audio({ bpm }) {
     const sec = 60 / bpm, don = taikoDrum({ pitch: 72, decay: 0.55, bend: 2, crack: 0.12, boom: 0.45, drive: 1.1, seed: 113 }), tip = taikoDrum({ pitch: 190, decay: 0.12, bend: 1, crack: 0.3, boom: 0.05, drive: 1, seed: 127 })
     const rim = taikoDrum({ pitch: 260, decay: 0.1, bend: 0, crack: 0.5, boom: 0, drive: 1, seed: 131 }), verb = reverb({ room: 0.6, damp: 0.5, wet: 0.16 })

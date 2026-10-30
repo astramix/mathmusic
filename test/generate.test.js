@@ -116,3 +116,13 @@ for (const style of Object.keys(STYLES)) {
     })
   }
 }
+
+// every style's code parses, over many seeds (an ambient song with a choir pad wrote `o(c ? notes, vowel : [])`: a quarter
+// of them didn't open at all)
+test('every style writes valid code, 20 seeds each', async () => {
+  const acorn = await import('../viz/vendor/acorn.min.mjs')
+  for (const style of Object.keys(STYLES)) for (let seed = 1; seed <= 20; seed++) {
+    const { source } = generate({ style, seed })
+    assert.doesNotThrow(() => acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'module' }), `${style} #${seed}`)
+  }
+})

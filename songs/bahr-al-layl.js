@@ -166,7 +166,7 @@ const track1 = {
   color: '#f2d38a',
   graph: x => { const m = qanunAt(x); return m ? 0.95 + (m.n + 12) * 0.05 : null },
   midi: x => { const m = qanunAt(x); return m && m.u < 0.9 ? [60 + m.n] : [] },
-  formula: ["Q = \\sum_{c \\in \\{-3, 0, 3\\}} s\\big(f\\cdot 2^{c/1200}\\big)\\quad\\text{— три струны хора; тремоло на долгих нотах: щипок каждую } \\tfrac18 \\text{ доли"],
+  formula: ["Q = \\sum_{c \\in \\{-3, 0, 3\\}} s\\big(f\\cdot 2^{c/1200}\\big)\\quad\\text{— три струны хора; тремоло на долгих нотах: щипок каждую } \\tfrac18 \\text{ доли}"],
   audio({ bpm }) {
     const sec = 60 / bpm, q = qanun(), fire = trigger(), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })
     return x => {
@@ -186,7 +186,7 @@ const track2 = {
   color: '#d8f0e0',
   graph: x => { const m = neyAt(x); return m ? 1.15 + (m.n + 12) * 0.05 : null },
   midi: x => { const m = neyAt(x); return m && m.u < 0.9 ? [60 + m.n] : [] },
-  formula: ["N = a\\big(\\tanh 1.3(0.55\\sin 2\\pi\\!\\int\\! g + 0.12\\sin 4\\pi\\!\\int\\! g + 0.05\\sin 6\\pi\\!\\int\\! g) + 0.3(\\BP_g + 0.6\\BP_{2g})\\eta\\big)","g = f\\cdot 2^{(0.22\\,v(t)\\sin 2\\pi\\cdot5.2T - 0.25(1 - s(t)))/12}\\ \\text{— дыхание громче тона, позднее вибрато"],
+  formula: ["N = a\\big(\\tanh 1.3(0.55\\sin 2\\pi\\!\\int\\! g + 0.12\\sin 4\\pi\\!\\int\\! g + 0.05\\sin 6\\pi\\!\\int\\! g) + 0.3(\\BP_g + 0.6\\BP_{2g})\\eta\\big)","g = f\\cdot 2^{(0.22\\,v(t)\\sin 2\\pi\\cdot5.2T - 0.25(1 - s(t)))/12}\\ \\text{— дыхание громче тона, позднее вибрато}"],
   audio({ bpm }) {
     const sec = 60 / bpm, n = ney(), verb = reverb({ room: 0.85, damp: 0.35, wet: 0.38 })
     let p = 0
@@ -203,7 +203,7 @@ const track3 = {
   color: '#ffd0a0',
   graph: x => { const m = violinAt(x); return m ? 0.85 + (m.n + 12) * 0.05 : null },
   midi: x => { const m = violinAt(x); return m && m.u < 0.9 ? [60 + m.n] : [] },
-  formula: ["Vn = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{R_i}\\,s\\Big),\\quad s = \\saw\\big(f\\cdot 2^{0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big)\\ \\text{— скрипка такхта, глиссандо между нотами"],
+  formula: ["Vn = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{R_i}\\,s\\Big),\\quad s = \\saw\\big(f\\cdot 2^{0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big)\\ \\text{— скрипка такхта, глиссандо между нотами}"],
   audio({ bpm }) {
     const sec = 60 / bpm, bow = bowed({ base: C4, sec }), verb = reverb({ room: 0.84, damp: 0.38, wet: 0.36 })
     return x => {
@@ -217,7 +217,7 @@ const track4 = {
   color: '#c08a5a',
   graph: x => { const m = celloAt(x); return m ? -3 + (m.n + 24) * 0.05 : null },
   midi: x => { const m = celloAt(x); return m && m.u < 0.9 ? [60 + m.n] : [] },
-  formula: ["Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big)\\quad\\text{— мелодия октавой ниже на долях; бурдон на караре под таксимами"],
+  formula: ["Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big)\\quad\\text{— мелодия октавой ниже на долях; бурдон на караре под таксимами}"],
   audio({ bpm }) {
     const sec = 60 / bpm, bow = bowed({ base: C4, body: 0.6, sec }), verb = reverb({ room: 0.8, damp: 0.45, wet: 0.3 })
     return x => {
@@ -246,7 +246,7 @@ const track6 = {
   color: '#fff0b0',
   graph: x => { const s = strokeAt(x); return s && s.τ < 0.2 ? 4.4 : null },
   midi: x => { const c = cycleAt(x); return c && x - floor(2 * x) / 2 < 0.1 ? [54] : [] },
-  formula: ["R = e^{-t/0.09}\\big(0.75 + 0.25\\sin 2\\pi\\cdot38t\\big)\\big(\\BP_{7.2\\text{к}} + \\BP_{9.1\\text{к}}\\big)\\eta\\ \\text{— тарелочки бубна; кожа на дум"],
+  formula: ["R = e^{-t/0.09}\\big(0.75 + 0.25\\sin 2\\pi\\cdot38t\\big)\\big(\\BP_{7.2\\text{к}} + \\BP_{9.1\\text{к}}\\big)\\eta\\ \\text{— тарелочки бубна; кожа на дум}"],
   audio({ bpm }) {
     const sec = 60 / bpm, ri = riqDrum(), verb = reverb({ room: 0.6, damp: 0.5, wet: 0.14 })
     return x => {

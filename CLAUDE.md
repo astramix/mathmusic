@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (28 styles × 3 seeds: loads, renders, lead on its chords; every style in one family), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (28 styles × 3 seeds: loads, renders, lead on its chords; every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),

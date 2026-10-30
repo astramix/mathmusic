@@ -163,7 +163,7 @@ const track0 = {
   color: '#c9b6ff',
   graph: x => { const m = leadAt(x); return m ? 1.1 + (m.n + 5) * 0.0559 : null },
   midi: x => { const m = leadAt(x); return m && m.u < 0.95 ? [48 + m.n] : [] },
-  formula: ["Ch = \\Rev\\sum_{j=1}^{4}\\sum_{\\pm}\\sum_{i=1}^{3}\\tfrac{G_i}{Q_i}\\BP_{0.9F_i(\\tau)}\\tanh\\!\\big(1.35\\saw(f_j)\\big),\\quad f_j \\in \\{\\tfrac f2, \\tfrac f4\\}","F(\\tau) = F_u + (F_{v} - F_u)(1 - e^{-\\tau/90\\text{мс}}),\\ v \\in \\{o, a, e, a, o, i\\}\\ \\text{— слог на каждую ноту"],
+  formula: ["Ch = \\Rev\\sum_{j=1}^{4}\\sum_{\\pm}\\sum_{i=1}^{3}\\tfrac{G_i}{Q_i}\\BP_{0.9F_i(\\tau)}\\tanh\\!\\big(1.35\\saw(f_j)\\big),\\quad f_j \\in \\{\\tfrac f2, \\tfrac f4\\}","F(\\tau) = F_u + (F_{v} - F_u)(1 - e^{-\\tau/90\\text{мс}}),\\ v \\in \\{o, a, e, a, o, i\\}\\ \\text{— слог на каждую ноту}"],
   audio({ bpm }) {
     const sec = 60 / bpm, c = choir({ voices: 4, size: 0.9, rough: 0.35, breath: 0.04, gain: 0.3 }), verb = reverb({ room: 0.94, damp: 0.35, wet: 0.5 })
     const SYL = ['o', 'a', 'e', 'a', 'o', 'i', 'a', 'o']

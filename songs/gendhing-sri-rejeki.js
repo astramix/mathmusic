@@ -268,7 +268,7 @@ const track4 = {
   color: '#e8c27a',
   graph: x => { const k = lastOf(struck('kenong'), x); return k >= 0 && x - struck('kenong')[k][0] < 1 ? -0.6 : null },
   midi: x => { const s = struck('kenong'), k = lastOf(s, x); return k >= 0 && x - s[k][0] < 0.5 ? [60 + Math.round(s[k][2] * 100) / 100] : [] },
-  formula: ["kenong:\\ \\text{колотомия — удар на позициях цикла (8 16)'"],
+  formula: ["kenong:\\ \\text{колотомия — удар на позициях цикла (8 16)'}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(kenongTone, { release: 3, life: 5, max: 6 }), fire = trigger(), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.4 }), list = struck('kenong')
     return x => {
@@ -284,7 +284,7 @@ const track5 = {
   color: '#e8c27a',
   graph: x => { const k = lastOf(struck('kempul'), x); return k >= 0 && x - struck('kempul')[k][0] < 1 ? -1.4 : null },
   midi: x => { const s = struck('kempul'), k = lastOf(s, x); return k >= 0 && x - s[k][0] < 0.5 ? [60 + Math.round(s[k][2] * 100) / 100] : [] },
-  formula: ["kempul:\\ \\text{колотомия — удар на позициях цикла (12)'"],
+  formula: ["kempul:\\ \\text{колотомия — удар на позициях цикла (12)'}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(kempulTone, { release: 3, life: 5, max: 6 }), fire = trigger(), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.4 }), list = struck('kempul')
     return x => {
@@ -300,7 +300,7 @@ const track6 = {
   color: '#e8c27a',
   graph: x => { const k = lastOf(struck('kethuk'), x); return k >= 0 && x - struck('kethuk')[k][0] < 1 ? 0.2 : null },
   midi: x => { const s = struck('kethuk'), k = lastOf(s, x); return k >= 0 && x - s[k][0] < 0.5 ? [60 + Math.round(s[k][2] * 100) / 100] : [] },
-  formula: ["kethuk:\\ \\text{колотомия — удар на позициях цикла (2 6 10 14)'"],
+  formula: ["kethuk:\\ \\text{колотомия — удар на позициях цикла (2 6 10 14)'}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(kethukTone, { release: 0.3, life: 2.3, max: 6 }), fire = trigger(), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.4 }), list = struck('kethuk')
     return x => {
@@ -316,7 +316,7 @@ const track7 = {
   color: '#e8c27a',
   graph: x => { const k = lastOf(struck('gong'), x); return k >= 0 && x - struck('gong')[k][0] < 1 ? -2.6 : null },
   midi: x => { const s = struck('gong'), k = lastOf(s, x); return k >= 0 && x - s[k][0] < 0.5 ? [60 + Math.round(s[k][2] * 100) / 100] : [] },
-  formula: ["gong:\\ \\text{колотомия — удар на позициях цикла (16)'"],
+  formula: ["gong:\\ \\text{колотомия — удар на позициях цикла (16)'}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(gongTone, { release: 9, life: 11, max: 6 }), fire = trigger(), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.4 }), list = struck('gong')
     return x => {
@@ -332,7 +332,7 @@ const track8 = {
   color: '#d98b5f',
   graph: x => { const k = lastOf(KENDHANG, x); return k >= 0 && x - KENDHANG[k][0] < 0.25 ? (KENDHANG[k][1] === 'dhah' ? 3 : 3.8) : null },
   midi: x => { const k = lastOf(KENDHANG, x); return k >= 0 && x - KENDHANG[k][0] < 0.1 ? [KENDHANG[k][1] === 'dhah' ? 41 : 38] : [] },
-  formula: ["K:\\ \\text{dhah — низкий открытый удар, tak — шлепок, ket — малый барабан ketipung"],
+  formula: ["K:\\ \\text{dhah — низкий открытый удар, tak — шлепок, ket — малый барабан ketipung}"],
   audio({ bpm }) {
     const sec = 60 / bpm, dhah = taikoDrum({ pitch: 105, decay: 0.45, bend: 2, crack: 0.15, boom: 0.25, seed: 83 }), ket = taikoDrum({ pitch: 230, decay: 0.2, bend: 1, crack: 0.2, seed: 89 }), tak = woodClack({ f: 1100, seed: 97 }), verb = reverb({ room: 0.7, damp: 0.5, wet: 0.2 })
     return x => {
@@ -348,7 +348,7 @@ const track9 = {
   color: '#d8f0e0',
   graph: x => { const m = notesAt(SULING, x); return m ? 2.2 + m.n * 0.04 : null },
   midi: x => { const m = notesAt(SULING, x); return m && m.u < 0.9 ? [60 + Math.round(m.n * 100) / 100] : [] },
-  formula: ["S = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.15\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бамбуковая флейта, плывёт над ирамой II"],
+  formula: ["S = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.15\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бамбуковая флейта, плывёт над ирамой II}"],
   audio({ bpm }) {
     const sec = 60 / bpm, fl = flute({ breath: 0.15 }), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.45 })
     let n = 0

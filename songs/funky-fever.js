@@ -198,7 +198,7 @@ const track0 = {
   color: '#ffd166',
   graph: x => { const m = leadAt(x); return m ? 1.1 + (m.n + 5) * 0.0559 : null },
   midi: x => { const m = leadAt(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
-  formula: ["Mg = \\Rev\\,\\Dly\\Big[\\tfrac1d\\tanh\\!\\Big(d\\,\\LP^{Q=2.2}_{f_c}\\LP_{f_c}\\big(\\tfrac12\\saw g + \\tfrac12\\saw 1.0052g + 0.4\\sq\\tfrac g2\\big)\\Big)\\Big],\\quad f_c = 700 + 4200v\\,e^{-t/0.18}\\quad\\text{— «Муг»"],
+  formula: ["Mg = \\Rev\\,\\Dly\\Big[\\tfrac1d\\tanh\\!\\Big(d\\,\\LP^{Q=2.2}_{f_c}\\LP_{f_c}\\big(\\tfrac12\\saw g + \\tfrac12\\saw 1.0052g + 0.4\\sq\\tfrac g2\\big)\\Big)\\Big],\\quad f_c = 700 + 4200v\\,e^{-t/0.18}\\quad\\text{— «Муг»}"],
   audio({ bpm }) {
     const sec = 60 / bpm, s = monoSynth({ cutoff: 700, env: 4200, res: 2.2, decay: 0.18, glide: 18, sub: 0.4, drive: 2 })
     const echo = delay({ time: sec * 0.5, feedback: 0.25, wet: 0.16 }), verb = reverb({ room: 0.75, damp: 0.45, wet: 0.2 })

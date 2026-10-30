@@ -215,7 +215,7 @@ const track0 = (() => {
   color: '#e8f4ff',
   graph: x => { const m = at(x); return m ? 1.3 + (m.n + 60 - 62) * 0.0864 : null },
   midi: x => { const m = at(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
-  formula: ["Fl = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.06\\,\\BP_{2g}\\,\\eta + 0.5e^{-25t}\\,\\HP_{3000}\\,\\eta\\big)\\quad\\text{— траверс-флейта"],
+  formula: ["Fl = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.06\\,\\BP_{2g}\\,\\eta + 0.5e^{-25t}\\,\\HP_{3000}\\,\\eta\\big)\\quad\\text{— траверс-флейта}"],
   audio({ bpm }) {
     const sec = 60 / bpm, fl = flute(), verb = reverb({ room: 0.84, damp: 0.4, wet: 0.34 })
     let n = 0
@@ -234,7 +234,7 @@ const track1 = (() => {
   color: '#ffe8a3',
   graph: x => { const m = at(x); return m ? -0.2 + (m.n + 60 - 53) * 0.0762 : null },
   midi: x => { const m = at(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
-  formula: ["Ob = a\\big(0.3\\,s + \\BP_{1100}^{Q=4}s + 0.6\\BP_{2800}^{Q=4}s\\big),\\quad s = \\LP\\,\\HP_{350}\\,\\Pi_{0.18}(g)\\quad\\text{— гобой"],
+  formula: ["Ob = a\\big(0.3\\,s + \\BP_{1100}^{Q=4}s + 0.6\\BP_{2800}^{Q=4}s\\big),\\quad s = \\LP\\,\\HP_{350}\\,\\Pi_{0.18}(g)\\quad\\text{— гобой}"],
   audio({ bpm }) {
     const sec = 60 / bpm, r = reed({ kind: 'oboe' }), verb = reverb({ room: 0.84, damp: 0.4, wet: 0.34 })
     let n = 0
@@ -253,7 +253,7 @@ const track2 = (() => {
   color: '#c9a46a',
   graph: x => { const m = at(x); return m ? -3 + (m.n + 60 - 34) * 0.05 : null },
   midi: x => { const m = at(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
-  formula: ["Fg = a\\big(0.5\\,s + \\BP_{450}^{Q=3}s + 0.5\\BP_{1150}^{Q=4}s\\big),\\quad s = \\LP_{3500}\\,\\Pi_{1/4}(g)\\quad\\text{— фагот"],
+  formula: ["Fg = a\\big(0.5\\,s + \\BP_{450}^{Q=3}s + 0.5\\BP_{1150}^{Q=4}s\\big),\\quad s = \\LP_{3500}\\,\\Pi_{1/4}(g)\\quad\\text{— фагот}"],
   audio({ bpm }) {
     const sec = 60 / bpm, r = reed({ kind: 'bassoon' }), verb = reverb({ room: 0.84, damp: 0.4, wet: 0.34 })
     let n = 0

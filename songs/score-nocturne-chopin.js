@@ -71,7 +71,7 @@ const part = (kind, shift, from, last, color, panv) => ({
   color,
   graph: x => { const m = scoreAt(x, from, shift, last); return m ? 1 + (m.n - 40) / 30 : null },
   midi: x => { const m = scoreAt(x, from, shift, last); return m && m.u < 0.92 ? [m.n] : [] },
-  formula: ["\\text{партитура: } n(x) = \\text{SCORE}\\big((x - 4) \\bmod L\\big) + \\text{сдвиг}","\\text{инструмент: смычковые (корпус: 4 резонанса), трости (импульс через форманты), валторна, орган (регистры), фортепиано (6 парциалов)"],
+  formula: ["\\text{партитура: } n(x) = \\text{SCORE}\\big((x - 4) \\bmod L\\big) + \\text{сдвиг}","\\text{инструмент: смычковые (корпус: 4 резонанса), трости (импульс через форманты), валторна, орган (регистры), фортепиано (6 парциалов)}"],
   audio() {
     const v = voiceOf(kind), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.38 })
     return x => verb(...pan(GAIN[kind] * v(scoreAt(x, from, shift, last), x), panv))
@@ -91,7 +91,7 @@ const track2 = {
   color: '#ffffff',
   graph: x => { const c = chordAt(x); return c ? -1.5 + (fig(x) - 36) / 30 : null },
   midi: x => (chordAt(x) && mod(x, 0.5) < 0.1 ? [fig(x)] : []),
-  formula: ["\\text{левая рука ноктюрна: } (b,\\ b + 7,\\ v_2, v_3, v_4, v_3, v_2,\\ b + 7)_{\\lfloor 2x\\rfloor \\bmod 8}\\ \\text{восьмыми, с педалью"],
+  formula: ["\\text{левая рука ноктюрна: } (b,\\ b + 7,\\ v_2, v_3, v_4, v_3, v_2,\\ b + 7)_{\\lfloor 2x\\rfloor \\bmod 8}\\ \\text{восьмыми, с педалью}"],
   audio() {
     const keys = poly(pianoTone, { release: 0.5, life: 6 }), fire = trigger(), verb = reverb({ room: 0.88, damp: 0.35, wet: 0.35 })
     return x => {

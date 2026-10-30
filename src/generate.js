@@ -2061,7 +2061,7 @@ const TEXTURES = {
     return `{
   color: '#8f7f6a',
   graph: x => (x < END ? -2.95 + 0.03 * sin(TAU * x / 2) : null),
-  formula: ${JSON.stringify(['\text{клуб: } \BP_{F_1(T)}\eta + \BP_{F_2(T)}\eta\ \text{(гул голосов)} + \sum e^{-t/0.3}\sin 2\pi\,(2.6\text{к}, 4.1\text{к})\,t\ \text{(бокалы)'])},
+  formula: ${JSON.stringify(['\\text{клуб: } \\BP_{F_1(T)}\\eta + \\BP_{F_2(T)}\\eta\\ \\text{(гул голосов)} + \\sum e^{-t/0.3}\\sin 2\\pi\\,(2.6\\text{к}, 4.1\\text{к})\\,t\\ \\text{(бокалы)}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, η = noise(5), b1 = filter('bp'), b2 = filter('bp'), lp = filter('lp')
     return x => {
@@ -2512,11 +2512,11 @@ Object.assign(COUNTER_VOICE, { horn: 'clarinet', oboe: 'clarinet', clarinet: 'ob
 // ---- jazz -----------------------------------------------------------------------------------------------------------------
 LEADS.sax = sustainedLead({
   make: 'sax()', imports: ['sax'], color: '#ffc46b', gain: 0.28, fx: 'room',
-  formula: ['Sx = a\\big(0.35\\,\\LP_{f_c}s + 0.8\\BP_{600}s + 0.55\\BP_{1700}s + 0.3\\BP_{2900}s\\big) + 0.07\\BP_{2g}\\eta,\\quad s = \\saw(g) + 0.3\\sin 2\\pi g t', 'f_c = 600 + 3800a^{1.5}\\ \\text{(громче — ярче)},\\quad g = f\\cdot 2^{(-0.35e^{-t/40\\text{мс}} + 0.16\\,s(t)\\sin 2\\pi\\cdot5.4T)/12}\\ \\text{— тенор-саксофон'],
+  formula: ['Sx = a\\big(0.35\\,\\LP_{f_c}s + 0.8\\BP_{600}s + 0.55\\BP_{1700}s + 0.3\\BP_{2900}s\\big) + 0.07\\BP_{2g}\\eta,\\quad s = \\saw(g) + 0.3\\sin 2\\pi g t', 'f_c = 600 + 3800a^{1.5}\\ \\text{(громче — ярче)},\\quad g = f\\cdot 2^{(-0.35e^{-t/40\\text{мс}} + 0.16\\,s(t)\\sin 2\\pi\\cdot5.4T)/12}\\ \\text{— тенор-саксофон}'],
 })
 LEADS.trumpet = sustainedLead({
   make: 'horn({ bright: 2.2 })', imports: ['horn'], color: '#ffe08a', gain: 0.32, fx: 'room',
-  formula: ['Tp = 0.7y + 0.5\\,\\BP_{450}y,\\quad y = \\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g + \\saw 1.0023g\\big)e(t),\\quad f_c = 250 + 9200\\,e(t)^{1.6}\\ \\text{— труба'],
+  formula: ['Tp = 0.7y + 0.5\\,\\BP_{450}y,\\quad y = \\LP_{1.6f_c}\\LP_{f_c}\\tfrac12\\big(\\saw g + \\saw 1.0023g\\big)e(t),\\quad f_c = 250 + 9200\\,e(t)^{1.6}\\ \\text{— труба}'],
 })
 Object.assign(COUNTER_VOICE, { sax: 'trumpet', trumpet: 'sax' })
 
@@ -2553,7 +2553,7 @@ BASSES.drone = o => {
   color: '#6fa86f',
   graph: x => (x < END - 1 && energy(x) >= 1 ? ${o.lane[0]} + 0.3 : null),
   midi: x => (x < END - 1 && energy(x) >= 1 && mod(x - sectionOf(x)[0], 8) < 7.8 ? [${o.tonic} + 36, ${o.tonic} + 43] : []),
-  formula: ${JSON.stringify(['D = \\sum_{s=1}^{5} a_s\\big(\\sin 2\\pi s f_1 t + \\sin 2\\pi s f_5 t\\big)\\quad\\text{— бурдон: тоника и квинта'])},
+  formula: ${JSON.stringify(['D = \\sum_{s=1}^{5} a_s\\big(\\sin 2\\pi s f_1 t + \\sin 2\\pi s f_5 t\\big)\\quad\\text{— бурдон: тоника и квинта}'])},
   audio() {
     const o = organ({ voices: 2, stops: [[1, 1], [2, 0.6], [3, 0.35], [4, 0.2], [5, 0.15]], chiff: 0.02, gain: 0.11 }), level = smooth(400)
     return x => {
@@ -2572,7 +2572,7 @@ KITS.bodhran = o => {
   return {
   color: '#c8a070',
   ${drumGraph.replace("lastHit(x, 'kick') ?? lastHit(x, 'timp')", "lastHit(x, 'don') ?? lastHit(x, 'tip')")}
-  formula: ${JSON.stringify(['B(t) = \\sum_k a_k e^{-t k/d}\\sin r_k\\varphi(t),\\ \\varphi = 2\\pi\\cdot 72\\,(t + \\ldots)\\ \\text{(дон, открытая кожа)};\\quad \\text{тип — 190 Гц, рука гасит кожу'])},
+  formula: ${JSON.stringify(['B(t) = \\sum_k a_k e^{-t k/d}\\sin r_k\\varphi(t),\\ \\varphi = 2\\pi\\cdot 72\\,(t + \\ldots)\\ \\text{(дон, открытая кожа)};\\quad \\text{тип — 190 Гц, рука гасит кожу}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, don = taikoDrum({ pitch: 72, decay: 0.55, bend: 2, crack: 0.12, boom: 0.45, drive: 1.1, seed: 113 }), tip = taikoDrum({ pitch: 190, decay: 0.12, bend: 1, crack: 0.3, boom: 0.05, drive: 1, seed: 127 })
     const rim = taikoDrum({ pitch: 260, decay: 0.1, bend: 0, crack: 0.5, boom: 0, drive: 1, seed: 131 }), verb = reverb({ room: 0.6, damp: 0.5, wet: 0.16 })
@@ -2608,7 +2608,7 @@ KITS.jazz = o => {
   return {
   color: '#7fb0ff',
   ${drumGraph.replace("lastHit(x, 'kick') ?? lastHit(x, 'timp')", "lastHit(x, 'ride') ?? lastHit(x, 'kick')")}
-  formula: ${JSON.stringify(['Ride = e^{-t/0.9}\\BP_{6.5\\text{к}}\\,m(t) + 0.4e^{-t/0.015}\\HP_{9\\text{к}}\\eta + 0.3e^{-t/0.6}\\sin 2\\pi\\,3.2\\text{к}t,\\quad m \\text{ — шесть квадратных волн 808 (металл)}', '\\text{райд «динг — динг-а — динг» со свингом 0.66, хай-хэт ногой на 2 и 4; в обмене квадратами — соло барабанов триолями'])},
+  formula: ${JSON.stringify(['Ride = e^{-t/0.9}\\BP_{6.5\\text{к}}\\,m(t) + 0.4e^{-t/0.015}\\HP_{9\\text{к}}\\eta + 0.3e^{-t/0.6}\\sin 2\\pi\\,3.2\\text{к}t,\\quad m \\text{ — шесть квадратных волн 808 (металл)}', '\\text{райд «динг — динг-а — динг» со свингом 0.66, хай-хэт ногой на 2 и 4; в обмене квадратами — соло барабанов триолями}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, kick = kickDrum({ f0: 52, f1: 90, decay: 9, drive: 1.2 }), snare = snareDrum({ tone: 210, cutoff: 1500, decay: 16 })
     const hat = hatDrum({ decay: 55, cutoff: 7000 }), brush = brushDrum(), cym = metal(1), cym2 = metal(0.83), bp = filter('bp'), hp = filter('hp'), bp2 = filter('bp')
@@ -2720,7 +2720,7 @@ CHORDS.nocturne = o => {
   color: '#ffffff',
   graph: x => { const f = nocAt(x); return f ? ${o.lane[0]} + (f.n - 40) / 24 : null },
   midi: x => { const f = nocAt(x); return f && x - f.at < 0.4 ? [f.n] : [] },
-  formula: ${JSON.stringify(['\\text{левая рука ноктюрна: } (b,\\ b + 7,\\ v_2, v_3, v_4, v_3, v_2,\\ b + 7)_{\\lfloor 2x\\rfloor \\bmod 8}\\ \\text{— широкое арпеджио на две октавы, педаль'])},
+  formula: ${JSON.stringify(['\\text{левая рука ноктюрна: } (b,\\ b + 7,\\ v_2, v_3, v_4, v_3, v_2,\\ b + 7)_{\\lfloor 2x\\rfloor \\bmod 8}\\ \\text{— широкое арпеджио на две октавы, педаль}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, keys = poly(pianoTone, { release: 0.5, life: 6 }), fire = trigger(), verb = reverb({ room: 0.88, damp: 0.35, wet: 0.35 })
     return x => {
@@ -2771,7 +2771,7 @@ CHORDS.brasschoir = o => {
 }})()`
 }
 ARPS.harp = o => polyArp(o, 'harpTone', '#ffd6e0', 0.26, ['Hp(f,t,v) = 0.55\\sum_{k=1}^{10}\\frac{|\\sin(\\pi k/7)|}{k^{1.4}}\\,v^{0.3+0.12k}e^{-d_k t}\\sin 2\\pi kft\\quad\\text{— арфа, щипок на } 1/7 \\text{ струны}'])
-ARPS.celesta = o => polyArp(o, 'celestaTone', '#fff3b0', 0.2, ['Ce = v\\,e^{-t(1.2 + f/900)}\\big(\\sin 2\\pi ft + 0.25e^{-9t}\\sin 2\\pi\\,4ft + \\ldots\\big)\\quad\\text{— челеста'])
+ARPS.celesta = o => polyArp(o, 'celestaTone', '#fff3b0', 0.2, ['Ce = v\\,e^{-t(1.2 + f/900)}\\big(\\sin 2\\pi ft + 0.25e^{-9t}\\sin 2\\pi\\,4ft + \\ldots\\big)\\quad\\text{— челеста}'])
 // the orchestral kit: real timpani (the kettle's modes) on the chord's bass
 KITS.orchestral = o => {
   o.need('instruments', 'timpaniTone')
@@ -2899,7 +2899,7 @@ BASSES.timpani = o => {
   color: '#9c6644',
   graph: x => (bassAt(x) ? ${o.lane[0]} + (bassAt(x).n - 28) / 24 : null),
   midi: x => (bassAt(x) && x - bassAt(x).at < 0.25 ? [bassAt(x).n + (bassAt(x).n < 38 ? 12 : 0)] : []),
-  formula: ${JSON.stringify(['Ti = \\sum_{k}A_k v^{0.6 + 0.3k}e^{-K_k d\\,t}\\sin\\big(2\\pi R_k f(t + 0.0005(1 - e^{-t/0.05}))\\big),\\quad R = (1, 1.5, 1.98, 2.44, 2.94, 1.65)\\ \\text{— литавры вместо баса'])},
+  formula: ${JSON.stringify(['Ti = \\sum_{k}A_k v^{0.6 + 0.3k}e^{-K_k d\\,t}\\sin\\big(2\\pi R_k f(t + 0.0005(1 - e^{-t/0.05}))\\big),\\quad R = (1, 1.5, 1.98, 2.44, 2.94, 1.65)\\ \\text{— литавры вместо баса}'])},
   audio() {
     const p = poly(timpaniTone, { release: 0.6, life: 4, max: 12 }), fire = trigger(), verb = reverb({ room: 0.86, damp: 0.4, wet: 0.3 })
     return x => {
@@ -3134,7 +3134,7 @@ LEADS.moog = o => {
   return `{
   color: '#ffd166',
   ${graphLead(o.at, o.lane)}
-  formula: ${JSON.stringify(['Mg = \\Rev\\,\\Dly\\Big[\\tfrac1d\\tanh\\!\\Big(d\\,\\LP^{Q=2.2}_{f_c}\\LP_{f_c}\\big(\\tfrac12\\saw g + \\tfrac12\\saw 1.0052g + 0.4\\sq\\tfrac g2\\big)\\Big)\\Big],\\quad f_c = 700 + 4200v\\,e^{-t/0.18}\\quad\\text{— «Муг»'])},
+  formula: ${JSON.stringify(['Mg = \\Rev\\,\\Dly\\Big[\\tfrac1d\\tanh\\!\\Big(d\\,\\LP^{Q=2.2}_{f_c}\\LP_{f_c}\\big(\\tfrac12\\saw g + \\tfrac12\\saw 1.0052g + 0.4\\sq\\tfrac g2\\big)\\Big)\\Big],\\quad f_c = 700 + 4200v\\,e^{-t/0.18}\\quad\\text{— «Муг»}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, s = monoSynth({ cutoff: 700, env: 4200, res: 2.2, decay: 0.18, glide: 18, sub: 0.4, drive: 2 })
     const echo = delay({ time: sec * 0.5, feedback: 0.25, wet: 0.16 }), verb = reverb({ room: 0.75, damp: 0.45, wet: 0.2 })
@@ -3928,7 +3928,7 @@ LEADS.malechoir = o => {
   color: '#c9b6ff',
   graph: x => { const m = ${o.at}(x); return m ? ${o.lane[0]} + (m.n + 5) * ${round((o.lane[1] - o.lane[0]) / 34)} : null },
   midi: x => { const m = ${o.at}(x); return m && m.u < 0.95 ? [48 + m.n] : [] },
-  formula: ${JSON.stringify(['Ch = \\Rev\\sum_{j=1}^{4}\\sum_{\\pm}\\sum_{i=1}^{3}\\tfrac{G_i}{Q_i}\\BP_{0.9F_i(\\tau)}\\tanh\\!\\big(1.35\\saw(f_j)\\big),\\quad f_j \\in \\{\\tfrac f2, \\tfrac f4\\}', 'F(\\tau) = F_u + (F_{v} - F_u)(1 - e^{-\\tau/90\\text{мс}}),\\ v \\in \\{o, a, e, a, o, i\\}\\ \\text{— слог на каждую ноту'])},
+  formula: ${JSON.stringify(['Ch = \\Rev\\sum_{j=1}^{4}\\sum_{\\pm}\\sum_{i=1}^{3}\\tfrac{G_i}{Q_i}\\BP_{0.9F_i(\\tau)}\\tanh\\!\\big(1.35\\saw(f_j)\\big),\\quad f_j \\in \\{\\tfrac f2, \\tfrac f4\\}', 'F(\\tau) = F_u + (F_{v} - F_u)(1 - e^{-\\tau/90\\text{мс}}),\\ v \\in \\{o, a, e, a, o, i\\}\\ \\text{— слог на каждую ноту}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, c = choir({ voices: 4, size: 0.9, rough: 0.35, breath: 0.04, gain: 0.3 }), verb = reverb({ room: 0.94, damp: 0.35, wet: 0.5 })
     const SYL = ['o', 'a', 'e', 'a', 'o', 'i', 'a', 'o']
@@ -3979,7 +3979,7 @@ CHORDS.tremolo = o => {
   color: '#a8a0c8',
   graph: x => { const c = chordAt(x), e = energy(x); return c && e >= 0 && x < END - 1 ? c[3].map(n => ${o.lane[0]} + (n - 48) / 20 + 0.03 * sin(TAU * 8 * x)) : null },
   midi: x => { const c = chordAt(x); return c && energy(x) >= 0 && x < END - 1 && x - c[0] < c[1] - 0.05 ? c[3] : [] },
-  formula: ${JSON.stringify(['T = \\Rev\\Big[\\big(0.55 + 0.45\\sin^2 2\\pi\\,8x\\big)\\big(S + 0.8\\HP_{2500}S\\big)\\Big],\\quad S = \\sum_j\\sum_u \\saw\\big(f_j\\,2^{0.09u/12}\\big)\\ \\text{— тремоло тридцать вторыми у подставки'])},
+  formula: ${JSON.stringify(['T = \\Rev\\Big[\\big(0.55 + 0.45\\sin^2 2\\pi\\,8x\\big)\\big(S + 0.8\\HP_{2500}S\\big)\\Big],\\quad S = \\sum_j\\sum_u \\saw\\big(f_j\\,2^{0.09u/12}\\big)\\ \\text{— тремоло тридцать вторыми у подставки}'])},
   audio({ bpm }) {
     const s = strings({ voices: 4, attack: 120, release: 500, cutoff: 4200, gain: 0.05 }), hpL = filter('hp'), hpR = filter('hp'), level = smooth(300), verb = reverb({ room: 0.9, damp: 0.4, wet: 0.42 })
     let v = [57, 60, 64]
@@ -4709,28 +4709,28 @@ ${body}
     case 'violone': return bowedI(0.45, 0.2, 0.3)
     case 'flute':
       need('instruments', 'flute')
-      return wrap(['Fl = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.06\\,\\BP_{2g}\\,\\eta + 0.5e^{-25t}\\,\\HP_{3000}\\,\\eta\\big)\\quad\\text{— траверс-флейта'], `fl = flute(), verb = reverb({ room: 0.84, damp: 0.4, wet: 0.34 })
+      return wrap(['Fl = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.06\\,\\BP_{2g}\\,\\eta + 0.5e^{-25t}\\,\\HP_{3000}\\,\\eta\\big)\\quad\\text{— траверс-флейта}'], `fl = flute(), verb = reverb({ room: 0.84, damp: 0.4, wet: 0.34 })
     let n = 0`, `      if (m) n = m.n
       return verb(...pan(0.36 * fl(hz(n, C4), !!m && m.u < 0.92), ${P}))`)
-    case 'oboe': return reedI('oboe', 0.36, ['Ob = a\\big(0.3\\,s + \\BP_{1100}^{Q=4}s + 0.6\\BP_{2800}^{Q=4}s\\big),\\quad s = \\LP\\,\\HP_{350}\\,\\Pi_{0.18}(g)\\quad\\text{— гобой'])
-    case 'bassoon': return reedI('bassoon', 0.5, ['Fg = a\\big(0.5\\,s + \\BP_{450}^{Q=3}s + 0.5\\BP_{1150}^{Q=4}s\\big),\\quad s = \\LP_{3500}\\,\\Pi_{1/4}(g)\\quad\\text{— фагот'])
-    case 'gedackt': return organI([[1, 1], [3, 0.12], [5, 0.04]], 0.2, ['G = \\sin 2\\pi ft + 0.12\\sin 2\\pi\\,3ft + 0.04\\sin 2\\pi\\,5ft\\quad\\text{— гедакт 8′: закрытая труба, нечётные гармоники'])
-    case 'flute4': return organI([[2, 1], [4, 0.15]], 0.15, ['F_4 = \\sin 4\\pi ft + 0.15\\sin 8\\pi ft\\quad\\text{— флейта 4′: октавой выше написанного'])
-    case 'pedalSoft': return organI([[0.5, 0.7], [1, 1], [2, 0.2]], 0.2, ['P = 0.7\\sin \\pi ft + \\sin 2\\pi ft + 0.2\\sin 4\\pi ft\\quad\\text{— педаль: суббас 16′ + бурдон 8′'])
-    case 'principal': return organI([[1, 1], [2, 0.5], [3, 0.12], [4, 0.22]], 0.17, ['Pr = \\sum_{s} a_s \\sin 2\\pi s f t,\\ s \\in \\{1, 2, 3, 4\\}\\quad\\text{— принципал 8′ + октава 4′ (+ квинта, суперoктава)'])
-    case 'octave': return organI([[1, 1], [2, 0.6], [4, 0.15]], 0.15, ['Pr_{II} = \\sin 2\\pi ft + 0.6\\sin 4\\pi ft + 0.15\\sin 8\\pi ft\\quad\\text{— второй мануал: 8′ + 4′'])
-    case 'pedal16': return organI([[0.5, 1], [1, 0.8], [2, 0.35], [4, 0.1]], 0.2, ['P = \\sin \\pi ft + 0.8\\sin 2\\pi ft + 0.35\\sin 4\\pi ft + \\ldots\\quad\\text{— педаль 16′ + 8′ + 4′'])
-    case 'mixture': return organI([[2, 0.6], [3, 0.4], [4, 0.45], [6, 0.3], [8, 0.25]], 0.09, ['M = \\sum_{s \\in \\{2,3,4,6,8\\}} a_s \\sin 2\\pi s f t\\quad\\text{— микстура: 4′, 2⅔′, 2′, 1⅓′, 1′ поверх сопрано'])
+    case 'oboe': return reedI('oboe', 0.36, ['Ob = a\\big(0.3\\,s + \\BP_{1100}^{Q=4}s + 0.6\\BP_{2800}^{Q=4}s\\big),\\quad s = \\LP\\,\\HP_{350}\\,\\Pi_{0.18}(g)\\quad\\text{— гобой}'])
+    case 'bassoon': return reedI('bassoon', 0.5, ['Fg = a\\big(0.5\\,s + \\BP_{450}^{Q=3}s + 0.5\\BP_{1150}^{Q=4}s\\big),\\quad s = \\LP_{3500}\\,\\Pi_{1/4}(g)\\quad\\text{— фагот}'])
+    case 'gedackt': return organI([[1, 1], [3, 0.12], [5, 0.04]], 0.2, ['G = \\sin 2\\pi ft + 0.12\\sin 2\\pi\\,3ft + 0.04\\sin 2\\pi\\,5ft\\quad\\text{— гедакт 8′: закрытая труба, нечётные гармоники}'])
+    case 'flute4': return organI([[2, 1], [4, 0.15]], 0.15, ['F_4 = \\sin 4\\pi ft + 0.15\\sin 8\\pi ft\\quad\\text{— флейта 4′: октавой выше написанного}'])
+    case 'pedalSoft': return organI([[0.5, 0.7], [1, 1], [2, 0.2]], 0.2, ['P = 0.7\\sin \\pi ft + \\sin 2\\pi ft + 0.2\\sin 4\\pi ft\\quad\\text{— педаль: суббас 16′ + бурдон 8′}'])
+    case 'principal': return organI([[1, 1], [2, 0.5], [3, 0.12], [4, 0.22]], 0.17, ['Pr = \\sum_{s} a_s \\sin 2\\pi s f t,\\ s \\in \\{1, 2, 3, 4\\}\\quad\\text{— принципал 8′ + октава 4′ (+ квинта, суперoктава)}'])
+    case 'octave': return organI([[1, 1], [2, 0.6], [4, 0.15]], 0.15, ['Pr_{II} = \\sin 2\\pi ft + 0.6\\sin 4\\pi ft + 0.15\\sin 8\\pi ft\\quad\\text{— второй мануал: 8′ + 4′}'])
+    case 'pedal16': return organI([[0.5, 1], [1, 0.8], [2, 0.35], [4, 0.1]], 0.2, ['P = \\sin \\pi ft + 0.8\\sin 2\\pi ft + 0.35\\sin 4\\pi ft + \\ldots\\quad\\text{— педаль 16′ + 8′ + 4′}'])
+    case 'mixture': return organI([[2, 0.6], [3, 0.4], [4, 0.45], [6, 0.3], [8, 0.25]], 0.09, ['M = \\sum_{s \\in \\{2,3,4,6,8\\}} a_s \\sin 2\\pi s f t\\quad\\text{— микстура: 4′, 2⅔′, 2′, 1⅓′, 1′ поверх сопрано}'])
     case 'posaune': {
       need('instruments', 'horn')
-      return wrap(['Pos = \\LP_{f_c}\\tfrac12\\big(\\saw\\,\\tfrac f2 + \\saw\\,1.0023\\tfrac f2\\big)\\,e(t)\\quad\\text{— язычковый тромбон 16′ в педали'], `h = horn({ bright: 1.6 }), verb = reverb({ room: 0.95, damp: 0.32, wet: 0.45 })
+      return wrap(['Pos = \\LP_{f_c}\\tfrac12\\big(\\saw\\,\\tfrac f2 + \\saw\\,1.0023\\tfrac f2\\big)\\,e(t)\\quad\\text{— язычковый тромбон 16′ в педали}'], `h = horn({ bright: 1.6 }), verb = reverb({ room: 0.95, damp: 0.32, wet: 0.45 })
     let n = 0`, `      if (m) n = m.n
       return verb(...pan(0.22 * h(hz(n - 12, C4), !!m && m.u < 0.94, 0.75), ${P}))`)
     }
-    case 'lute': return harpI(0.3, 0.986, 0.55, ['y_{k+N} = 0.986\\big(0.3\\,y_k + 0.7\\,y_{k+1}\\big)\\quad\\text{— лютневый регистр: войлок приглушает струну'])
-    case 'harpsichordV': return harpI(0.66, 0.993, 0.5, ['y_{k+N} = 0.993\\big(0.66\\,y_k + 0.34\\,y_{k+1}\\big)\\quad\\text{— клавесин 8′, демпфер при отпускании клавиши'])
-    case 'harpsichord4': return harpI(0.72, 0.99, 0.6, ['y_{k+N} = 0.99\\big(0.72\\,y_k + 0.28\\,y_{k+1}\\big)\\quad\\text{— регистр 4′: октавой выше'])
-    case 'harpsichord16': return harpI(0.6, 0.995, 0.45, ['y_{k+N} = 0.995\\big(0.6\\,y_k + 0.4\\,y_{k+1}\\big)\\quad\\text{— регистр 16′: октавой ниже'])
+    case 'lute': return harpI(0.3, 0.986, 0.55, ['y_{k+N} = 0.986\\big(0.3\\,y_k + 0.7\\,y_{k+1}\\big)\\quad\\text{— лютневый регистр: войлок приглушает струну}'])
+    case 'harpsichordV': return harpI(0.66, 0.993, 0.5, ['y_{k+N} = 0.993\\big(0.66\\,y_k + 0.34\\,y_{k+1}\\big)\\quad\\text{— клавесин 8′, демпфер при отпускании клавиши}'])
+    case 'harpsichord4': return harpI(0.72, 0.99, 0.6, ['y_{k+N} = 0.99\\big(0.72\\,y_k + 0.28\\,y_{k+1}\\big)\\quad\\text{— регистр 4′: октавой выше}'])
+    case 'harpsichord16': return harpI(0.6, 0.995, 0.45, ['y_{k+N} = 0.995\\big(0.6\\,y_k + 0.4\\,y_{k+1}\\big)\\quad\\text{— регистр 16′: октавой ниже}'])
   }
   throw new Error('fugue: no instrument ' + inst)
 }
@@ -4963,7 +4963,7 @@ ${body}
       // the melody's notes, and on a long one the risha strikes again every half beat (softer)
       if (m && fire(m.at + floor(m.τ * 2) / 2)) o.hit(hz(m.n, C4), m.τ < 0.25 ? 0.75 : 0.45, { from: m.slide ? -0.5 : 0, glide: 0.05 })
       return verb(...pan(1.25 * o(), -0.25))`, `const m = oudAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
-    track('qanun', '#f2d38a', laneOf(0.95, 0.05).replace('playAt', 'qanunAt'), ['Q = \\sum_{c \\in \\{-3, 0, 3\\}} s\\big(f\\cdot 2^{c/1200}\\big)\\quad\\text{— три струны хора; тремоло на долгих нотах: щипок каждую } \\tfrac18 \\text{ доли'],
+    track('qanun', '#f2d38a', laneOf(0.95, 0.05).replace('playAt', 'qanunAt'), ['Q = \\sum_{c \\in \\{-3, 0, 3\\}} s\\big(f\\cdot 2^{c/1200}\\big)\\quad\\text{— три струны хора; тремоло на долгих нотах: щипок каждую } \\tfrac18 \\text{ доли}'],
       `q = qanun(), fire = trigger(), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })`,
       `      const m = qanunAt(x)
       // a note: plucked with its lower octave; a long one in tremolo, alternating the hands
@@ -4972,15 +4972,15 @@ ${body}
         if (fire(m.at + j / 8)) { q.hit(hz(m.n, C4), j ? 0.32 + 0.08 * (j % 2) : 0.6); if (!j) q.hit(hz(m.n - 12, C4), 0.35) }
       }
       return verb(...pan(1.3 * q(), 0.3))`, `const m = qanunAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
-    track('ney', '#d8f0e0', laneOf(1.15, 0.05).replace('playAt', 'neyAt'), ['N = a\\big(\\tanh 1.3(0.55\\sin 2\\pi\\!\\int\\! g + 0.12\\sin 4\\pi\\!\\int\\! g + 0.05\\sin 6\\pi\\!\\int\\! g) + 0.3(\\BP_g + 0.6\\BP_{2g})\\eta\\big)', 'g = f\\cdot 2^{(0.22\\,v(t)\\sin 2\\pi\\cdot5.2T - 0.25(1 - s(t)))/12}\\ \\text{— дыхание громче тона, позднее вибрато'],
+    track('ney', '#d8f0e0', laneOf(1.15, 0.05).replace('playAt', 'neyAt'), ['N = a\\big(\\tanh 1.3(0.55\\sin 2\\pi\\!\\int\\! g + 0.12\\sin 4\\pi\\!\\int\\! g + 0.05\\sin 6\\pi\\!\\int\\! g) + 0.3(\\BP_g + 0.6\\BP_{2g})\\eta\\big)', 'g = f\\cdot 2^{(0.22\\,v(t)\\sin 2\\pi\\cdot5.2T - 0.25(1 - s(t)))/12}\\ \\text{— дыхание громче тона, позднее вибрато}'],
       `n = ney(), verb = reverb({ room: 0.85, damp: 0.35, wet: 0.38 })
     let p = 0`, `      const m = neyAt(x)
       if (m) p = m.n
       return verb(...pan(0.3 * n(hz(p, C4), !!m && m.u < 0.95), 0.1))`, `const m = neyAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
-    track('violin', '#ffd0a0', laneOf(0.85, 0.05).replace('playAt', 'violinAt'), ['Vn = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{R_i}\\,s\\Big),\\quad s = \\saw\\big(f\\cdot 2^{0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big)\\ \\text{— скрипка такхта, глиссандо между нотами'],
+    track('violin', '#ffd0a0', laneOf(0.85, 0.05).replace('playAt', 'violinAt'), ['Vn = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{R_i}\\,s\\Big),\\quad s = \\saw\\big(f\\cdot 2^{0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big)\\ \\text{— скрипка такхта, глиссандо между нотами}'],
       `bow = bowed({ base: C4, sec }), verb = reverb({ room: 0.84, damp: 0.38, wet: 0.36 })`,
       `      return verb(...pan(0.26 * bow(violinAt(x), x * sec), 0.42))`, `const m = violinAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
-    track('cello', '#c08a5a', `const m = celloAt(x); return m ? -3 + (m.n + 24) * 0.05 : null`, ['Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big)\\quad\\text{— мелодия октавой ниже на долях; бурдон на караре под таксимами'],
+    track('cello', '#c08a5a', `const m = celloAt(x); return m ? -3 + (m.n + 24) * 0.05 : null`, ['Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big)\\quad\\text{— мелодия октавой ниже на долях; бурдон на караре под таксимами}'],
       `bow = bowed({ base: C4, body: 0.6, sec }), verb = reverb({ room: 0.8, damp: 0.45, wet: 0.3 })`,
       `      return verb(...pan(0.22 * bow(celloAt(x), x * sec), -0.05))`, `const m = celloAt(x); return m && m.u < 0.9 ? [60 + m.n] : []`),
     track('darbuka', '#d98b5f', `const s = strokeAt(x); return s && s.τ < 0.25 ? (s.s === 'D' ? 3 : s.s === 'T' ? 3.9 : 3.5) : null`, ['D(t) = e^{-t/0.22}\\sin\\varphi + 0.35e^{-t/0.08}\\sin 1.59\\varphi + \\ldots,\\ \\varphi = 2\\pi\\cdot95\\,(t + \\ldots)\\ \\text{(дум)};\\quad T(t) = e^{-t/0.045}\\sum a_i\\sin 2\\pi f_i t\\ \\text{(тек)}'],
@@ -4988,7 +4988,7 @@ ${body}
       `      const s = strokeAt(x)
       return verb(...pan(s ? 0.55 * s.v * d(s.τ * sec, s.s === 'D' ? 'dum' : s.s === 'T' ? 'tek' : 'ka') : (d(9, 'dum', false), 0), -0.1))`,
       `const s = strokeAt(x); return s && s.τ < 0.1 ? [s.s === 'D' ? 41 : s.s === 'T' ? 60 : 61] : []`),
-    track('riq', '#fff0b0', `const s = strokeAt(x); return s && s.τ < 0.2 ? 4.4 : null`, ['R = e^{-t/0.09}\\big(0.75 + 0.25\\sin 2\\pi\\cdot38t\\big)\\big(\\BP_{7.2\\text{к}} + \\BP_{9.1\\text{к}}\\big)\\eta\\ \\text{— тарелочки бубна; кожа на дум'],
+    track('riq', '#fff0b0', `const s = strokeAt(x); return s && s.τ < 0.2 ? 4.4 : null`, ['R = e^{-t/0.09}\\big(0.75 + 0.25\\sin 2\\pi\\cdot38t\\big)\\big(\\BP_{7.2\\text{к}} + \\BP_{9.1\\text{к}}\\big)\\eta\\ \\text{— тарелочки бубна; кожа на дум}'],
       `ri = riqDrum(), verb = reverb({ room: 0.6, damp: 0.5, wet: 0.14 })`,
       `      // the jingles on every eighth, the skin with the darbuka's dum and tek
       const s = strokeAt(x), j = floor(2 * x), c = cycleAt(x)
@@ -5142,20 +5142,20 @@ ${body}
       }
       return verb(...pan(0.5 * s(), -0.1))`),
     T('chikari', '#ffe0b0', `const k = lastOf(CHIKARI, x); return k >= 0 && x - CHIKARI[k][0] < 0.2 ? 3.6 : null`, `const k = lastOf(CHIKARI, x); return k >= 0 && x - CHIKARI[k][0] < 0.15 ? [SA + 24] : []`,
-      ['Ch = s(f_{\\dot S}) + s(f_{\\ddot S})\\quad\\text{— чикари: две высокие струны Са, ритм между нотами'],
+      ['Ch = s(f_{\\dot S}) + s(f_{\\ddot S})\\quad\\text{— чикари: две высокие струны Са, ритм между нотами}'],
       `a = sitar({ sawari: 0.02, sustain: 1.2, seed: 73 }), b = sitar({ sawari: 0.02, sustain: 1, seed: 79 }), fire = trigger(), hp = filter('hp'), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })`,
       `      const k = lastOf(CHIKARI, x)
       if (k >= 0 && fire(k)) { a.hit(sw(12), 0.4); b.hit(sw(24), 0.3) }
       return verb(...pan(1.5 * hp(a() + b(), 300), 0.2))`),
     T('bansuri', '#d8f0ff', `const m = notesAt(BANSURI, x); return m ? 1.2 + m.n * 0.06 : null`, `const m = notesAt(BANSURI, x); return m && m.u < 0.9 ? [SA + 12 + m.n] : []`,
-      ['B = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.1\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бансури, октавой выше ситара'],
+      ['B = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.1\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бансури, октавой выше ситара}'],
       `fl = flute({ breath: 0.12 }), verb = reverb({ room: 0.86, damp: 0.35, wet: 0.38 })
     let p = 0`,
       `      const m = notesAt(BANSURI, x)
       if (m) p = m.n
       return verb(...pan(0.8 * fl(sw(p + 12), !!m && m.u < 0.93), 0.3))`),
     T('tanpura', '#c0a0ff', `return x < END ? -2.9 : null`, `return []`,
-      ['Tp = \\sum_{k} s\\big(f_k\\big)\\ \\text{по кругу } (\\text{${sg(R.drone)}̣},\\ S,\\ S,\\ \\text{S̲}) \\text{ каждые 1.2 с; сильное джавари — облако обертонов'],
+      [`Tp = \\sum_{k} s\\big(f_k\\big)\\ \\text{по кругу } (\\underset{\\cdot}{\\text{${sg(R.drone)}}},\\ S,\\ S,\\ \\underline{\\text{S}}) \\text{ каждые 1.2 с; сильное джавари — облако обертонов}`],
       `tp = tanpura(), lp = filter('lp'), verb = reverb({ room: 0.9, damp: 0.4, wet: 0.35 })
     const strings = [sw(${R.drone - 12}), sw(0), sw(0), sw(-12)]`,
       `      const y = tp(strings, 1.2, x < END - 1)
@@ -5168,14 +5168,14 @@ ${body}
       const y = k >= 0 ? TABLA[k][2] * tb((x - TABLA[k][0]) * sec, TABLA[k][1]) : 0
       return verb(...pan(0.42 * y, 0.05))`),
     T('swarmandal', '#fff0c0', `const k = lastOf(SWAR, x); return k >= 0 && x - SWAR[k][0] < 1 ? 4 - (x - SWAR[k][0]) : null`, `return []`,
-      ['Sm = \\sum_{j} Hp(f_j, t - 0.04j)\\quad\\text{— сурмандал: глиссандо вверх по нотам раги, две октавы'],
+      ['Sm = \\sum_{j} Hp(f_j, t - 0.04j)\\quad\\text{— сурмандал: глиссандо вверх по нотам раги, две октавы}'],
       `p = poly(harpTone, { release: 1.2, life: 6, max: 24 }), fire = trigger(), verb = reverb({ room: 0.9, wet: 0.45 })
     const notes = [...SWARAS.map(v => v + 12), ...SWARAS.map(v => v + 24), 36]`,
       `      const k = lastOf(SWAR, x)
       if (k >= 0 && fire(k)) notes.forEach((v, j) => p.hit(sw(v), 0.35 * SWAR[k][1], 2.5, j * 0.045))
       return verb(...pan(0.8 * p(), 0.4))`),
     T('manjira', '#ffe8a0', `const k = lastOf(MANJIRA, x); return k >= 0 && x - MANJIRA[k][0] < 0.3 ? 4.3 : null`, `const k = lastOf(MANJIRA, x); return k >= 0 && x - MANJIRA[k][0] < 0.1 ? [80] : []`,
-      ['M = \\sum_k a_k e^{-t(1 + k)/d}\\sin 2\\pi r_k f t\\quad\\text{— манджира на сам и тали (1, 5, 13), приглушённая на кхали (9)'],
+      ['M = \\sum_k a_k e^{-t(1 + k)/d}\\sin 2\\pi r_k f t\\quad\\text{— манджира на сам и тали (1, 5, 13), приглушённая на кхали (9)}'],
       `k1 = kaneDrum({ f: 2650, decay: 1 }), verb = reverb({ room: 0.7, wet: 0.2 })`,
       `      const k = lastOf(MANJIRA, x), e = k >= 0 ? MANJIRA[k] : null
       return verb(...pan(e ? 0.6 * (e[1] === 'sam' ? 1 : 0.7) * k1((x - e[0]) * sec, true, e[1] === 'khali') : 0, -0.35))`),
@@ -5280,7 +5280,7 @@ ${body}
   const colotomic = (name, kind, tone, gain, y, panv, life) => T(name, '#e8c27a',
     `const k = lastOf(struck('${kind}'), x); return k >= 0 && x - struck('${kind}')[k][0] < 1 ? ${y} : null`,
     `const s = struck('${kind}'), k = lastOf(s, x); return k >= 0 && x - s[k][0] < 0.5 ? [60 + Math.round(s[k][2] * 100) / 100] : []`,
-    [`${kind}:\\ \\text{колотомия — удар на позициях цикла (${FORMS[form][kind]?.join(' ') ?? FORMS[form].beats})'`],
+    [`${kind}:\\ \\text{колотомия — удар на позициях цикла (${FORMS[form][kind]?.join(' ') ?? FORMS[form].beats})}`],
     `p = poly(${tone}, { release: ${life}, life: ${life + 2}, max: 6 }), fire = trigger(), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.4 }), list = struck('${kind}')`,
     `      const k = lastOf(list, x)
       if (k >= 0 && fire(k)) p.hit(hz(list[k][2], C4), 0.8, ${life})
@@ -5296,13 +5296,13 @@ ${body}
     colotomic('gong', 'gong', 'gongTone', 0.28, -2.6, 0, 9),
     T('kendhang', '#d98b5f', `const k = lastOf(KENDHANG, x); return k >= 0 && x - KENDHANG[k][0] < 0.25 ? (KENDHANG[k][1] === 'dhah' ? 3 : 3.8) : null`,
       `const k = lastOf(KENDHANG, x); return k >= 0 && x - KENDHANG[k][0] < 0.1 ? [KENDHANG[k][1] === 'dhah' ? 41 : 38] : []`,
-      ['K:\\ \\text{dhah — низкий открытый удар, tak — шлепок, ket — малый барабан ketipung'],
+      ['K:\\ \\text{dhah — низкий открытый удар, tak — шлепок, ket — малый барабан ketipung}'],
       `dhah = taikoDrum({ pitch: 105, decay: 0.45, bend: 2, crack: 0.15, boom: 0.25, seed: 83 }), ket = taikoDrum({ pitch: 230, decay: 0.2, bend: 1, crack: 0.2, seed: 89 }), tak = woodClack({ f: 1100, seed: 97 }), verb = reverb({ room: 0.7, damp: 0.5, wet: 0.2 })`,
       `      const k = lastOf(KENDHANG, x), e = k >= 0 ? KENDHANG[k] : null, t = e ? (x - e[0]) * sec : 9
       const y = 0.5 * dhah(t, !!e && e[1] === 'dhah') + 0.35 * ket(t, !!e && e[1] === 'ket') + 0.3 * tak(t, !!e && e[1] === 'tak')
       return verb(...pan(0.9 * y, -0.05))`),
     T('suling', '#d8f0e0', `const m = notesAt(SULING, x); return m ? 2.2 + m.n * 0.04 : null`, `const m = notesAt(SULING, x); return m && m.u < 0.9 ? [60 + Math.round(m.n * 100) / 100] : []`,
-      ['S = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.15\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бамбуковая флейта, плывёт над ирамой II'],
+      ['S = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.15\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бамбуковая флейта, плывёт над ирамой II}'],
       `fl = flute({ breath: 0.15 }), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.45 })
     let n = 0`,
       `      const m = notesAt(SULING, x)
@@ -5400,7 +5400,7 @@ const DRONE = ${round((harmonic ? tonic - 36 : tonic - 24) - 60)} // the low dro
   color: '${color}',
   graph: x => { const s = strikes('${inst}', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => ${lane} + (e.n + 12) * 0.04) : null },
   midi: x => strikes('${inst}', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
-  formula: ${JSON.stringify([`\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{${F.loops.filter(l => l.inst === inst).map(l => l.period).join(', ') || '—'}\\}`, 'T \\text{ — ' + { piano: 'рояль (тихо, педаль)', bells: 'FM-колокольчик', glass: 'челеста' }[inst] + '; НОК периодов — ' + F.lcm + ' долей'])},
+  formula: ${JSON.stringify([`\\text{петли: } \\sum_i \\sum_j T\\big(f_{ij},\\ x - o_{ij} - p_i\\lfloor (x - o_{ij})/p_i \\rfloor\\big),\\quad p_i \\in \\{${F.loops.filter(l => l.inst === inst).map(l => l.period).join(', ') || '—'}\\}`, 'T \\text{ — ' + { piano: 'рояль (тихо, педаль)', bells: 'FM-колокольчик', glass: 'челеста' }[inst] + '; НОК периодов — ' + F.lcm + ' долей}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(${tone}, { release: 2, life: 9, max: 16 }), seen = new Set(), echo = delay({ time: sec * 1.5, feedback: 0.45, wet: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 })
     return x => {
@@ -5420,7 +5420,7 @@ const DRONE = ${round((harmonic ? tonic - 36 : tonic - 24) - 60)} // the low dro
   color: '#e0c8ff',
   graph: x => { const s = strikes('choir', x).filter(e => x - e.s < e.d); return s.length ? s.map(e => -0.8 + (e.n + 24) * 0.04) : null },
   midi: x => strikes('choir', x).filter(e => x - e.s < e.d * 0.9).map(e => 60 + Math.round(e.n * 100) / 100),
-  formula: ${JSON.stringify(['Ch = \\sum_{i} \\tfrac{G_i}{Q_i}\\BP_{F_i}\\big(\\saw f\\big),\\quad F:\\ \\text{«а» → «о» — хор, долгие ноты петель'])},
+  formula: ${JSON.stringify(['Ch = \\sum_{i} \\tfrac{G_i}{Q_i}\\BP_{F_i}\\big(\\saw f\\big),\\quad F:\\ \\text{«а» → «о» — хор, долгие ноты петель}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, c = choir({ voices: 2, size: 1, gain: 0.3 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.6 }), level = smooth(600)
     return x => {
@@ -5435,13 +5435,13 @@ const DRONE = ${round((harmonic ? tonic - 36 : tonic - 24) - 60)} // the low dro
   color: '#9fb8ff',
   graph: x => { const p = padAt(x); return p ? p[2].map(n => -1.2 + (n + 24) * 0.03) : null },
   midi: x => { const p = padAt(x); return p && x < END - 8 ? p[2].map(n => 60 + Math.round(n * 100) / 100) : [] },
-  formula: ${JSON.stringify(['Pad = \\LP_{f_c(x)}\\,' + (padKind === 'organ' ? 'O' : padKind === 'choir' ? 'Ch' : 'S') + '(f_1 \\ldots f_4),\\quad f_c = 900 + 2600\\,\\tfrac{1 - \\cos(2\\pi x/64)}{2}\\ \\text{— фильтр дышит раз в 64 доли'])},
+  formula: ${JSON.stringify(['Pad = \\LP_{f_c(x)}\\,' + (padKind === 'organ' ? 'O' : padKind === 'choir' ? 'Ch' : 'S') + '(f_1 \\ldots f_4),\\quad f_c = 900 + 2600\\,\\tfrac{1 - \\cos(2\\pi x/64)}{2}\\ \\text{— фильтр дышит раз в 64 доли}'])},
   audio({ bpm }) {
     ${padKind === 'organ' ? `const o = organ({ voices: 4, stops: [[1, 1], [2, 0.3], [4, 0.1]], chiff: 0.02, gain: 0.025 })` : padKind === 'choir' ? `const o = choir({ voices: 4, size: 0.95, gain: 0.1 })` : `const o = strings({ voices: 4, attack: 2500, release: 4000, cutoff: 4000, gain: 0.1 })`}
     const lpL = filter('lp'), lpR = filter('lp'), verb = reverb({ room: 0.95, damp: 0.35, wet: 0.55 })
     return x => {
       const p = padAt(x), fc = 900 + 2600 * (0.5 - 0.5 * Math.cos(TAU * x / 64))
-      const [l, r] = o(p && x < END - 8 ? p[2].map(n => hz(n, C4))${padKind === 'choir' ? ', blend(VOWELS.o, VOWELS.a, 0.5 + 0.5 * sin(TAU * x / 48))' : ''} : [])
+      const [l, r] = o(p && x < END - 8 ? p[2].map(n => hz(n, C4)) : []${padKind === 'choir' ? ', blend(VOWELS.o, VOWELS.a, 0.5 + 0.5 * sin(TAU * x / 48))' : ''})
       return verb(lpL(l, fc), lpR(r, fc))
     }
   },
@@ -5463,7 +5463,7 @@ const DRONE = ${round((harmonic ? tonic - 36 : tonic - 24) - 60)} // the low dro
     { name: 'wind', code: `{
   color: '#7f8fa6',
   graph: x => (x < END ? -2.95 + 0.04 * sin(TAU * x / 8) : null),
-  formula: ${JSON.stringify(['W = \\BP_{f(T)}\\eta,\\quad f(T) \\text{ блуждает — ветер'])},
+  formula: ${JSON.stringify(['W = \\BP_{f(T)}\\eta,\\quad f(T) \\text{ блуждает — ветер}'])},
   audio({ bpm }) {
     const sec = 60 / bpm, n = noise(77), bl = filter('bp'), br = filter('bp'), level = smooth(800)
     return x => {

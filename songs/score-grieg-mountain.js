@@ -67,7 +67,7 @@ const part = (kind, shift, from, last, color, panv) => ({
   color,
   graph: x => { const m = scoreAt(x, from, shift, last); return m ? 1 + (m.n - 40) / 30 : null },
   midi: x => { const m = scoreAt(x, from, shift, last); return m && m.u < 0.92 ? [m.n] : [] },
-  formula: ["\\text{партитура: } n(x) = \\text{SCORE}\\big((x - 4) \\bmod L\\big) + \\text{сдвиг}","\\text{инструмент: смычковые (корпус: 4 резонанса), трости (импульс через форманты), валторна, орган (регистры), фортепиано (6 парциалов)"],
+  formula: ["\\text{партитура: } n(x) = \\text{SCORE}\\big((x - 4) \\bmod L\\big) + \\text{сдвиг}","\\text{инструмент: смычковые (корпус: 4 резонанса), трости (импульс через форманты), валторна, орган (регистры), фортепиано (6 парциалов)}"],
   audio() {
     const v = voiceOf(kind), verb = reverb({ room: 0.9, damp: 0.35, wet: 0.38 })
     return x => verb(...pan(GAIN[kind] * v(scoreAt(x, from, shift, last), x), panv))
@@ -94,7 +94,7 @@ const track4 = {
   color: '#cdb4db',
   graph: x => { const c = chordAt(x); return c ? c.v.map(n => -1 + (n - 50) / 24) : null },
   midi: x => { const c = chordAt(x); return c && x - c.at < c.len - 0.1 ? c.v : [] },
-  formula: ["S = \\Rev\\,\\Cho\\sum_{j=1}^{4}\\sum_{u=-1}^{1}\\saw\\!\\Big(f_j\\,2^{(0.09u + 0.12\\sin 2\\pi r_{j,u}T)/12}\\Big),\\quad f_j \\text{ — голоса аккорда"],
+  formula: ["S = \\Rev\\,\\Cho\\sum_{j=1}^{4}\\sum_{u=-1}^{1}\\saw\\!\\Big(f_j\\,2^{(0.09u + 0.12\\sin 2\\pi r_{j,u}T)/12}\\Big),\\quad f_j \\text{ — голоса аккорда}"],
   audio() {
     const s = strings({ voices: 4, attack: 300, release: 900, cutoff: 3000, gain: 0.05 }), ch = chorus({ mix: 0.3 }), verb = reverb({ room: 0.9, wet: 0.4 })
     return x => { const c = chordAt(x); return verb(...ch(...s(c && x - c.at < c.len - 0.08 ? c.v.map(mf) : []))) }
@@ -106,7 +106,7 @@ const track5 = {
   color: '#c08a5a',
   graph: x => { const c = chordAt(x); return c ? -2.8 + (c.bass - 36) / 24 : null },
   midi: x => { const c = chordAt(x); return c && x - c.at < c.len - 0.1 ? [c.bass] : [] },
-  formula: ["Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big),\\ s = \\saw(f_{\\text{корень}})\\quad\\text{— виолончели и контрабасы на корне аккорда"],
+  formula: ["Vc = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i}\\tfrac{G_i}{Q_i}\\BP_{0.6R_i}\\,s\\Big),\\ s = \\saw(f_{\\text{корень}})\\quad\\text{— виолончели и контрабасы на корне аккорда}"],
   audio() {
     const b = bowed({ base: mf(60), body: 0.55, sec: SEC }), verb = reverb({ room: 0.88, wet: 0.32 })
     return x => { const c = chordAt(x); return verb(...pan(0.2 * b(c && { n: c.bass - 60, d: c.len, τ: x - c.at }, x * SEC), -0.1)) }
@@ -118,7 +118,7 @@ const track6 = {
   color: '#9c6644',
   graph: x => { const c = chordAt(x); return c && x - c.at < 0.6 && timpOn(c) ? 3 + 1.2 * exp(-4 * (x - c.at)) : null },
   midi: x => { const c = chordAt(x); return c && x - c.at < 0.2 && timpOn(c) ? [timpNote(c)] : [] },
-  formula: ["Ti = \\sum_{k}A_k v^{0.6 + 0.3k}e^{-K_k d\\,t}\\sin\\big(2\\pi R_k f(t + \\ldots)\\big),\\ R = (1, 1.5, 1.98, 2.44, 2.94, 1.65)\\quad\\text{— только на тонике и доминанте, как в классическом оркестре"],
+  formula: ["Ti = \\sum_{k}A_k v^{0.6 + 0.3k}e^{-K_k d\\,t}\\sin\\big(2\\pi R_k f(t + \\ldots)\\big),\\ R = (1, 1.5, 1.98, 2.44, 2.94, 1.65)\\quad\\text{— только на тонике и доминанте, как в классическом оркестре}"],
   audio() {
     const p = poly(timpaniTone, { release: 0.8, life: 4 }), fire = trigger(), verb = reverb({ room: 0.9, wet: 0.35 })
     return x => {

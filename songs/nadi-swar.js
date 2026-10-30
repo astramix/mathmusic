@@ -129,7 +129,7 @@ const track1 = {
   color: '#ffe0b0',
   graph: x => { const k = lastOf(CHIKARI, x); return k >= 0 && x - CHIKARI[k][0] < 0.2 ? 3.6 : null },
   midi: x => { const k = lastOf(CHIKARI, x); return k >= 0 && x - CHIKARI[k][0] < 0.15 ? [SA + 24] : [] },
-  formula: ["Ch = s(f_{\\dot S}) + s(f_{\\ddot S})\\quad\\text{— чикари: две высокие струны Са, ритм между нотами"],
+  formula: ["Ch = s(f_{\\dot S}) + s(f_{\\ddot S})\\quad\\text{— чикари: две высокие струны Са, ритм между нотами}"],
   audio({ bpm }) {
     const sec = 60 / bpm, a = sitar({ sawari: 0.02, sustain: 1.2, seed: 73 }), b = sitar({ sawari: 0.02, sustain: 1, seed: 79 }), fire = trigger(), hp = filter('hp'), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.3 })
     return x => {
@@ -145,7 +145,7 @@ const track2 = {
   color: '#d8f0ff',
   graph: x => { const m = notesAt(BANSURI, x); return m ? 1.2 + m.n * 0.06 : null },
   midi: x => { const m = notesAt(BANSURI, x); return m && m.u < 0.9 ? [SA + 12 + m.n] : [] },
-  formula: ["B = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.1\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бансури, октавой выше ситара"],
+  formula: ["B = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.1\\,\\BP_{2g}\\eta\\big)\\quad\\text{— бансури, октавой выше ситара}"],
   audio({ bpm }) {
     const sec = 60 / bpm, fl = flute({ breath: 0.12 }), verb = reverb({ room: 0.86, damp: 0.35, wet: 0.38 })
     let p = 0
@@ -162,7 +162,7 @@ const track3 = {
   color: '#c0a0ff',
   graph: x => { return x < END ? -2.9 : null },
   midi: x => { return [] },
-  formula: ["Tp = \\sum_{k} s\\big(f_k\\big)\\ \\text{по кругу } (\\text{${sg(R.drone)}̣},\\ S,\\ S,\\ \\text{S̲}) \\text{ каждые 1.2 с; сильное джавари — облако обертонов"],
+  formula: ["Tp = \\sum_{k} s\\big(f_k\\big)\\ \\text{по кругу } (\\underset{\\cdot}{\\text{P}},\\ S,\\ S,\\ \\underline{\\text{S}}) \\text{ каждые 1.2 с; сильное джавари — облако обертонов}"],
   audio({ bpm }) {
     const sec = 60 / bpm, tp = tanpura(), lp = filter('lp'), verb = reverb({ room: 0.9, damp: 0.4, wet: 0.35 })
     const strings = [sw(-5), sw(0), sw(0), sw(-12)]
@@ -194,7 +194,7 @@ const track5 = {
   color: '#fff0c0',
   graph: x => { const k = lastOf(SWAR, x); return k >= 0 && x - SWAR[k][0] < 1 ? 4 - (x - SWAR[k][0]) : null },
   midi: x => { return [] },
-  formula: ["Sm = \\sum_{j} Hp(f_j, t - 0.04j)\\quad\\text{— сурмандал: глиссандо вверх по нотам раги, две октавы"],
+  formula: ["Sm = \\sum_{j} Hp(f_j, t - 0.04j)\\quad\\text{— сурмандал: глиссандо вверх по нотам раги, две октавы}"],
   audio({ bpm }) {
     const sec = 60 / bpm, p = poly(harpTone, { release: 1.2, life: 6, max: 24 }), fire = trigger(), verb = reverb({ room: 0.9, wet: 0.45 })
     const notes = [...SWARAS.map(v => v + 12), ...SWARAS.map(v => v + 24), 36]
@@ -211,7 +211,7 @@ const track6 = {
   color: '#ffe8a0',
   graph: x => { const k = lastOf(MANJIRA, x); return k >= 0 && x - MANJIRA[k][0] < 0.3 ? 4.3 : null },
   midi: x => { const k = lastOf(MANJIRA, x); return k >= 0 && x - MANJIRA[k][0] < 0.1 ? [80] : [] },
-  formula: ["M = \\sum_k a_k e^{-t(1 + k)/d}\\sin 2\\pi r_k f t\\quad\\text{— манджира на сам и тали (1, 5, 13), приглушённая на кхали (9)"],
+  formula: ["M = \\sum_k a_k e^{-t(1 + k)/d}\\sin 2\\pi r_k f t\\quad\\text{— манджира на сам и тали (1, 5, 13), приглушённая на кхали (9)}"],
   audio({ bpm }) {
     const sec = 60 / bpm, k1 = kaneDrum({ f: 2650, decay: 1 }), verb = reverb({ room: 0.7, wet: 0.2 })
     return x => {

@@ -234,7 +234,7 @@ const track3 = {
   color: '#a8a0c8',
   graph: x => { const c = chordAt(x), e = energy(x); return c && e >= 0 && x < END - 1 ? c[3].map(n => -1 + (n - 48) / 20 + 0.03 * sin(TAU * 8 * x)) : null },
   midi: x => { const c = chordAt(x); return c && energy(x) >= 0 && x < END - 1 && x - c[0] < c[1] - 0.05 ? c[3] : [] },
-  formula: ["T = \\Rev\\Big[\\big(0.55 + 0.45\\sin^2 2\\pi\\,8x\\big)\\big(S + 0.8\\HP_{2500}S\\big)\\Big],\\quad S = \\sum_j\\sum_u \\saw\\big(f_j\\,2^{0.09u/12}\\big)\\ \\text{— тремоло тридцать вторыми у подставки"],
+  formula: ["T = \\Rev\\Big[\\big(0.55 + 0.45\\sin^2 2\\pi\\,8x\\big)\\big(S + 0.8\\HP_{2500}S\\big)\\Big],\\quad S = \\sum_j\\sum_u \\saw\\big(f_j\\,2^{0.09u/12}\\big)\\ \\text{— тремоло тридцать вторыми у подставки}"],
   audio({ bpm }) {
     const s = strings({ voices: 4, attack: 120, release: 500, cutoff: 4200, gain: 0.05 }), hpL = filter('hp'), hpR = filter('hp'), level = smooth(300), verb = reverb({ room: 0.9, damp: 0.4, wet: 0.42 })
     let v = [57, 60, 64]
