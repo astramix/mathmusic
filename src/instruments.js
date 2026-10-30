@@ -1154,6 +1154,49 @@ export function funkGuitar({ bright = 0.8, seed = 103 } = {}) {
   g.mute = set.mute
   return g
 }
+// A high-gain amp and its cabinet for a humbucker guitar: a high-pass tightening the low end, the pickup's top rolled off,
+// a mid push into two soft-clipping stages (the first biased: even harmonics), a mid scoop, a 4×12 cabinet (low-passes at
+// 5.2 and 6.5 kHz, the closed box's thump near 120 Hz, the speakers' presence near 2.5 kHz). amp(x) → sample
+function ampCab({ gain = 18, tight = 90, scoop = 0.45 } = {}) {
+  const hp = filter('hp'), pick = filter('lp'), pre = filter('bp'), dc = filter('hp'), sc = filter('bp'), cab1 = filter('lp'), cab2 = filter('lp'), box = filter('bp'), pres = filter('bp')
+  return x => {
+    let y = pick(hp(x, tight), 4500)
+    y = tanh(gain * (y + 1.2 * pre(y, 900, 0.7)) + 0.15)
+    y = tanh(2.5 * dc(y, 30))
+    y -= scoop * sc(y, 500, 0.8)
+    const c = cab2(cab1(y, 5200), 6500)
+    return 0.5 * c + 0.6 * box(c, 120, 1) + 0.2 * pres(c, 2500, 1.5)
+  }
+}
+// Metal rhythm guitar: exactly tuned strings (the plucked-string model above) into ampCab, double-tracked — two takes
+// panned left and right, the second 9 ms late and 1.4 ¢ apart, as two guitarists play it. A power chord is root, fifth
+// and octave; the palm mute damps the strings at the bridge (a short, dark "chug"). g.hit(freqs, vel, { mute }) ·
+// g.choke(τ) the fretting hand lets go · g() → [l, r]
+export function metalGuitar({ gain = 18, tight = 90, scoop = 0.45, seed = 131 } = {}) {
+  const take = s => ({ set: stringSet({ bright: 0.85, sustain: 3.5, pos: 0.1, click: 0.002 }, { max: 6, seed: s }), amp: ampCab({ gain, tight, scoop }) })
+  const L = take(seed), R = take(seed + 1)
+  const g = () => { const [a, ka] = L.set(), [b, kb] = R.set(); return [L.amp(a + 0.3 * ka), R.amp(b + 0.3 * kb)] }
+  g.hit = (freqs, vel = 0.8, { mute = false, at = 0 } = {}) => {
+    const o = mute ? { sustain: 0.16, bright: 0.5 } : {}
+    ;[].concat(freqs).forEach((f, i) => {
+      L.set.hit(f, vel, { ...o, at: at + Math.round(i * 0.003 * SR) })
+      R.set.hit(f * 1.0008, vel, { ...o, at: at + Math.round((0.009 + i * 0.004) * SR) })
+    })
+  }
+  g.choke = (τ = 0.02) => (L.set.mute(τ), R.set.mute(τ))
+  return g
+}
+// Metal lead guitar: one string at a time through the same amp (more gain: the note sings on), slides into a note
+// (from), bends (bend, bendAt, bendTime, back) — the string model keeps the pitch exact all through a bend.
+// l.hit(f, vel, { from, bend, bendAt, bendTime, back }) · l.choke(τ) · l() → sample
+export function leadGuitar({ gain = 30, seed = 137 } = {}) {
+  const set = stringSet({ bright: 0.8, sustain: 6, pos: 0.13, click: 0.002 }, { mono: true, max: 3, seed }), amp = ampCab({ gain, tight: 120, scoop: 0.25 })
+  const l = () => { const [y, k] = set(); return amp(y + 0.2 * k) }
+  l.hit = (f, vel = 0.8, o = {}) => set.hit(f, vel, o)
+  l.choke = (τ = 0.03) => set.mute(τ)
+  return l
+}
+
 // Analog mono synth (a Minimoog-like voice): two saws 9 ¢ apart and a square an octave down, through two resonant
 // state-variable low-passes in series (24 dB/oct, the second resonant, driven), the cutoff opening on each new note
 // and settling (filter envelope), glide between notes. s(f, on, vel) → sample

@@ -434,6 +434,98 @@ export const MELODIES = [
       [8, 0, 0.5], [8.5, 3, 0.5], [9, 7, 0.5], [9.5, 12, 0.5], [10, 15, 1], [11, 12, 0.5], [11.5, 10, 0.5],
       [12, 8, 1], [13, 5, 0.5], [13.5, 8, 0.5], [14, 11, 1], [15, 7, 0.5], [15.5, 2, 0.5]],
   },
+
+  // ---- Dark Echo: after the catastrophe, no bright themes — lines that sink, leading tones left hanging ----
+  // "Ashen Road": falls from the fifth, i – VI – iv – V; the last bar stops on the leading tone, unresolved
+  {
+    id: 'echo-ashenroad', from: 'darkecho', title: 'Ashen Road (пепельная дорога)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: false, only: 'darkecho',
+    moods: ['dark'], chords: ['i', 'VI', 'iv', 'V'],
+    notes: [[0, 7, 2], [2, 3, 1.5], [3.5, 2, 0.5], [4, 3, 1], [5, 0, 1], [6, -4, 2],
+      [8, 5, 1], [9, 7, 0.5], [9.5, 8, 0.5], [10, 12, 1], [11, 8, 1], [12, 7, 1.5], [13.5, 2, 0.5], [14, -1, 2]],
+  },
+  // "Hollow Choir": the Phrygian ♭2 above the tonic chord, i – ♭II – iv – i; a sigh F → E at the end
+  {
+    id: 'echo-hollow', from: 'darkecho', title: 'Hollow Choir (пустой хор)', key: 'Em', base: 'E4', feel: 'straight', per: 4, modal: false, only: 'darkecho',
+    moods: ['dark'], chords: ['i', 'bII', 'iv', 'i'],
+    notes: [[0, 0, 1.5], [1.5, 3, 0.5], [2, 7, 2], [4, 8, 1.5], [5.5, 7, 0.5], [6, 5, 2],
+      [8, 8, 1], [9, 7, 0.5], [9.5, 5, 0.5], [10, 0, 2], [12, 3, 1], [13, 1, 1], [14, 0, 2]],
+  },
+  // "Cold Furnace": a lament over a falling bass, a chord every half bar — i v VI III iv i iiø7 V, a triplet turn
+  {
+    id: 'echo-furnace', from: 'darkecho', title: 'Cold Furnace (остывшая печь)', key: 'Cm', base: 'C4', feel: 'straight', per: 2, modal: false, only: 'darkecho',
+    moods: ['dark'], chords: ['i', 'v', 'VI', 'III', 'iv', 'i', 'iiø7', 'V'],
+    notes: [[0, 12, 1.5], [1.5, 10, 0.5], [2, 7, 2], [4, 8, 1.5], [5.5, 7, 0.5], [6, 3, 0.667], [6.667, 5, 0.333], [7, 7, 1],
+      [8, 8, 1], [9, 5, 1], [10, 3, 1.5], [11.5, 2, 0.5], [12, 5, 1], [13, 2, 1], [14, -1, 2]],
+  },
+
+  // ---- Is there any hope?: heavy, slow, for the lead guitar and the choir over the riff ----
+  // "Iron Rain": the ♭II pressing on the tonic, i – ♭II – VI – V; a half-step grind, F♯ – D♯ – B on the dominant
+  {
+    id: 'hope-ironrain', from: 'ishope', title: 'Iron Rain (железный дождь)', key: 'Em', base: 'E4', feel: 'straight', per: 4, modal: false, only: 'ishope',
+    moods: ['dark', 'epic'], chords: ['i', 'bII', 'VI', 'V'],
+    notes: [[0, 7, 1.5], [1.5, 5, 0.5], [2, 3, 1], [3, 2, 0.5], [3.5, 0, 0.5], [4, 1, 2], [6, 5, 1], [7, 3, 0.5], [7.5, 1, 0.5],
+      [8, 0, 1.5], [9.5, 3, 0.5], [10, 8, 2], [12, 14, 1], [13, 11, 1], [14, 7, 2]],
+  },
+  // "Last Watch": the Andalusian descent i – VII – VI – V, the line climbing against it
+  {
+    id: 'hope-lastwatch', from: 'ishope', title: 'Last Watch (последний дозор)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: false, only: 'ishope',
+    moods: ['dark', 'epic'], chords: ['i', 'VII', 'VI', 'V'],
+    notes: [[0, 0, 1], [1, 3, 1], [2, 7, 1.5], [3.5, 8, 0.5], [4, 10, 2], [6, 5, 1], [7, 2, 1],
+      [8, 3, 1.5], [9.5, 2, 0.5], [10, 0, 2], [12, -1, 1], [13, 2, 1], [14, 7, 2]],
+  },
+  // "No Dawn": i – iv – ♭II – V7, a neighbour note on the fifth, the Neapolitan's D♭ sung out
+  {
+    id: 'hope-nodawn', from: 'ishope', title: 'No Dawn (без рассвета)', key: 'Cm', base: 'C4', feel: 'straight', per: 4, modal: false, only: 'ishope',
+    moods: ['dark', 'epic'], chords: ['i', 'iv', 'bII', 'V7'],
+    notes: [[0, 7, 1], [1, 8, 0.5], [1.5, 7, 0.5], [2, 3, 1.5], [3.5, 2, 0.5], [4, 0, 1.5], [5.5, 3, 0.5], [6, 5, 2],
+      [8, 8, 1], [9, 5, 1], [10, 1, 2], [12, -1, 1], [13, 2, 1], [14, 5, 2]],
+  },
+
+  // ---- Chozo ruins (Metroid Prime × horror): wide leaps, a Dorian IV and the ♭VI turning against it ----
+  // "Chozo Ruins": i – IV – VI – V, arpeggios leaping an octave; F♯ of the IV against the F of the VI
+  {
+    id: 'prime-chozo', from: 'prime', title: 'Chozo Ruins (руины чозо)', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'prime',
+    moods: ['dark', 'space', 'game'], chords: ['i', 'IV', 'VI', 'V'],
+    notes: [[0, 0, 0.5], [0.5, 7, 0.5], [1, 12, 1], [2, 7, 1], [3, 3, 1], [4, 9, 1.5], [5.5, 7, 0.5], [6, 5, 2],
+      [8, 8, 1], [9, 12, 1], [10, 15, 1.5], [11.5, 14, 0.5], [12, 11, 1], [13, 7, 1], [14, 2, 2]],
+  },
+  // "Phazon": the tonic and the ♭II taking turns every half bar, then iv – V – i – V: the semitone that won't leave
+  {
+    id: 'prime-phazon', from: 'prime', title: 'Phazon (фазон)', key: 'Em', base: 'E4', feel: 'straight', per: 2, modal: false, only: 'prime',
+    moods: ['dark', 'game'], chords: ['i', 'bII', 'i', 'bII', 'iv', 'V', 'i', 'V'],
+    notes: [[0, 0, 1], [1, 3, 1], [2, 5, 1], [3, 1, 1], [4, 0, 1], [5, 3, 1], [6, 8, 1], [7, 5, 1],
+      [8, 8, 1.5], [9.5, 5, 0.5], [10, 11, 1], [11, 7, 1], [12, 7, 1], [13, 3, 1], [14, -1, 1], [15, 2, 1]],
+  },
+  // "Frozen Halls": quiet snow over a minor seventh chord, the Dorian IV, VImaj7 and V — falling arpeggios
+  {
+    id: 'prime-frozen', from: 'prime', title: 'Frozen Halls (ледяные залы)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: true, only: 'prime',
+    moods: ['dark', 'space'], chords: ['i7', 'IV', 'VImaj7', 'V'],
+    notes: [[0, 10, 0.5], [0.5, 7, 0.5], [1, 3, 0.5], [1.5, 0, 0.5], [2, 7, 2], [4, 9, 1], [5, 7, 0.5], [5.5, 5, 0.5], [6, 12, 2],
+      [8, 7, 1.5], [9.5, 8, 0.5], [10, 3, 2], [12, 2, 1], [13, -1, 1], [14, -5, 2]],
+  },
+
+  // ---- The North (in the spirit of the Skyrim score): chant in long notes, modal, a horn's leap ----
+  // "Dovah": i – VI – III – VII, sung by men in octaves — the repeated tonic, the falling third
+  {
+    id: 'nord-dovah', from: 'nordic', title: 'Dovah (зов дракона)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: true, only: 'nordic',
+    moods: ['epic', 'dark'], chords: ['i', 'VI', 'III', 'VII'],
+    notes: [[0, 0, 1.5], [1.5, 0, 0.5], [2, 3, 1.5], [3.5, 2, 0.5], [4, 0, 1], [5, -4, 1], [6, 0, 2],
+      [8, 3, 1.5], [9.5, 5, 0.5], [10, 7, 2], [12, 5, 1], [13, 3, 0.5], [13.5, 2, 0.5], [14, -2, 2]],
+  },
+  // "Seven Thousand Steps": Dorian — i – IV – i – VII, a folk turn, the raised sixth (C♯ in E) on the IV
+  {
+    id: 'nord-steps', from: 'nordic', title: 'Seven Thousand Steps (семь тысяч ступеней)', key: 'Em', base: 'E4', feel: 'straight', per: 4, modal: true, only: 'nordic',
+    moods: ['epic', 'warm'], chords: ['i', 'IV', 'i', 'VII'],
+    notes: [[0, 7, 0.75], [0.75, 5, 0.25], [1, 3, 1], [2, 0, 1.5], [3.5, 2, 0.5], [4, 0, 1], [5, 2, 0.5], [5.5, 5, 0.5], [6, 9, 2],
+      [8, 7, 1.5], [9.5, 10, 0.5], [10, 12, 2], [12, 10, 1], [13, 7, 0.5], [13.5, 5, 0.5], [14, 2, 2]],
+  },
+  // "Frostfall": natural minor, the minor v — i – VI – iv – v, no leading tone anywhere
+  {
+    id: 'nord-frostfall', from: 'nordic', title: 'Frostfall (ледопад)', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: true, only: 'nordic',
+    moods: ['epic', 'dark'], chords: ['i', 'VI', 'iv', 'v'],
+    notes: [[0, 3, 1], [1, 0, 1], [2, 7, 1.5], [3.5, 5, 0.5], [4, 3, 1], [5, 8, 1], [6, 12, 2],
+      [8, 8, 1], [9, 5, 1], [10, 0, 1.5], [11.5, 2, 0.5], [12, 7, 1], [13, 10, 1], [14, 2, 2]],
+  },
 ]
 
 // Progressions for sections without a borrowed theme (intro, bridge, breakdown, solo), per mood.

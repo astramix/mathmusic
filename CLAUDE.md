@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (24 styles × 3 seeds: loads, renders, lead on its chords; every style in one family), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (28 styles × 3 seeds: loads, renders, lead on its chords; every style in one family), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -136,6 +136,10 @@ India: `sitar({ tarab: [Hz…], sawari })` → s() sample, s.hit(f, vel, { from 
 round, heavy jawari) · `tablaDrum({ f: Sa })` → d(t s, bol, on): na/ta, tin, te, ge (the bayan's pitch rising), ke, dha, dhin.
 `sax({ bright, breath })` → s(f, on, vel): a tenor saxophone (saw through a low-pass that opens with the breath, formants 600 /
 1700 / 2900 Hz, a scoop into each note, a late vibrato, a growl when loud).
+Metal: `metalGuitar({ gain, tight, scoop })` → g() ⇒ [l, r], g.hit(freqs, vel, { mute }), g.choke(τ) — exactly tuned strings into
+`ampCab` (high-pass 90 Hz, pickup roll-off 4.5 kHz, a 900 Hz push into two tanh stages, the first biased, a 500 Hz scoop, a 4×12 cab:
+low-passes 5.2 / 6.5 kHz, the box near 120 Hz, presence 2.5 kHz), double-tracked (+9 ms, +1.4 ¢ on the right), palm mute = sustain
+0.16 s · `leadGuitar({ gain })` → l(), l.hit(f, vel, { from, bend, bendAt, bendTime, back }), l.choke(τ) (more gain, one string).
 Gamelan tones for poly() (each a pair a few Hz apart: the ombak beats): `saronTone, bonangTone, kenongTone, kempulTone,
 kethukTone, gongTone` = (f, t s, vel).
 Japan (plucked strings are a Karplus–Strong loop with a moving, exactly tuned delay: pitch error < 2 cents):
@@ -263,7 +267,7 @@ A block in the song file between `// ==== MathMusic project` and `// ==== end of
 mode, length, sections }, removed?: [code track keys], tracks: [{ id, name, inst, vol, pan, fx?, notes: [[beat, MIDI, length,
 vel]], gen?: { style, seed, kind, part?, ref? } }] }` (plain JSON, a bar of notes per line), the instruments used, and
 `__project(song)` — `export default __project({ … })` adds a track per PROJECT track (key = its name, made unique), drops the
-`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (65, in `GROUPS`: keys,
+`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (70, in `GROUPS`: keys,
 mallets, plucked (KS koto/oud/qanun/sitar…), bowed, winds, voices, synths, bass, gamelan, drums): { id, label, group, kind poly |
 mono | chord | drums, role lead | keys | pad | bass | drums, range, fx, color, program (GM, −1 drums), level (evened out by
 measured rms), formula }. The generator's own sounds are there too (pluck, synthlead, moog, sawchords, hornsection, spiccato,
@@ -328,12 +332,12 @@ tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between not
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
 **Families** (`STYLE_FAMILIES`, the menus' order, most finished first; `STYLE_LIST` follows it, `styleGroups(keep)` for menus/optgroups,
-`familyOf(id)`): ⚔️ Арена (boss jbattle) · 🎮 Игровой (factory factorycave factorydanger chiptune) · ⚡ Неоновый танцпол (edm
-synthwave) · 📻 Радиоволна (disco kawaii) · 🎬 Большой экран (epic) · 🏛️ Концертный зал (romantic classical fugue) · 🌙 После
+`familyOf(id)`): ⚔️ Арена (boss jbattle) · 🎮 Игровой (factory factorycave factorydanger darkecho prime chiptune) · ⚡ Неоновый танцпол (edm
+synthwave) · 📻 Радиоволна (disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue) · 🌙 После
 полуночи (jazz bossa lofi) · 🌌 Невесомость (ambient space) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🎈 Разное (meow).
 A new style goes into a family (test/generate.test.js checks every style is in exactly one).
 Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic ambient
-edm disco epic factory factorycave factorydanger — each: tempo/keys, forms
+edm disco epic factory factorycave factorydanger darkecho ishope prime nordic — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -431,6 +435,25 @@ accents every 3 sixteenths = 3 : 4), LEADS.synthlead (monoSynth + chorus/echo), 
 KITS.factory (snare, hats, clank on the off-steps, rim; the caves in half time with a shaker, danger with toms and a crash every 2 bars),
 TEXTURES.machines (hum on the tonic, a piston every 2 beats, steam) / drips (water drops, tunnel wind) / alarm (a siren far away in the
 drops, explosions). Themes Conveyor Dawn, Deep Ore, Core Breach (`only` the three); modes by their own dice (mixolydian / dorian, phrygian).
+**The dark scores** (`S.variety`: as written 2 / ornamented 2 / recomposed 3 (×1.5 for B) — the themes come back changed more often; a
+recomposed theme that ends on its dominant ends open (5̂ / 2̂); both only where a style has `variety`, so the older styles' seeds are
+byte for byte as before — checked against HEAD on 216 songs). Each has three themes of its own (`only`), all in minor, chord tones on
+the strong beats: **darkecho** (🕯️ Тёмное эхо, 62–74, post-apocalypse, no bright theme: Ashen Road, Hollow Choir (i ♭II iv i), Cold
+Furnace (a lament, a chord every half bar)): cellolead / piano / choir, CHORDS.tremolo (strings in 32nds sul ponticello), lowstrings,
+the conveyor belt at half speed, KITS.ruins (a drum far away, steel struck where the hash says, a chain, a heartbeat), TEXTURES.ashwind
+(wind, a Geiger counter denser with the energy, a radio between stations, metal groaning as it cools). **ishope** (🔥 Is there any
+hope?, 74–88, heavy, half time, never four on the floor: Iron Rain (i ♭II VI V), Last Watch (Andalusian), No Dawn (i iv ♭II V7)):
+LEADS.leadgtr (a bend up into every long note, a slide after a leap) / choir / hornsection, CHORDS.metalgtr (power chords — the chord's
+own fifth — a riff per energy drawn by the instrument seed: X open, P palm-muted, - choked), BASSES.metalbass (picked, clean lows +
+driven top, a gallop when everything plays), KITS.metal (double kick in 16ths under the snare on 3, crash, china, toms), braam or
+ashwind. **prime** (👁️ Залы чозо, 86–102, Metroid Prime × horror: Chozo Ruins (i IV VI V, octave leaps), Phazon (i/♭II every half
+bar), Frozen Halls (i7 IV VImaj7 V)): synthlead / bells / choir, tremolo or dark pumpsaw, seqbass, pluckarp, KITS.prime (industrial:
+deep toms, a tight snare, ticks, a heartbeat, a reversed swell into the build), TEXTURES.horror (a waterphone: inharmonic partials
+1, 2.31, 3.88, 5.62 gliding; a sub drone two octaves under the tonic; a metal screech; breath). **nordic** (🏔️ Северные горы, 76–92,
+in the spirit of a Skyrim score; Aeolian / Dorian / minor: Dovah, Seven Thousand Steps (Dorian IV), Frostfall (minor v)):
+LEADS.malechoir (eight men in octaves, a syllable per note — the vowel moving from «у» into o/a/e/i over 90 ms) / horn, flute /
+violin / whistle, the spiccato ostinato, lowstrings, ARPS.kantele (KS lyre, 1 5 3 5 8 5 3 5), KITS.nord (a great drum in 3 + 3 + 2,
+frame drums, a field snare), wind. Project instruments for them: metalgtr, leadgtr, metalbass, malechoir, kantele.
 
 ## The app (viz/: build.js inlines everything into MathMusic Live.html)
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
@@ -565,3 +588,7 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | skyline-pulse | generated edm (seed 1) | 125 | Fm | club kick on the tonic, sidechain 0.75, pluck, off-beat bass, riser + impact, breakdown without the kick |
 | funky-fever | generated disco (seed 1) | 115 | Dm | chicken-scratch guitar and slap bass (exactly tuned KS), horn section, Moog lead, Mirrorball |
 | shattered-oath | generated epic (seed 1) | 89 | Cm | spiccato ostinato 3 + 3 + 2, horn section, taiko + boom, braams, reversed cymbals, Last Stand |
+| forsaken-signal | generated darkecho (seed 1) | 66 | E phrygian | 2.5 min, cello over tremolo strings, the belt at half speed, ruins' drums, Geiger counter, Cold Furnace |
+| burnt-march | generated ishope (seed 1) | 78 | D phrygian | double-tracked metal guitars (amp + cab), lead guitar with bends, double kick under a half-time snare, No Dawn |
+| ancient-depths | generated prime (seed 1) | 91 | E phrygian | Metroid × horror: glassy synth lead, tremolo strings, industrial kit, waterphone, sub drone, Frozen Halls |
+| ancient-throat | generated nordic (seed 1) | 81 | E aeolian | male choir in octaves, spiccato ostinato, kantele, war drums in 3 + 3 + 2, Frostfall |

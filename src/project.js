@@ -95,6 +95,15 @@ export const INSTRUMENTS = [
     ['G = \\Cho\\Big[0.8\\LP_{5.5\\text{к}}s + 0.45\\BP_{2.3\\text{к}}s\\Big],\\ s = \\HP_{160}\\sum_{j}\\text{струна}_j\\big(f_j,\\ t - 7j\\,\\text{мс}\\big)\\quad\\text{— аккорд одним ударом, приглушён в конце ноты'],
     `sec => { const g = funkGuitar({ seed: 7 }), ch = chorus({ mix: 0.3, rate: 0.7 }); let q = [], qv = 0, at = -1, end = -1; return { hit: (n, v, d, b) => { q.push(F(n)); qv = Math.max(qv, v); if (b !== at) { at = b; end = b + d } else end = Math.max(end, b + d) }, out: x => { if (q.length) { g.strum(q.sort((a, c) => a - c), 0.45 + 0.5 * qv); q = []; qv = 0 } if (end > 0 && x >= end) { g.mute(0.02); end = -1 } const y = 0.8 * g(); return ch(y, y) } } }`),
 
+  I('metalgtr', 'Метал-гитара (ритм, даблтрек)', PLUCK, 'poly', 'keys', [28, 76], 'dry', '#b0b0b8', 30,
+    ['G = \\text{Cab}\\Big(\\tanh\\!\\big(2.5\\tanh(18(\\LP_{4.5\\text{к}}\\HP_{90}s + 1.2\\BP_{900}s) + 0.15)\\big) - 0.45\\BP_{500}\\Big),\\quad \\text{две дорожки L/R: } +9\\text{ мс},\\ +1.4\\text{ ¢}', '\\text{ноты одной доли — один удар; короткая нота (} \\le \\tfrac14 \\text{) — глушение ладонью}'],
+    `sec => { const g = metalGuitar({ seed: 131 }); let q = [], qv = 0, mute = false, at = -1, end = -1; return { hit: (n, v, d, b) => { q.push(F(n)); qv = Math.max(qv, v); mute = d <= 0.26; if (b !== at) { at = b; end = b + d } else end = Math.max(end, b + d) }, out: x => { if (q.length) { g.hit(q.sort((a, c) => a - c), 0.6 + 0.4 * qv, { mute }); q = []; qv = 0 } if (end > 0 && x >= end) { g.choke(0.015); end = -1 } const [l, r] = g(); return [0.4 * l, 0.4 * r] } } }`),
+  I('leadgtr', 'Метал-гитара (соло)', PLUCK, 'poly', 'lead', [40, 88], 'echo', '#e0e0e8', 30,
+    ['L = \\text{Cab}\\big(\\tanh(30\\ldots)\\big),\\quad \\text{струна с точным строем: } D(t) = \\tfrac{SR}{f(t)} - \\varphi;\\quad \\text{длинная нота — бенд на тон снизу}'],
+    `sec => { const g = leadGuitar({ seed: 137 }); let end = -1; return { hit: (n, v, d, b) => { const long = d * sec > 0.5; g.hit(F(n - (long ? 2 : 0)), 0.6 + 0.35 * v, long ? { bend: 2, bendAt: 0.02, bendTime: 0.13 } : {}); end = b + d * 0.97 }, out: x => { if (end > 0 && x >= end) { g.choke(0.04); end = -1 } return 0.3 * g() } } }`),
+  I('kantele', 'Кантеле', PLUCK, 'poly', 'keys', [48, 91], 'hall', '#ffe8a0', 15,
+    ['y[n] = e[n] + 0.998\\big(0.6\\,y[n - N] + 0.4\\,y[n - N + 1]\\big),\\quad N = \\tfrac{SR}{f} - \\varphi\\ \\text{— северная лира, струны звенят'],
+    PLUCKED('plucker({ life: 4, decay: 0.998 })', 0.5, '0.3 + 0.55 * v').replace('sec => {', 'sec => { const BRIGHT = 0.75;')),
   I('violin', 'Скрипка', BOWED, 'mono', 'lead', [55, 100], 'hall', '#ffd9a8', 40,
     ['Vn = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{R_i}\\,s\\Big),\\quad s = \\saw\\!\\big(f\\cdot 2^{\\,0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big) + 0.04\\eta', 'R = (300, 520, 1100, 2700)\\ \\text{Гц — резонансы корпуса}'],
     `sec => { const bow = bowed({ base: F(60), sec }), lv = smooth(25); return { out: (x, act) => { const m = act[act.length - 1]; return 0.36 * lv(m ? 0.45 + 0.7 * (m[3] ?? 0.8) : 0.5) * bow(m && { n: m[1] - 60, d: m[2], τ: x - m[0] }, x * sec) } } }`),
@@ -151,6 +160,9 @@ export const INSTRUMENTS = [
   I('choir', 'Хор «а»', VOICES, 'chord', 'pad', [40, 84], 'hall', '#c9b6ff', 52,
     ['Ch = \\sum_j \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\,\\BP_{F_i}\\big(\\saw(f_j) + 0.06\\eta\\big),\\quad F:\\ \\text{«а»} \\leftrightarrow \\text{«о»}'],
     CHORD('const c = choir({ voices: 4, gain: 0.3 })', 'c(fs, blend(VOWELS.a, VOWELS.o, 0.5 + 0.5 * sin(TAU * x / 16)))')),
+  I('malechoir', 'Мужской хор «о»', VOICES, 'chord', 'pad', [36, 69], 'hall', '#b8a6f0', 52,
+    ['Ch = \\sum_j \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\,\\BP_{0.9F_i}\\tanh\\!\\big(1.35\\saw(f_j)\\big),\\quad F:\\ \\text{«о»} \\leftrightarrow \\text{«у»} \\text{ — низкие мужские голоса'],
+    CHORD('const c = choir({ voices: 4, size: 0.9, rough: 0.35, breath: 0.04, gain: 0.3 })', 'c(fs, blend(VOWELS.o, VOWELS.u, 0.5 + 0.5 * sin(TAU * x / 12)))')),
   I('voice', 'Голос «а–о»', VOICES, 'mono', 'lead', [48, 84], 'echo', '#e0c8ff', 53,
     ['Vo = \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\,\\BP_{F_i}\\big(\\saw(g) + 0.06\\eta\\big),\\quad g = f\\cdot 2^{0.15\\sin(2\\pi\\cdot5T)/12}'],
     MONO('const vo = voice({ size: 1, breath: 0.06 }), gl = smooth(50)', 'vo(gl(f) * 2 ** (0.15 * sin(TAU * 5 * x * sec) / 12), blend(VOWELS.a, VOWELS.o, 0.5 + 0.5 * sin(TAU * x / 8)), on ? 1 : 0)', 0.55)),
@@ -198,6 +210,9 @@ export const INSTRUMENTS = [
   I('slapbass', 'Бас-гитара (слэп)', BASS, 'poly', 'bass', [28, 67], 'dry', '#5aa7ff', 36,
     ['y[n] = e[n] + g\\big(a\\,y[n - D] + (1 - a)\\,y[n - D - 1]\\big),\\quad D = \\tfrac{44100}{f} - \\varphi(a)\\ \\text{— струна с точным строем; слэп большим пальцем, глушение в конце ноты'],
     `sec => { const e = electricBass({ seed: 5 }); let end = -1; return { hit: (n, v, d, b) => { e.hit(F(n), 0.55 + 0.4 * v, { slap: true }); end = b + d * 0.92 }, out: x => { if (end > 0 && x >= end) { e.mute(0.03); end = -1 } return 0.8 * e() } } }`),
+  I('metalbass', 'Бас-гитара (медиатор, перегруз)', BASS, 'poly', 'bass', [28, 60], 'dry', '#5aa7ff', 34,
+    ['B = 0.9\LP_{220}s + 0.35\LP_{1800}\tanh(1.5s),\quad s:\ \text{струна с точным строем, медиатор; глушение в конце ноты'],
+    `sec => { const e = electricBass({ bright: 0.6, seed: 7 }), lp = filter('lp'), low = filter('lp'); let end = -1; return { hit: (n, v, d, b) => { e.hit(F(n), 0.6 + 0.35 * v); end = b + d * 0.92 }, out: x => { if (end > 0 && x >= end) { e.mute(0.02); end = -1 } const y = e(); return 0.9 * low(y, 220) + 0.35 * lp(tanh(1.5 * y), 1800) } } }`),
   I('clubbass', 'Клубный бас', BASS, 'mono', 'bass', [24, 60], 'dry', '#5aa7ff', 38,
     ['B = a\\Big(0.55\\sin 2\\pi\\!\\int\\! f + 0.3\\tanh\\!\\big(1.5\\,\\LP_{120 + 1800e^{-t/60\\text{мс}}}\\saw f\\big)\\Big)\\quad\\text{— саб и пила, фильтр захлопывается'],
     `sec => { const saw = osc('saw'), sine = osc('sine'), lp = filter('lp'), gate = smooth(3), glide = smooth(3); let f = 55; return { out: (x, act) => { const m = act[act.length - 1]; if (m) f = F(m[1]); const t = m ? (x - m[0]) * sec : 1, a = gate(m && x - m[0] < 0.92 * m[2] ? 0.45 + 0.7 * (m[3] ?? 0.8) : 0), g = glide(f); return 0.5 * a * (0.55 * sine(g) + 0.3 * tanh(1.5 * lp(saw(g), 120 + 1800 * exp(-t / 0.06)))) } } }`),
@@ -243,7 +258,8 @@ export const INSTRUMENTS = [
 // levels evening the instruments out (measured: the same phrase on each, rms against a flute's)
 const LEVEL = { piano: 1.4, harpsichord: 2, organ: 2.5, guitar: 3, harp: 2.2, koto: 0.5, shamisen: 0.7, biwa: 0.8, oud: 1.5, qanun: 2, sitar: 5, strings: 2,
   whistle: 0.4, shakuhachi: 0.4, trumpet: 1.4, synthpad: 2, chip12: 1.3, upright: 1.8, synthbass: 2, chiptri: 2, gong: 0.5, drums: 1.6, darbuka: 1.5,
-  funkguitar: 1.8, spiccato: 3.5, hornsection: 0.45, pluck: 1.6, sawchords: 2.5, slapbass: 1.8, clubbass: 0.9, seqbass: 1.5, growl: 0.6, clubkit: 0.55 }
+  funkguitar: 1.8, spiccato: 3.5, hornsection: 0.45, pluck: 1.6, sawchords: 2.5, slapbass: 1.8, clubbass: 0.9, seqbass: 1.5, growl: 0.6, clubkit: 0.55,
+  metalgtr: 0.55, leadgtr: 0.9, kantele: 2.3, malechoir: 0.7, metalbass: 2.6 }
 for (const i of INSTRUMENTS) i.level = LEVEL[i.id] ?? 1
 export const INSTRUMENT = Object.fromEntries(INSTRUMENTS.map(i => [i.id, i]))
 export const GROUPS = [...new Set(INSTRUMENTS.map(i => i.group))]
@@ -320,7 +336,7 @@ const INSTRUMENT_NAMES = ['poly', 'pan', 'pianoTone', 'epianoTone', 'vibesTone',
   'flute', 'voice', 'VOWELS', 'blend', 'meower', 'bowed', 'pulse', 'triangle4', 'vol4', 'kickDrum', 'snareDrum', 'clapDrum', 'hatDrum', 'rimDrum',
   'shakerDrum', 'shamisen', 'koto', 'biwa', 'shakuhachi', 'shinobue', 'taikoDrum', 'woodClack', 'kaneDrum', 'templeBellTone', 'oud', 'qanun', 'ney',
   'darbukaDrum', 'riqDrum', 'sitar', 'tablaDrum', 'saronTone', 'bonangTone', 'kenongTone', 'gongTone', 'timpaniTone', 'harpTone', 'celestaTone', 'organ',
-  'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal']
+  'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal', 'metalGuitar', 'leadGuitar']
 const LANES = { lead: [1, 3], keys: [-1, 0.9], pad: [-1.7, -0.5], bass: [-3, -2], drums: [2.2, 4.5] }
 
 const r4 = v => +(+v).toFixed(4)
@@ -582,20 +598,20 @@ export function readTrackNotes(midi, length, { rate = 96, drums = false } = {}) 
 // which instrument plays a part of another song, by the part's name (the generator names a track by its instrument)
 const BY_NAME = [
   [/kick|snare|drum|kit|perc|hat|clap|kendhang/i, 'drums'], [/taiko/i, 'taiko'], [/tabla/i, 'tabla'], [/darbuka|riq/i, 'darbuka'],
-  [/growl/i, 'growl'], [/slap/i, 'slapbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
+  [/growl/i, 'growl'], [/slap/i, 'slapbass'], [/metalbass/i, 'metalbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
   [/cello|cellolead/i, 'cello'], [/bassoon/i, 'bassoon'], [/timp/i, 'timpani'], [/drone|pedal/i, 'organ'],
   [/rhodes|epiano/i, 'epiano'], [/harpsichord|continuo|alberti|prelude/i, 'harpsichord'], [/organ/i, 'organ'], [/nocturne|piano/i, 'piano'],
   [/celesta/i, 'celesta'], [/vibes/i, 'vibes'], [/marimba/i, 'marimba'], [/bell|glass|bonang|peking/i, 'bells'], [/saron|demung/i, 'saron'], [/kenong|kempul/i, 'kenong'], [/gong/i, 'gong'],
-  [/funk ?guitar/i, 'funkguitar'], [/guitar/i, 'guitar'], [/harp/i, 'harp'], [/koto/i, 'koto'], [/shamisen/i, 'shamisen'], [/biwa/i, 'biwa'], [/oud/i, 'oud'], [/qanun/i, 'qanun'], [/sitar|chikari/i, 'sitar'],
+  [/funk ?guitar/i, 'funkguitar'], [/metalgtr|power ?chord/i, 'metalgtr'], [/leadgtr|lead ?guitar/i, 'leadgtr'], [/kantele|lyre/i, 'kantele'], [/guitar/i, 'guitar'], [/harp/i, 'harp'], [/koto/i, 'koto'], [/shamisen/i, 'shamisen'], [/biwa/i, 'biwa'], [/oud/i, 'oud'], [/qanun/i, 'qanun'], [/sitar|chikari/i, 'sitar'],
   [/violin|viola/i, 'violin'], [/ostinato|spiccato|lowstrings/i, 'spiccato'], [/string/i, 'strings'], [/shinobue|whistle/i, 'whistle'], [/shakuhachi/i, 'shakuhachi'], [/\bney\b/i, 'ney'], [/flute|bansuri|suling/i, 'flute'],
   [/oboe/i, 'oboe'], [/clarinet/i, 'clarinet'], [/pipes/i, 'pipes'], [/sax/i, 'sax'], [/trumpet/i, 'trumpet'], [/hornsection/i, 'hornsection'], [/hornstab|brass|^horns\b/i, 'brass'], [/horn/i, 'horn'],
-  [/choir|chant/i, 'choir'], [/scat|voice/i, 'voice'], [/meow|cat/i, 'meow'], [/pluck|conveyor/i, 'pluck'], [/synthlead/i, 'synthlead'], [/moog/i, 'moog'],
+  [/malechoir|male ?choir/i, 'malechoir'], [/choir|chant/i, 'choir'], [/scat|voice/i, 'voice'], [/meow|cat/i, 'meow'], [/pluck|conveyor/i, 'pluck'], [/synthlead/i, 'synthlead'], [/moog/i, 'moog'],
   [/pumpsaw|sawchord/i, 'sawchords'], [/supersaw|sawlead|saw/i, 'supersaw'], [/pad/i, 'synthpad'],
   [/pulse12|chip60/i, 'chip12'], [/pulse|chip/i, 'chip'], [/bass/i, 'synthbass'],
 ]
 // (a part named just "bass": a double bass in the acoustic styles, a synth bass in the electronic ones, the NES triangle in chiptune,
 // the style's own bass where it has one)
-const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass' }
+const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass', ishope: 'metalbass', prime: 'seqbass', darkecho: 'cello', nordic: 'cello' }
 const ELECTRONIC = /^(synthwave|boss|hardstyle|dnb|phonk|space|kawaii|jbattle|gothic|minimal|meow)$/
 // fallback: what a name nothing matches gets (null: "don't know")
 export function instrumentFor(name, style = null, fallback = 'piano') {
