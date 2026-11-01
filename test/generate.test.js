@@ -103,7 +103,11 @@ for (const style of Object.keys(STYLES)) {
         if (!on.length || x % 2 !== 0) continue
         // the chord around the beat (comping instruments may strike between the beats)
         const ch = new Set([-0.25, 0, 0.25, 0.5, 0.75].flatMap(dx => others.flatMap(([, tr]) => tr.midi(x + dx))).map(pc))
-        for (const n of on) {
+        // (a microtonal slide into a long note — an eighth or a quarter tone below, an eighth of a beat long, taken from the
+        // note itself — counts as the note it slides into)
+        const after = lead.midi(x + 0.13)
+        for (const o of on) {
+          const n = after.find(a => a !== o && Math.abs(a - o) <= 0.5 + 1e-9) ?? o
           notes++
           if (ch.size && !ch.has(pc(n))) strong++
           if (!scale.has(pc(n))) off++

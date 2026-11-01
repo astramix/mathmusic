@@ -1214,6 +1214,106 @@ export function monoSynth({ cutoff = 900, env = 3200, res = 1.6, decay = 0.25, g
   }
 }
 
+// ---- the PC-98's FM chip, the bayan, the 808 cowbell, the steel pan ---------------------------------------------------
+// One FM channel of the YM2608 (OPNA), the chip of the PC-98 and of the first Touhou games: four sine operators, each at
+// its own ratio of f (a few cents of detune), its own envelope [attack s, decay s, sustain level, release s] and level —
+// a modulator's level is the phase swing it gives (radians), a carrier's its output; operator 1 feeds back on itself
+// (fb). The algorithms by the chip's numbers: 0: 1→2→3→4 · 2: (1 + (2→3))→4 · 4: (1→2) + (3→4) · 5: 1→(2, 3, 4) ·
+// 7: 1 + 2 + 3 + 4. A key-on (on rising) restarts the envelopes (and, from silence, the phases, as the chip does);
+// velocity scales the carriers and, less, the modulators (louder = brighter). v(f, on, vel) → sample
+export function opn({ algo = 4, ratio = [1, 1, 1, 1], level = [1, 1, 1, 1], env = [], fb = 0, detune = [0, 0, 0, 0], gain = 0.5 } = {}) {
+  const E = [0, 1, 2, 3].map(k => env[k] ?? [0.002, 0.4, 0.6, 0.15])
+  const att = E.map(e => 1 / Math.max(1, e[0] * SR)), dec = E.map(e => 1 - exp(-1 / (Math.max(1e-4, e[1]) * SR))), rel = E.map(e => 1 - exp(-1 / (Math.max(1e-4, e[3]) * SR)))
+  const R = ratio.map((r, k) => r * 2 ** ((detune[k] ?? 0) / 1200)), [L1, L2, L3, L4] = level
+  const ph = new Float64Array(4), lev = new Float64Array(4), st = new Int8Array(4)
+  let was = false, p1 = 0, p2 = 0
+  const op = (k, m) => lev[k] * sin(TAU * ph[k] + m)
+  return (f, on, vel = 0.8) => {
+    if (on && !was) {
+      const quiet = lev[0] + lev[1] + lev[2] + lev[3] < 0.02
+      for (let k = 0; k < 4; k++) (st[k] = 1), quiet && (ph[k] = 0)
+    }
+    if (!on && was) for (let k = 0; k < 4; k++) st[k] = 3
+    was = on
+    for (let k = 0; k < 4; k++) {
+      if (st[k] === 1) { lev[k] += att[k]; if (lev[k] >= 1) (lev[k] = 1), (st[k] = 2) }
+      else if (st[k] === 2) lev[k] += (E[k][2] - lev[k]) * dec[k]
+      else if (st[k] === 3) lev[k] -= lev[k] * rel[k]
+      ph[k] += (f * R[k]) / SR
+      ph[k] -= floor(ph[k])
+    }
+    const mv = 0.6 + 0.4 * vel, o1 = op(0, fb * 0.5 * (p1 + p2))
+    p2 = p1
+    p1 = o1
+    let y
+    if (algo === 0) y = L4 * op(3, mv * L3 * op(2, mv * L2 * op(1, mv * L1 * o1)))
+    else if (algo === 2) y = L4 * op(3, mv * (L1 * o1 + L3 * op(2, mv * L2 * op(1, 0))))
+    else if (algo === 5) { const m = mv * L1 * o1; y = L2 * op(1, m) + L3 * op(2, m) + L4 * op(3, m) }
+    else if (algo === 7) y = L1 * o1 + L2 * op(1, 0) + L3 * op(2, 0) + L4 * op(3, 0)
+    else y = L2 * op(1, mv * L1 * o1) + L4 * op(3, mv * L3 * op(2, 0))
+    return gain * vel * y
+  }
+}
+// The bayan (the Russian button accordion): a(freqs, vel) → [l, r]. Every note three free reeds — one in tune and two
+// `musette` cents sharp and flat, beating against it (the "wet" tuning) — each a narrow pulse (a brass tongue's every
+// harmonic), through the box's resonances (≈ 1.1 and 2.9 kHz) under a felt-dark top; the bellows open in 25 ms and
+// close in 70 ms. A note below C3 also sounds its reed an octave down (the bass side's thick buttons).
+export function accordion({ voices = 4, musette = 12, gain = 0.1 } = {}) {
+  const det = [1, 2 ** (musette / 1200), 2 ** (-musette / 1200)]
+  const bank = Array.from({ length: voices }, () => ({ rd: [pulse(0.2), pulse(0.2), pulse(0.2), pulse(0.3)], env: ar(25, 70), f: 220 }))
+  const side = () => [filter('bp'), filter('bp'), filter('lp'), filter('hp')], F = [side(), side()]
+  const box = (s, y) => s[3](0.5 * s[2](y, 5200) + 0.55 * s[0](y, 1100, 1.6) + 0.35 * s[1](y, 2900, 2.2), 90)
+  return (freqs, vel = 0.8) => {
+    let l = 0, r = 0
+    for (let j = 0; j < bank.length; j++) {
+      const v = bank[j]
+      if (j < freqs.length) v.f = freqs[j]
+      const a = v.env(j < freqs.length ? vel : 0)
+      if (a < 1e-4) continue
+      const c = v.rd[0](v.f), s = v.rd[1](v.f * det[1]), q = v.rd[2](v.f * det[2]), lo = v.f < 131 ? v.rd[3](v.f / 2) : 0
+      l += a * (c + 0.8 * s + 0.4 * q + 0.6 * lo)
+      r += a * (c + 0.4 * s + 0.8 * q + 0.6 * lo)
+    }
+    return [gain * box(F[0], l), gain * box(F[1], r)]
+  }
+}
+// The TR-808 cowbell as phonk plays it — the sample pitched to the notes: two square waves a flat fifth apart (540 and
+// 800 Hz on the machine: f and 1.48f), summed partial by partial (their odd harmonics, band-limited), through the band-
+// pass the machine puts after them (2.64 kHz over 540 Hz: centre 4.9f, Q 1.3 — the clank above the pitch), shaped by
+// its two-stage VCA: a click that falls in 12 ms onto a ringing tail. Pure (f, t, vel) for poly().
+const COWBELL = new Map()
+function cowbellPartials(f) {
+  const key = Math.round(f * 100)
+  let list = COWBELL.get(key)
+  if (list) return list
+  list = []
+  const fc = 4.9 * f, Q = 1.3
+  for (const [g, base] of [[1, f], [0.85, 1.48 * f]]) for (let k = 1; k * base < 15000; k += 2) {
+    const w = (k * base) / fc
+    list.push(k * base, g / k / Math.sqrt(1 + Q * Q * (w - 1 / w) ** 2))
+  }
+  if (COWBELL.size > 512) COWBELL.clear()
+  COWBELL.set(key, list)
+  return list
+}
+export function cowbellTone(f, t, vel = 0.8) {
+  const P = cowbellPartials(f), e = Math.min(1, t / 0.0004) * (0.62 * exp(-t / 0.012) + 0.38 * exp(-t / 0.32))
+  let y = 0
+  for (let i = 0; i < P.length; i += 2) y += P[i + 1] * sin(TAU * P[i] * t)
+  return vel * e * y
+}
+// Steel pan (a note of a tenor pan): the hammered note area's three lowest modes tuned by the tuner to f, 2f and 3f (the
+// octave a few cents wide: its shimmer), the upper ones growing out of the fundamental through the steel's nonlinearity —
+// they swell in over 8–12 ms: the pan's "bwong" —, a rubber-tipped stick (1.5 ms), the pitch settling from a little
+// sharp. Low notes ring longer. Pure (f, t, vel) for poly().
+export function steelpanTone(f, t, vel = 0.7) {
+  const g = f * (1 + 0.003 * exp(-t / 0.03)), d = (440 / f) ** 0.35
+  const a1 = exp(-t / (1.3 * d)), a2 = (0.5 + 0.45 * vel) * (1 - exp(-t / 0.008)) * exp(-t / (0.7 * d))
+  const a3 = (0.15 + 0.3 * vel) * (1 - exp(-t / 0.012)) * exp(-t / (0.3 * d)), a4 = 0.12 * vel * exp(-t / (0.12 * d))
+  const y = a1 * sin(TAU * g * t) + a2 * sin(TAU * 2.004 * g * t) + (3 * f < 16000 ? a3 * sin(TAU * 3 * g * t) : 0) + (4 * f < 16000 ? a4 * sin(TAU * 4.01 * g * t + 1) : 0)
+  return 0.6 * vel * Math.min(1, t / 0.0015) * y
+}
+
 // ---- textures -----------------------------------------------------------------------------
 // Vinyl: hiss plus sparse crackles
 export function vinyl({ hiss = 0.01, crackle = 0.25 } = {}) {

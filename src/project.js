@@ -49,6 +49,9 @@ export const INSTRUMENTS = [
   I('organ', 'Орган', KEYS, 'chord', 'pad', [36, 96], 'hall', '#7f6bd6', 19,
     ['O = \\sum_{j}\\sum_{s} g_s\\,\\sin 2\\pi\\,r_s f_j t\\quad r = (1, 2, 3, 4)\\ \\text{— регистры 8′ 4′ 2⅔′ 2′, «чифф» воздуха на атаке}'],
     CHORD('const o = organ({ voices: 6, gain: 0.07 })', 'o(fs)')),
+  I('bayan', 'Баян', KEYS, 'chord', 'keys', [36, 96], 'room', '#e76f51', 21,
+    ['Bn = \\text{Корпус}\\Big[\\textstyle\\sum_j\\big(\\Pi_{0.2}(f_j) + 0.8\\,\\Pi_{0.2}(f_j\\,2^{14/1200}) + 0.4\\,\\Pi_{0.2}(f_j\\,2^{-14/1200})\\big)\\Big]\\ \\text{— три язычка на ноту, «мокрый» строй}', '\\text{корпус: } 0.5\\LP_{5.2\\text{к}} + 0.55\\BP_{1.1\\text{к}} + 0.35\\BP_{2.9\\text{к}};\\ \\text{мех: } 25 / 70 \\text{ мс}'],
+    CHORD('const o = accordion({ voices: 6, musette: 14, gain: 0.08 })', 'o(fs)')),
   I('celesta', 'Челеста', KEYS, 'poly', 'keys', [60, 108], 'echo', '#fff3b0', 8,
     ['Ce = v\\,e^{-t(1.2 + f/900)}\\big(\\sin 2\\pi ft + 0.25e^{-9t}\\sin 2\\pi\\,4ft + 0.08v\\,e^{-60t}\\sin 2\\pi\\,9.2ft\\big)'],
     STRUCK('celestaTone', { release: 0.5, life: 4, gain: 0.35 })),
@@ -62,6 +65,12 @@ export const INSTRUMENTS = [
   I('bells', 'Колокольчики (FM)', MALLETS, 'poly', 'keys', [60, 108], 'echo', '#fff3b0', 9,
     ['B = v\\,e^{-1.6t}\\sin\\!\\big(2\\pi ft + 2.2e^{-4t}\\sin 2\\pi\\,3.5ft\\big)'],
     STRUCK('(f, t, v) => v * fm(f, t, { ratio: 3.5, index: 2.2, decay: 1.6, idecay: 4 })', { release: 0.8, life: 5, gain: 0.4 })),
+  I('cowbell', 'Ковбелл 808 (фонк)', MALLETS, 'poly', 'lead', [60, 96], 'echo', '#ffffff', 113,
+    ['Cb = \\HP_{250}\\tanh\\!\\big(2.4\\,C(f, t)\\big),\\quad C = \\big(0.62e^{-t/12\\text{мс}} + 0.38e^{-t/0.32}\\big)\\sum_{k\\ \\text{нечёт}}\\tfrac{1}{k}\\big(H(kf)\\sin 2\\pi kft + 0.85H(1.48kf)\\sin 2\\pi\\,1.48kft\\big)', 'H \\text{ — полоса 808 с центром } 4.9f\\ \\text{(две квадратные волны 540 и 800 Гц, сэмпл транспонирован)}'],
+    `sec => { const p = poly(cowbellTone, { release: 0.05, life: 1.4, max: 8 }), hp = filter('hp'); return { hit: (n, v, d) => p.hit(F(n), v, d * sec + 0.6), out: x => 0.3 * hp(tanh(2.4 * p()), 250) } }`),
+  I('steelpan', 'Стил-пэн', MALLETS, 'poly', 'keys', [52, 89], 'hall', '#7fdbca', 114,
+    ['Sp(f,t,v) = v\\big(e^{-t/1.3d}\\sin 2\\pi ft + (0.5 + 0.45v)(1 - e^{-t/8\\text{мс}})e^{-t/0.7d}\\sin 2\\pi\\,2.004ft + (0.15 + 0.3v)(1 - e^{-t/12\\text{мс}})e^{-t/0.3d}\\sin 2\\pi\\,3ft\\big)', 'd = (440/f)^{0.35}\\ \\text{— октава и дуодецима нарастают после удара (нелинейность стали)}'],
+    STRUCK('steelpanTone', { release: 0.4, life: 3, gain: 0.55 })),
   I('timpani', 'Литавры', MALLETS, 'poly', 'bass', [38, 60], 'hall', '#9c6644', 47,
     ['Ti = v\\sum_k a_k e^{-t/T_k}\\sin 2\\pi\\,r_k f t,\\quad r = (1, 1.5, 1.98, 2.44, 2.94, 1.65)\\ \\text{— моды котла, удар войлоком}'],
     STRUCK('timpaniTone', { release: 0.6, life: 4, gain: 0.6, max: 12 })),
@@ -264,7 +273,7 @@ export const INSTRUMENTS = [
 const LEVEL = { piano: 1.4, harpsichord: 2, organ: 2.5, guitar: 3, harp: 2.2, koto: 0.5, shamisen: 0.7, biwa: 0.8, oud: 1.5, qanun: 2, sitar: 5, strings: 2,
   whistle: 0.4, shakuhachi: 0.4, trumpet: 1.4, synthpad: 2, chip12: 1.3, upright: 1.8, synthbass: 2, chiptri: 2, gong: 0.5, drums: 1.6, darbuka: 1.5,
   funkguitar: 1.8, spiccato: 3.5, hornsection: 0.45, pluck: 1.6, sawchords: 2.5, slapbass: 1.8, clubbass: 0.9, seqbass: 1.5, growl: 0.6, clubkit: 0.55,
-  metalgtr: 0.55, leadgtr: 0.9, kantele: 2.3, malechoir: 0.7, metalbass: 2.6 }
+  metalgtr: 0.55, leadgtr: 0.9, kantele: 2.3, malechoir: 0.7, metalbass: 2.6, cowbell: 1.6, steelpan: 0.9, bayan: 1.4 }
 for (const i of INSTRUMENTS) i.level = LEVEL[i.id] ?? 1
 export const INSTRUMENT = Object.fromEntries(INSTRUMENTS.map(i => [i.id, i]))
 // The generator's own recipes as instruments: 'gen:lead:<recipe>' (a voice — the theme, the second voice, the counter-melody)
@@ -293,7 +302,8 @@ function recipeMake(m) {
 // the kits' own drums, for the piano roll's rows
 const DRUM_RU = { kick: 'бочка', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
   toms: 'томы', rim: 'римшот', shaker: 'шейкер', tamb: 'бубен', china: 'китайская', taiko: 'тайко', boom: 'бум', far: 'далёкий барабан', heart: 'сердце',
-  clank: 'сталь', chain: 'цепь', low: 'большой барабан', frame: 'рамочный', tick: 'тик', swell: 'свелл' }
+  clank: 'сталь', chain: 'цепь', low: 'большой барабан', frame: 'рамочный', tick: 'тик', swell: 'свелл', spoons: 'ложки', hands: 'ладоши',
+  bd: 'бочка', sd: 'малый', hh: 'хэт', top: 'тарелка', perc: 'перкуссия' }
 // all of them (registered at the end of the module)
 export const GEN_INSTRUMENTS = []
 const recipeNames = m => (m.lead ? partInstrument('lead', m.lead) : partInstrument('kit', m.kit, m.variant ?? null)).names
@@ -371,7 +381,8 @@ const INSTRUMENT_NAMES = ['poly', 'pan', 'pianoTone', 'epianoTone', 'vibesTone',
   'flute', 'voice', 'VOWELS', 'blend', 'meower', 'bowed', 'pulse', 'triangle4', 'vol4', 'kickDrum', 'snareDrum', 'clapDrum', 'hatDrum', 'rimDrum',
   'shakerDrum', 'shamisen', 'koto', 'biwa', 'shakuhachi', 'shinobue', 'taikoDrum', 'woodClack', 'kaneDrum', 'templeBellTone', 'oud', 'qanun', 'ney',
   'darbukaDrum', 'riqDrum', 'sitar', 'tablaDrum', 'saronTone', 'bonangTone', 'kenongTone', 'gongTone', 'timpaniTone', 'harpTone', 'celestaTone', 'organ',
-  'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal', 'metalGuitar', 'leadGuitar']
+  'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal', 'metalGuitar', 'leadGuitar',
+  'cowbellTone', 'steelpanTone', 'accordion', 'opn']
 const LANES = { lead: [1, 3], keys: [-1, 0.9], pad: [-1.7, -0.5], bass: [-3, -2], drums: [2.2, 4.5] }
 
 const r4 = v => +(+v).toFixed(4)
@@ -642,10 +653,12 @@ export function readTrackNotes(midi, length, { rate = 96, drums = false } = {}) 
 // which instrument plays a part of another song, by the part's name (the generator names a track by its instrument)
 const BY_NAME = [
   [/kick|snare|drum|kit|perc|hat|clap|kendhang/i, 'drums'], [/taiko/i, 'taiko'], [/tabla/i, 'tabla'], [/darbuka|riq/i, 'darbuka'],
-  [/growl/i, 'growl'], [/slap/i, 'slapbass'], [/metalbass/i, 'metalbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
+  [/growl/i, 'growl'], [/slap|zunbass|snesbass/i, 'slapbass'], [/reese|acid|hardbass|fmbass/i, 'synthbass'], [/metalbass/i, 'metalbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
   [/cello|cellolead/i, 'cello'], [/bassoon/i, 'bassoon'], [/timp/i, 'timpani'], [/drone|pedal/i, 'organ'],
   [/rhodes|epiano/i, 'epiano'], [/harpsichord|continuo|alberti|prelude/i, 'harpsichord'], [/organ/i, 'organ'], [/nocturne|piano/i, 'piano'],
   [/celesta/i, 'celesta'], [/vibes/i, 'vibes'], [/marimba/i, 'marimba'], [/bell|glass|bonang|peking/i, 'bells'], [/saron|demung/i, 'saron'], [/kenong|kempul/i, 'kenong'], [/gong/i, 'gong'],
+  [/cowbell/i, 'cowbell'], [/steel ?pan/i, 'steelpan'], [/bayan|accordion/i, 'bayan'], [/balalaika/i, 'guitar'], [/gusli/i, 'harp'], [/zhaleika/i, 'oboe'],
+  [/zunpet/i, 'trumpet'], [/snesbrass|fmbrass/i, 'brass'], [/musicbox/i, 'celesta'], [/fmlead|\bssg/i, 'chip'], [/stabs|gatesaw/i, 'sawchords'], [/zunpiano|fmepiano/i, 'piano'],
   [/funk ?guitar/i, 'funkguitar'], [/metalgtr|power ?chord/i, 'metalgtr'], [/leadgtr|lead ?guitar/i, 'leadgtr'], [/kantele|lyre/i, 'kantele'], [/guitar/i, 'guitar'], [/harp/i, 'harp'], [/koto/i, 'koto'], [/shamisen/i, 'shamisen'], [/biwa/i, 'biwa'], [/oud/i, 'oud'], [/qanun/i, 'qanun'], [/sitar|chikari/i, 'sitar'],
   [/violin|viola/i, 'violin'], [/tremolo/i, 'tremolo'], [/ostinato|spiccato|lowstrings/i, 'spiccato'], [/string/i, 'strings'], [/shinobue|whistle/i, 'whistle'], [/shakuhachi/i, 'shakuhachi'], [/\bney\b/i, 'ney'], [/flute|bansuri|suling/i, 'flute'],
   [/oboe/i, 'oboe'], [/clarinet/i, 'clarinet'], [/pipes/i, 'pipes'], [/sax/i, 'sax'], [/trumpet/i, 'trumpet'], [/hornsection/i, 'hornsection'], [/hornstab|brass|^horns\b/i, 'brass'], [/horn/i, 'horn'],
@@ -655,8 +668,9 @@ const BY_NAME = [
 ]
 // (a part named just "bass": a double bass in the acoustic styles, a synth bass in the electronic ones, the NES triangle in chiptune,
 // the style's own bass where it has one)
-const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass', ishope: 'metalbass', prime: 'seqbass', darkecho: 'cello', nordic: 'cello' }
-const ELECTRONIC = /^(synthwave|boss|hardstyle|dnb|phonk|space|kawaii|jbattle|gothic|minimal|meow)$/
+const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass', ishope: 'metalbass', prime: 'seqbass', darkecho: 'cello', nordic: 'cello',
+  artifact: 'seqbass', zunpet: 'slapbass', oldzun: 'synthbass', fight: 'synthbass', babushka: 'synthbass', podskazka: 'slapbass', hardstyle: 'sub808', phonk: 'sub808', breakcore: 'synthbass' }
+const ELECTRONIC = /^(synthwave|boss|hardstyle|dnb|phonk|space|kawaii|jbattle|gothic|minimal|meow|fight|babushka|breakcore|oldzun)$/
 // fallback: what a name nothing matches gets (null: "don't know")
 export function instrumentFor(name, style = null, fallback = 'piano') {
   const id = BY_NAME.find(([re]) => re.test(name))?.[1] ?? fallback

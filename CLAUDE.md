@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (28 styles × 3 seeds: loads, renders, lead on its chords; every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (37 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -58,7 +58,7 @@ Open a source file only to change it or when something here is unclear.
 export default {
   name: 'lofi', bpm: 78, length: 224,                // length in beats
   key: 'F',                                          // 'Dm', 'E♭', 'F#m'… — note names are spelt by it
-  style: 'lofi',                                     // the gallery's filter: a generator style id, or dnb hardstyle phonk gothic minimal
+  style: 'lofi',                                     // the gallery's filter: a generator style id, or dnb gothic minimal
   sections: [[0, 'rain'], [16, 'beat'], …],          // labels on the graph
   tracks: { name: { color, graph(x), midi(x), audio(ctx), formula }, … },
   // optional: boss: { modes: { section: 'turn' | 'build' | 'live' }, attacks: { track: { tile: 'lava' | 'slime' | 'acid' |
@@ -154,6 +154,15 @@ Orchestra: `timpaniTone, harpTone, celestaTone` = (f, t, vel) for poly() · `org
 `reed({kind: 'oboe'|'clarinet'|'bassoon'})` → r(f, on, vib) · `choir({voices, size, rough})` → c(freqs, F) ⇒ [l, r].
 Composition: `voiceChords([[root, 3rd, 5th(, 7th)] pcs…], {lo, hi, voices})` → voice-led MIDI voicings (least motion,
 no parallel fifths/octaves, the third never doubled).
+The new styles' voices: `opn({ algo, ratio, level, env: [[attack s, decay s, sustain, release s]×4], fb, detune, gain })` → v(f, on, vel) —
+one FM channel of the YM2608 (OPNA, the PC-98): four operators, algorithms 0 (1→2→3→4), 2, 4 ((1→2) + (3→4)), 5 (1→(2,3,4)), 7 (all
+carriers), operator 1's feedback, key-on restarts the envelopes (and the phases only from silence: no clicks) ·
+`accordion({ voices, musette, gain })` → a(freqs, vel) ⇒ [l, r] — the bayan: three reeds a note (in tune, ±musette ¢), narrow pulses
+through the box's 1.1 / 2.9 kHz, the bellows 25 / 70 ms, an octave reed below C3 · `cowbellTone(f, t, vel)` — the TR-808 cowbell
+pitched like phonk's sample: two squares at f and 1.48f (540 / 800 Hz) summed partial by partial (band-limited) through the machine's
+band-pass (centre 4.9f — 2.64 kHz over 540 Hz —, Q 1.3), the two-stage VCA (a 12 ms click onto a 0.32 s tail) · `steelpanTone(f, t,
+vel)` — a tenor pan's note: modes f, 2.004f, 3f, 4.01f, the upper ones swelling in over 8–12 ms (the steel's nonlinearity: the
+"bwong"), a rubber stick, low notes ring longer.
 
 ## theory.js (shared by the generator, the app, the tests — not imported by songs)
 `freq(n)` A4 = 440 · `pc(n)` · `parseKey('F#m' | 'E𝄳')` → {tonic (3.5 for E𝄳), mode, name?} · `keyName`, `keyLabel` ('F♯ минор') ·
@@ -267,7 +276,7 @@ A block in the song file between `// ==== MathMusic project` and `// ==== end of
 mode, length, sections }, removed?: [code track keys], tracks: [{ id, name, inst, vol, pan, fx?, notes: [[beat, MIDI, length,
 vel]], gen?: { style, seed, kind, part?, ref? } }] }` (plain JSON, a bar of notes per line), the instruments used, and
 `__project(song)` — `export default __project({ … })` adds a track per PROJECT track (key = its name, made unique), drops the
-`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (71, in `GROUPS`: keys,
+`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (74, in `GROUPS`: keys,
 mallets, plucked (KS koto/oud/qanun/sitar…), bowed, winds, voices, synths, bass, gamelan, drums): { id, label, group, kind poly |
 mono | chord | drums, role lead | keys | pad | bass | drums, range, fx, color, program (GM, −1 drums), level (evened out by
 measured rms), formula }. The generator's own sounds are there too (pluck, synthlead, moog, sawchords, hornsection, spiccato,
@@ -343,12 +352,14 @@ tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between not
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
 **Families** (`STYLE_FAMILIES`, the menus' order, most finished first; `STYLE_LIST` follows it, `styleGroups(keep)` for menus/optgroups,
-`familyOf(id)`): ⚔️ Арена (boss jbattle) · 🎮 Игровой (factory factorycave factorydanger darkecho prime chiptune) · ⚡ Неоновый танцпол (edm
-synthwave) · 📻 Радиоволна (disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue) · 🌙 После
-полуночи (jazz bossa lofi) · 🌌 Невесомость (ambient space) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🎈 Разное (meow).
+`familyOf(id)`): ⚔️ Арена (boss jbattle fight) · 🎮 Игровой (factory factorycave factorydanger darkecho prime artifact) · 🕹️ Ретро-игры
+(zunpet oldzun podskazka chiptune) · ⚡ Неоновый танцпол (edm hardstyle synthwave) · 🌃 Андеграунд (phonk breakcore babushka) · 📻 Радиоволна
+(disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue) · 🌙 После полуночи (jazz bossa lofi) ·
+🌌 Невесомость (ambient space) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🎈 Разное (meow).
 A new style goes into a family (test/generate.test.js checks every style is in exactly one).
 Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic ambient
-edm disco epic factory factorycave factorydanger darkecho ishope prime nordic — each: tempo/keys, forms
+edm disco epic factory factorycave factorydanger darkecho ishope prime nordic artifact zunpet oldzun fight babushka podskazka hardstyle phonk
+breakcore — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -465,6 +476,47 @@ in the spirit of a Skyrim score; Aeolian / Dorian / minor: Dovah, Seven Thousand
 LEADS.malechoir (eight men in octaves, a syllable per note — the vowel moving from «у» into o/a/e/i over 90 ms) / horn, flute /
 violin / whistle, the spiccato ostinato, lowstrings, ARPS.kantele (KS lyre, 1 5 3 5 8 5 3 5), KITS.nord (a great drum in 3 + 3 + 2,
 frame drums, a field snare), wind. Project instruments for them: metalgtr, leadgtr, metalbass, malechoir, kantele.
+`S.micros` (like `modes` / `meters`): a style may draw `micro` with its own dice (seed ^ 0x51c40) when the options don't say.
+**artifact** (🗿 Artifact Temple, 96–112): the Chozo halls in slendro (the user's find: prime + slendro + ⅛/¼ tones) — `modes` slendro ×3 /
+slendroKunst, `micros` null / eighth / quarter (pelog left out: its eighth-tone slides fell off the chords); prime's kit, tremolo or dark
+pumpsaw, seqbass, choir/synthlead/bells over LEADS.saron (saronTone) / celesta / pluck, ARPS.bonang (two rows interlocking — imbal —, eighths,
+sixteenths when loud, left/right), TEXTURES.temple (the gong ageng on the tonic every gongan of 32 beats and at each loud section, kempul on
+the root every 8, a sub drone, wind); prime's themes (`only: ['prime', 'artifact']`) + Relic Chamber (a minor-pentatonic line: slendro takes
+it note for note). **zunpet** (🎺 ZUNpet, 148–176, Touhou's Windows era): LEADS.zunpet (two bright brass voices ±4 ¢ — the SC-88 trumpet —,
+a scoop into each note, a late vibrato), lead2 piano / violin / flute (the stage theme), counter violin, CHORDS.zunpiano (octave bass and
+off-beat chords in 3 + 3 + 2, rolling sixteenths over two octaves in the spell cards), BASSES.zunbass (picked electric bass in octaves,
+pushed sixteenths, a half step into each next root), KITS.zun (crash on every phrase, tom fills, ride when calm); themes Shrine of Endless
+Spring (VI – VII – v – i royal road), Moonlit Mansion (3 + 3 + 2, iiø7 – V7). **oldzun** (💾 OldZUN, 128–156, the PC-98 games): `opn` voices —
+LEADS.fmbrass (algorithm 4, modulators swelling in after the carriers; its own SSG square echo a dotted eighth later), fmlead (algorithm
+5), fmbell, ssg (a square in 16 volume steps), CHORDS.fmepiano (1 : 1 body + 14 : 1 tine), BASSES.fmbass (a feedback operator striking the
+pair, 90 ms), ARPS.ssgarp, KITS.opna (the chip's six rhythm samples held every other sample, 9 bits); themes Lotus Bay, Maple Mirage.
+**fight** (🥊 Test your fight, 128–146, `club` pump 0.3, broken kick in round 1): rhythm first — LEADS.glass (a soft FM ping deep in a
+dotted-eighth echo, `gains.lead` 0.8: a motif, not a tune), CHORDS.stabs (minor-seventh stabs in syncopation, 3-voice supersaws, filter
+snapping shut), BASSES.acid (a 303-style line the seed draws: accents, slides) or reese (two saws 14 ¢ apart, the low-pass breathing over
+8 beats), PADS.ambipad, KITS.fight (breakbeat snare with ghosts over the club kick, perc, shaker), TEXTURES.arena (drone, wind, an impact
+on every round, risers); themes Arena Pulse, Kombat Circuit (i / ♭II). **babushka** (👵 Кибербабушка, 138–150, `club` pump 0.5): LEADS.folkchoir
+(three women in the open «white» voice and an alto an octave down, a syllable per note, a scoop up), balalaika (two KS strings, a small
+triangular body, tremolo in 32nds on long notes), zhaleika (reed + horn bell), counter synthlead (the cyber layer), CHORDS.bayan (`accordion`:
+bass button root/fifth on the beats, chord on the off-beats), BASSES.hardbass (off-beat driven saw/square dropping from a fifth above in
+12 ms), ARPS.gusli (a glissando up the chord), KITS.babushka (spoons in 16ths, tambourine, clap, hands in the intro), TEXTURES.shouts
+(«эй!», «ух!», «оп-па!», «ай!» — two voices, one with a digital grain); themes Коробейники (folk, PD), Эх, пляши! (chastushka), Степь да
+кибер; Russian section names. **podskazka** (❤️ Подсказка, 112–150, the Undertale / Deltarune sound): LEADS.snesbrass (saws through an
+opening low-pass, rounded to 11 bits, the console's echo), musicbox (a comb's tines, an octave up), pulse; piano / NES chiparp comping,
+BASSES.snesbass (slapped on the beats, popped on the octaves, 3 + 3 + 2 line), KITS.snes; themes Stubborn Riff (Dm battle riff), Fields of
+Small Hopes, Lantern Home (both diatonic major, modal). **hardstyle** (🔊 Хардстайл, 148–154, `hard` + `djKick` + `antiClimax`): bossData's
+kick on every beat of the DJ intro and outro too (`dj`), the climaxes on the kick and the reverse bass, the story break (piano or pluck on
+theme B, strings, BASSES.hssub), CHORDS.gatesaw (held in the breaks, a 16th trance gate x-xx-xx-x-xx-xx- in the climaxes), the solo role is
+the anti-climax: lead and lead2 rest, TEXTURES.screech plays (two driven saws + a square through a resonant band sweeping like a mouth, the
+pitch zapping down an octave onto each note, on the roots) — plus risers, downlifters, a sub impact; KITS.hardkit (reversed cymbal into each
+drop); `gains.kick` / `gains.rbass` set the hard kick's level (jbattle keeps 0.6 / 0.7); themes Euphoria Gate, Skyfire. **phonk** (🏎️
+Дрифт-фонк, 124–138): LEADS.cowbell (`cowbellTone` driven by tanh 2.4, high-passed, echoed), steelpan (`steelpanTone`), BASSES.b808 (a driven
+sine, held, sliding 45 ms, an octave hit now and then), KITS.trap (clap on 3, hats rolling 16ths → 32nds every other bar, triplets in the
+drops), TEXTURES.memphis (vinyl, pitched-down tape voices «ха», «эй», «йе»), dark rhodes or pumpsaw; themes Midnight Drift, Memphis Ghost.
+**breakcore** (💿 Брейккор, 180–220): KITS.amen — the Amen break as 64 sixteenth slices; each sixteenth plays its slice, one from anywhere, or the
+one before (stutter), by chaos (0.15 – 0.45 – 1 in the solo «chaos»); snare rolls ×4/×8 a sixteenth rising in pitch; slices sped up or slowed
+(k 1.5 / 0.75, as a sampler); every edit cuts what rang before (5 ms); the breakdown plays the break at half speed an octave down; gabber kicks
+in the chaos; through a 9.5 kHz low-pass and 8 bits — under slow minor-ninth melodies (piano / bells / synthlead), BASSES.reese, ambipad,
+TEXTURES.glitch (static, crushed noise bursts); themes Static Tears (i9 – VImaj7 – IIImaj7 – VII…), Glass Rain.
 
 ## The app (viz/: build.js inlines everything into MathMusic Live.html)
 viz/app/*.js are ES modules bundled as blob: modules (`import … from './x.js'`); src/theory, generate,
@@ -566,7 +618,8 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | file | style | bpm | key | ideas |
 |---|---|---|---|---|
 | example | minimal | 120 | Am | starter |
-| synthwave, dnb, hardstyle, phonk, gothic | (original set) | — | — | — |
+| synthwave, dnb, hardstyle, gothic | (original set) | — | — | — |
+| phonk | drift phonk (rewritten) | 130 | Gm | 2.5 min, the real 808 cowbell (two squares through its band-pass), steel pan answering, sliding 808, trap hat rolls, Memphis tape voices, dark choir |
 | meow | cat pop | 100 | F | meow formant synth, tomcat, purr, hiss snare |
 | classical | baroque canon | 76 | D | V(x − 16j), harpsichord KS, timpani |
 | kawaii | anime J-pop | 168 | A | royal road, chip lead, "na-ni" chops, key up |
@@ -603,3 +656,21 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | burnt-march | generated ishope (seed 1) | 78 | D phrygian | double-tracked metal guitars (amp + cab), lead guitar with bends, double kick under a half-time snare, No Dawn |
 | ancient-depths | generated prime (seed 1) | 91 | E phrygian | Metroid × horror: glassy synth lead, tremolo strings, industrial kit, waterphone, sub drone, Frozen Halls |
 | ancient-throat | generated nordic (seed 1) | 81 | E aeolian | male choir in octaves, spiccato ostinato, kantele, war drums in 3 + 3 + 2, Frostfall |
+| gilded-sanctum | generated artifact (seed 4) | 98 | E♭ slendro, ⅛ tones | synth lead and celesta over bonang imbal, gong ageng every gongan, Relic Chamber |
+| bronze-altar | generated artifact (seed 8) | 103 | E slendro, ¼ tones | choir and saron, bonang, dark saws, Phazon in slendro |
+| lunar-dream | generated zunpet (seed 4) | 152 | Em | ZUNpet on Moonlit Mansion, violin stage theme, ZUN piano, picked bass, key up |
+| spring-festival | generated zunpet (seed 8) | 161 | Am | Shrine of Endless Spring on the ZUNpet, piano, choir pad, crash on every phrase |
+| twilight-disk | generated oldzun (seed 3) | 128 | Bm | PC-98: FM lead and FM bells, FM e-piano, FM slap bass, SSG arpeggio, OPNA rhythm, Lotus Bay |
+| twilight-square | generated oldzun (seed 11) | 148 | Dm | FM brass with its SSG echo, Maple Mirage, key up |
+| shadow-tower | generated fight (seed 3) | 128 | C♯m | acid bass, synth stabs, breakbeat over the club kick, Arena Pulse as a quiet motif |
+| iron-fist | generated fight (seed 4) | 130 | Em | Reese bass, glass motif in the echoes, impacts on every round, Kombat Circuit |
+| chrome-matryoshka | generated babushka (seed 3) | 138 | F♯m | balalaika tremolo on Коробейники, zhaleika, bayan oom-pah, hard bass, spoons, shouts |
+| babushka-balalaika | generated babushka (seed 4) | 140 | Dm | the babushka choir on Степь да кибер, balalaika, gusli, «кибер-пляска» with a key up |
+| tiny-ruins | generated podskazka (seed 6) | 123 | Gm | music box on the Stubborn Riff, 16-bit synth brass, slapped bass, snes kit |
+| snowy-path | generated podskazka (seed 11) | 138 | F | Lantern Home on the synth brass, Fields of Small Hopes on the piano |
+| burning-anthem | generated hardstyle (seed 2) | 152 | Em | DJ intro, story break, Skyfire on the supersaw, anti-climax screech, gated chords |
+| sacred-reverie | generated hardstyle (seed 3) | 148 | Dm | piano story, Euphoria Gate, reverse bass rolling in the final climax |
+| ghost-district | generated phonk (seed 3) | 124 | C♯m | 808 cowbell on Midnight Drift, steel pan, sliding 808, trap rolls, Memphis voices |
+| tokyo-chase | generated phonk (seed 4) | 126 | Cm | Memphis Ghost on the cowbell (i / ♭II), steel pan, dark saws |
+| glass-rain | generated breakcore (seed 4) | 185 | Dm | chopped Amen at 185, piano and celesta on Glass Rain, half-speed breakdown, gabber chaos |
+| lost-angel | generated breakcore (seed 8) | 198 | C♯m | Static Tears on a synth lead over minor ninths, Reese, glitches, Amen rolls |
