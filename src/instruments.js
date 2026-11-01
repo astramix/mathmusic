@@ -258,6 +258,21 @@ export function flute({ breath = 0.06 } = {}) {
   }
 }
 
+// Pan pipes (the 90s sample libraries' "zampoña"): a stopped pipe, so the odd harmonics 1, 3, 5 only; a rush of breath
+// through the tube's resonance (louder than a flute's), a chiff on each note, a scoop of a third of a semitone up into
+// the pitch, a vibrato that comes in late. pp(f, on, vib) → sample.
+export function panpipe({ breath = 0.14 } = {}) {
+  const o1 = osc('sine'), o3 = osc('sine'), o5 = osc('sine'), bp = filter('bp'), bpTube = filter('bp'), hp = filter('hp'), level = ar(60, 150), glide = smooth(18)
+  let t = 0, held = 0
+  return (f, on, vib = 1) => {
+    t += 1 / SR
+    held = on ? held + 1 / SR : 0
+    const a = level(on ? 1 : 0), scoop = -0.35 * exp(-held / 0.04), g = glide(f) * 2 ** ((scoop + 0.14 * vib * Math.min(1, Math.max(0, held - 0.4) / 0.5) * sin(TAU * 4.8 * t)) / 12)
+    const n = η(), chiff = on ? 0.6 * exp(-30 * held) : 0
+    return a * (0.7 * o1(g) + 0.16 * o3(3 * g) + 0.05 * o5(5 * g) + breath * bp(n, g, 5) + 0.5 * breath * bpTube(n, 2 * g, 3) + chiff * hp(n, 2500))
+  }
+}
+
 // Formant voice: v(f, F, on) → sample. A saw (+ breath) through band-passes at F = [F1, F2, F3],
 // scaled by size (1.15 = small singer, 0.8 = big). rough > 0 saturates the source (growl).
 export const VOWELS = { a: [800, 1150, 2900], e: [400, 2000, 2800], i: [320, 2700, 3400], o: [450, 800, 2800], u: [350, 700, 2600] }

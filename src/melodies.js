@@ -496,6 +496,29 @@ export const MELODIES = [
     notes: [[0, 0, 1], [1, 3, 1], [2, 5, 1], [3, 1, 1], [4, 0, 1], [5, 3, 1], [6, 8, 1], [7, 5, 1],
       [8, 8, 1.5], [9.5, 5, 0.5], [10, 11, 1], [11, 7, 1], [12, 7, 1], [13, 3, 1], [14, -1, 1], [15, 2, 1]],
   },
+  // Brinstar Depths: our own slow minor themes in the idiom of a deep-jungle score — long notes with leaps, the chords
+  // sinking under a held tone, a chord tone on every strong beat
+  // "Deep Moss": i – VI – iv – V7, B and G falling to E over the sixth degree
+  {
+    id: 'brin-moss', from: 'brinstar', title: 'Deep Moss (глубокий мох)', key: 'Em', base: 'E4', feel: 'straight', per: 4, modal: false, only: 'brinstar',
+    moods: ['dark', 'space', 'game'], chords: ['i', 'VI', 'iv', 'V7'],
+    notes: [[0, 7, 1.5], [1.5, 3, 0.5], [2, 0, 1], [3, -2, 1], [4, 3, 1], [5, 0, 1], [6, -4, 2],
+      [8, 5, 2], [10, 8, 1], [11, 7, 1], [12, 11, 1.5], [13.5, 7, 0.5], [14, 2, 2]],
+  },
+  // "Spore Drift": the tonic and the Phrygian ♭II then the subtonic: Dm – E♭ – C – Dm
+  {
+    id: 'brin-spore', from: 'brinstar', title: 'Spore Drift (дрейф спор)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: false, only: 'brinstar',
+    moods: ['dark', 'game'], chords: ['i', 'bII', 'VII', 'i'],
+    notes: [[0, 7, 2], [2, 3, 1], [3, 5, 1], [4, 8, 1.5], [5.5, 5, 0.5], [6, 1, 2],
+      [8, 5, 1], [9, 2, 1], [10, -2, 1.5], [11.5, 2, 0.5], [12, 3, 1], [13, 7, 1], [14, 0, 2]],
+  },
+  // "Lair Below": the Andalusian fall Am – G – F – E7, a call of E and C over A, answered lower
+  {
+    id: 'brin-lair', from: 'brinstar', title: 'Lair Below (логово внизу)', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'brinstar',
+    moods: ['dark', 'game'], chords: ['i', 'VII', 'VI', 'V7'],
+    notes: [[0, 7, 1], [1, 3, 1], [2, 0, 1.5], [3.5, 3, 0.5], [4, 5, 2], [6, 2, 1], [7, 0, 1],
+      [8, 3, 1.5], [9.5, 0, 0.5], [10, -4, 2], [12, 2, 1], [13, -1, 1], [14, -5, 2]],
+  },
   // "Frozen Halls": quiet snow over a minor seventh chord, the Dorian IV, VImaj7 and V — falling arpeggios
   {
     id: 'prime-frozen', from: 'prime', title: 'Frozen Halls (ледяные залы)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: true, only: ['prime', 'artifact'],

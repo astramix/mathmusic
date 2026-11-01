@@ -10,7 +10,7 @@ export const GM = [
   [/timp/i, 47],
   // whole words where a drum hides inside an instrument's name (ma-rim-ba, tom-cat)
   [/drum|kick|snare|hi-?hat|\bhats?\b|perc|\bbeat\b|clap|crash|\bride\b|cymbal|\btoms?\b|\brim(shot)?\b|shaker|clave|\bpaw\b|\bhiss\b|claws/i, -1],
-  [/cowbell/i, 113], [/steel ?pan/i, 114], [/bayan|accordion/i, 21], [/balalaika|gusli/i, 105], [/zhaleika/i, 68], [/zunpet|trumpet/i, 56], [/fmbrass|snesbrass|brass/i, 62],
+  [/panpipe/i, 75], [/fretless/i, 35], [/cowbell/i, 113], [/steel ?pan/i, 114], [/bayan|accordion/i, 21], [/balalaika|gusli/i, 105], [/zhaleika/i, 68], [/zunpet|trumpet/i, 56], [/fmbrass|snesbrass|brass/i, 62],
   [/flute/i, 73], [/vibe/i, 11], [/marimba/i, 12], [/music ?box/i, 10], [/bell|glock|sparkle|star/i, 9],
   [/rhodes|epiano/i, 4], [/piano/i, 0], [/harpsi/i, 6], [/guitar|nylon/i, 24], [/organ/i, 19],
   [/violin/i, 40], [/cello/i, 42], [/string/i, 48], [/pad/i, 89], [/choir/i, 52],

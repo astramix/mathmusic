@@ -519,6 +519,25 @@ export const STYLES = {
     ],
     drums: {}, comp: {}, bassline: 'octaves', arpStep: 0.25, arpPoly: false,
   },
+  // Brinstar Depths: the deep jungle of a 16-bit adventure at 80 BPM — pan pipes, marimba or vibes over a slow tribal pulse
+  // (a soft kick, three toms, a bongo, a shaker), a fretless bass, an electric piano and synth strings, marimba bubbles
+  // rising in the arpeggio, the night of the swamp (bubbles, insects, steam, a creature far below) in a long wet echo
+  brinstar: {
+    label: 'Brinstar Depths', emoji: '🌿', theme: 'void', bpm: [76, 84], swing: 0.5, stage: true,
+    gains: { chords: 1.6, pad: 1.5, counter: 1.8, arp: 1.7, bass: 1.25 }, // levels against the other tracks (the mix is balanced by render.js's table)
+    variety: { 'as written': 2, ornamented: 2, recomposed: 3 },
+    themes: { 'brin-moss': 4, 'brin-spore': 4, 'brin-lair': 4 },
+    keys: ['Em', 'Dm', 'Am', 'Bm', 'Gm', 'Cm', 'F#m'], modes: [null, 'dorian', 'phrygian'], moods: ['dark', 'space', 'game'],
+    voicing: 'close', chordRange: [52, 74], bassRange: [28, 42],
+    lead: ['panpipe', 'panpipe', 'vibes', 'bells'], lead2: ['epiano', 'flute', 'bells'], counter: 'vibes', chords: ['rhodes', 'tremolo'], bass: ['fretless'], pad: ['strings', 'choirpad'], arp: ['marimba'], texture: ['jungle'], kit: 'tribal',
+    forms: [
+      [['spore haze', 8, 'intro', 0], ['the roots', 8, 'themeB', 1], ['brinstar depths', 16, 'theme', 2], ['the swamp', 8, 'bridge', 1], ['the hunt', 4, 'build', 2], ['the lair', 16, 'final', 3], ['dripping', 8, 'outro', 0]],
+      [['spore haze', 4, 'intro', 0], ['brinstar depths', 8, 'theme', 2], ['the swamp', 8, 'bridge', 1], ['the roots', 8, 'themeB', 2], ['scan', 8, 'solo', 2], ['the hunt', 4, 'build', 2], ['the lair', 16, 'final', 3], ['dripping', 4, 'outro', 0]],
+    ],
+    drums: {},
+    comp: { 0: [[0, 0.45, 3.8]], 1: [[0, 0.5, 1.8], [2, 0.45, 1.8]], 2: [[0, 0.55, 1.4], [1.5, 0.4, 0.4], [2, 0.5, 1.8]], 3: [[0, 0.6, 1.4], [1.5, 0.45, 0.4], [2, 0.55, 0.9], [3, 0.45, 0.8]] },
+    bassline: [[0, 'R', 1.4], [1.5, 'R', 0.4], [2, 'R', 1.4], [3.5, '5', 0.4]], arpStep: 0.5, arpPoly: false,
+  },
   // The North (in the spirit of a Skyrim score): men chanting the theme in octaves, horns, spiccato strings in 3 + 3 + 2,
   // low strings, a kantele's rolling figure, war drums (a great drum in 3 + 3 + 2, frame drums, a field snare), the
   // mountain wind; Aeolian, Dorian or plain minor, no leading tone where the theme doesn't ask for one
@@ -697,7 +716,7 @@ export const STYLES = {
 // ---- families: the styles grouped, the most finished first; a new style joins one (test/generate.test.js checks it)
 export const STYLE_FAMILIES = [
   { id: 'arena', label: 'Арена', emoji: '⚔️', about: 'боссы и битвы: хардстайл-бочка на тонике, сайдчейн, разгоны перед дропами; фоновая музыка файтингов', styles: ['boss', 'jbattle', 'fight'] },
-  { id: 'game', label: 'Игровой', emoji: '🎮', about: 'музыка игр: конвейеры заводов в духе Mindustry и Factorio — город, пещеры, опасность; руины после катастрофы, залы чозо и их храм в слендро', styles: ['factory', 'factorycave', 'factorydanger', 'darkecho', 'prime', 'artifact'] },
+  { id: 'game', label: 'Игровой', emoji: '🎮', about: 'музыка игр: конвейеры заводов в духе Mindustry и Factorio — город, пещеры, опасность; руины после катастрофы, залы чозо и их храм в слендро', styles: ['factory', 'factorycave', 'factorydanger', 'darkecho', 'prime', 'artifact', 'brinstar'] },
   { id: 'retro', label: 'Ретро-игры', emoji: '🕹️', about: 'Touhou: труба ZUN и FM-чип PC-98; звук Undertale и Deltarune; 8 бит', styles: ['zunpet', 'oldzun', 'podskazka', 'chiptune'] },
   { id: 'club', label: 'Неоновый танцпол', emoji: '⚡', about: 'EDM и хардстайл: бочка на каждую долю, сайдчейн, разгоны и дропы; синтвейв', styles: ['edm', 'hardstyle', 'synthwave'] },
   { id: 'underground', label: 'Андеграунд', emoji: '🌃', about: 'дрифт-фонк с коровьим колокольчиком 808, брейккор с аменом на 200 BPM, кибербабушки с хардбасом и баяном', styles: ['phonk', 'breakcore', 'babushka'] },
@@ -910,6 +929,7 @@ const NAMES = {
   factorycave: [['deep', 'crystal', 'sunken', 'hollow', 'echoing', 'molten'], ['ore', 'drill', 'vein', 'shaft', 'grotto', 'mine']],
   factorydanger: [['red', 'final', 'core', 'hostile', 'breach', 'siege'], ['wave', 'alert', 'protocol', 'defense', 'swarm', 'outbreak']],
   jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
+  brinstar: [['mossy', 'spore', 'hollow', 'drowned', 'verdant', 'sunken', 'dripping'], ['depths', 'roots', 'swamp', 'caverns', 'lair', 'grotto', 'canopy']],
   artifact: [['relic', 'sunken', 'gilded', 'silent', 'ancient', 'echo', 'bronze'], ['temple', 'shrine', 'chamber', 'sanctum', 'altar', 'relic', 'gate']],
   zunpet: [['scarlet', 'eastern', 'lunar', 'phantom', 'border', 'faithful', 'spring'], ['mansion', 'shrine', 'night', 'dream', 'festival', 'requiem', 'maiden']],
   oldzun: [['lotus', 'maple', 'mystic', 'twilight', 'crystal', 'retro'], ['bay', 'mirage', 'garden', 'square', 'disk', 'reverie']],
@@ -5653,6 +5673,114 @@ TEXTURES.temple = o => {
 }`
 }
 Object.assign(COUNTER_VOICE, { saron: 'pluck' })
+
+// ---- Brinstar Depths: the deep jungle of a 16-bit adventure — pan pipes and marimba over a slow tribal pulse -----------
+// panpipe: a stopped pipe (odd harmonics), breath through the tube, a chiff and a scoop into every note, a late vibrato
+LEADS.panpipe = sustainedLead({
+  make: 'panpipe({ breath: 0.14 })', imports: ['panpipe'], color: '#c8f0b0', gain: 0.5, fx: 'echoHall',
+  formula: ['Pp = a\\big(0.7\\sin 2\\pi\\!\\int\\! g + 0.16\\sin 6\\pi\\!\\int\\! g + 0.05\\sin 10\\pi\\!\\int\\! g + 0.14\\,\\BP_{g}\\,\\eta + 0.3e^{-30t}\\,\\HP_{2500}\\,\\eta\\big)', 'g = f\\cdot 2^{\\,(-0.35e^{-t/0.04} + 0.14\\,s(t)\\sin(2\\pi\\cdot 4.8T))/12}\\quad\\text{— закрытая трубка: нечётные гармоники}'],
+})
+Object.assign(COUNTER_VOICE, { panpipe: 'vibes' })
+// the fretless bass of a 16-bit score: a round string, played long and soft, the notes of the line a little apart
+BASSES.fretless = o => {
+  o.need('instruments', 'electricBass')
+  return `(() => {
+  ${bassData(o.line)}
+  return {
+  color: '#5aa7ff',
+  graph: x => (bassAt(x) ? ${o.lane[0]} + (bassAt(x).n - 28) / 24 : null),
+  midi: x => (bassAt(x) && x - bassAt(x).at < bassAt(x).d * 0.9 ? [bassAt(x).n] : []),
+  formula: ${JSON.stringify(['y = \\LP_{2400}\\,B(f),\\quad B \\text{ — мягкая струна (Карплус — Стронг), бэндж без слэпа, глушится в конце ноты}'])},
+  audio({ bpm }) {
+    const b = electricBass({ bright: 0.22, sustain: 1.6, seed: 31 }), fire = trigger(), lp = filter('lp')
+    let end = -1
+    return x => {
+      const m = bassAt(x)
+      if (m && fire(m.at)) {
+        b.hit(hz(m.n - 60, C4), mod(m.at, 4) === 0 ? 0.9 : 0.7)
+        end = m.at + m.d * 0.9
+      }
+      if (end > 0 && x >= end) (b.mute(0.06), (end = -1))
+      return ${round(0.95 * (o.gain ?? 1))} * lp(b(), 2400)${pumpIf(o)}
+    }
+  },
+}})()`
+}
+// the tribal kit: a soft kick on the tonic's octave, three toms and a bongo, a rim, a shaker; slow, in half time —
+// the pulse of the depths; a roll of toms doubling through a build-up
+KITS.tribal = o => {
+  o.need('instruments', 'kickDrum', 'taikoDrum', 'rimDrum', 'shakerDrum')
+  return `(() => {
+  ${stageHits(`      if (r === 'build') {
+        ${ROLL.replace("'snare'", "'tomM'")}
+        steps('kick', 0.8, 'x-----x---x-----')
+      } else if (e >= 3) {
+        steps('kick', 1, 'x--x----x-x-----')
+        steps('tomL', 0.75, '------x-------x-')
+        steps('tomM', 0.6, '----x-------x-x-')
+        steps('tomH', 0.5, '--x---------x---')
+        steps('rim', 0.55, '----x-------x---')
+        steps('bongo', 0.4, 'x-xx-x-xx-x-xx-x')
+        steps('shaker', 0.3, 'xxxxxxxxxxxxxxxx')
+        if (fill) steps('tomH', 0.7, '------xxx-xxxxxx')
+      } else if (e === 2) {
+        steps('kick', 0.9, 'x-----x---x-----')
+        steps('tomL', 0.65, '------x-------x-')
+        steps('bongo', 0.35, '--x--x--x--x--x-')
+        steps('shaker', 0.25, 'x-x-x-x-x-x-x-x-')
+        steps('rim', 0.4, '------------x---')
+      } else if (e === 1) {
+        steps('kick', 0.6, 'x-----------x---')
+        steps('shaker', 0.2, '--x---x---x---x-')
+      } else if (e >= 0) {
+        steps('tomL', 0.45, 'x-------------x-')
+      }`)}
+  return {
+  color: '#d9a05b',
+  ${stageGraph([['kick', 3.5, 0.6], ['tomL', 3.1, 0.6], ['tomH', 2.8, 0.5], ['rim', 3.3, 0.4]])}
+  ${stageMidi([['kick', 36], ['rim', 37], ['tomL', 41], ['tomM', 45], ['tomH', 48], ['bongo', 60], ['shaker', 70]])}
+  formula: ${JSON.stringify(['D = \\Rev\\big[0.5K + 0.45\\,T_{82} + 0.4\\,T_{118} + 0.35\\,T_{170} + 0.25\\,\\text{Bongo} + 0.25R + 0.12\\,\\text{Shk}\\big],\\quad T_p = e^{-t/d}\\sin 2\\pi\\!\\int\\! p\\,(1 + 0.26e^{-t/0.03})', 'K = e^{-6.5\\tau}\\tanh\\!\\big(1.8\\sin 2\\pi\\!\\int\\!(50 + 80e^{-32\\tau})\\big)'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, kick = kickDrum({ f0: 50, f1: 130, sweep: 32, decay: 6.5, drive: 1.8 })
+    const tomL = taikoDrum({ pitch: 82, decay: 0.55, bend: 4, crack: 0.25, boom: 0.35, seed: 41 }), tomM = taikoDrum({ pitch: 118, decay: 0.4, bend: 4, crack: 0.3, boom: 0.2, seed: 42 })
+    const tomH = taikoDrum({ pitch: 170, decay: 0.3, bend: 3, crack: 0.35, boom: 0.1, seed: 43 }), bongo = taikoDrum({ pitch: 330, decay: 0.16, bend: 2, crack: 0.5, boom: 0, seed: 44 })
+    const rim = rimDrum(), shaker = shakerDrum(), room = reverb({ room: 0.8, damp: 0.35, wet: 0.3 })
+    const at = (d, f, x, s = sec) => { const h = x < END ? lastHit(x, d) : null; return h ? h.vel * f(h.τ * s, true) : f(1, false) }
+    return x => {
+      const y = 0.5 * at('kick', kick, x, 1) + 0.45 * at('tomL', tomL, x) + 0.4 * at('tomM', tomM, x) + 0.35 * at('tomH', tomH, x) + 0.25 * at('bongo', bongo, x) + 0.25 * at('rim', rim, x) + 0.12 * at('shaker', shaker, x)
+      return room(...pan(1.1 * y, 0))
+    }
+  },
+}})()`
+}
+// the jungle's night: bubbles rising in a swamp, insects trilling (a band of noise chopped at 31 Hz), a vent hissing every
+// sixteen beats now and then, a creature groaning far below, a low rumble — all in a long wet echo
+TEXTURES.jungle = o => {
+  o.need('engine', 'noise', 'PI')
+  return `{
+  color: '#4fb286',
+  graph: x => (x < END ? -2.95 + 0.05 * sin(TAU * x / 6) : null),
+  formula: ${JSON.stringify(['\\text{пузыри: } e^{-t/0.05}\\sin 2\\pi f(1 + 5t)t,\\ f \\in [280, 980];\\quad \\text{насекомые: } \\BP_{5200}^{Q=18}\\eta\\cdot\\tfrac{1 + \\sin 2\\pi\\,31T}{2};\\quad \\text{пар: } \\BP_{2200}\\eta\\,e^{-t/0.8}', '\\text{зверь: } \\sin^2\\!\\tfrac{\\pi t}{2.5}\\,\\LP_{400}\\sin 2\\pi\\big(110t - 8t^2\\big);\\quad \\text{гул: } \\LP_{70}\\eta'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, η = noise(53), bug = filter('bp'), bug2 = filter('bp'), steam = filter('bp'), rumble = filter('lp'), cry = filter('lp')
+    const echo = delay({ time: sec * 0.75, feedback: 0.5, wet: 0.5 }), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.55 })
+    return x => {
+      const n = η(), T = x * sec, a = x < END ? 1 : 0
+      let bub = 0, bp = 0
+      for (const k of [0, 1, 2]) {
+        const j = floor(x) - k, at = j + 0.9 * hash(j, 31), t = (x - at) * sec
+        if (hash(j, 33) < 0.4 && t >= 0 && t < 0.25) { const f = 280 + 700 * hash(j, 35); bub += exp(-t / 0.05) * sin(TAU * f * (1 + 5 * t) * t) * Math.min(1, t / 0.002); bp = 2 * hash(j, 37) - 1 }
+      }
+      const chirp = (0.5 + 0.5 * sin(TAU * 31 * T)) * (0.5 + 0.5 * sin(TAU * 0.11 * T + 1)), bugs = chirp * (bug(n, 5200 + 400 * sin(TAU * 0.3 * T), 18) + 0.7 * bug2(n, 4300, 14))
+      const sj = floor(x / 16), st = (x - 16 * sj) * sec, hiss = steam(n, 2200, 1.5) * (hash(sj, 41) < 0.5 ? exp(-st / 0.8) * Math.min(1, st / 0.05) : 0)
+      const cj = floor(x / 32), ct = (x - 32 * cj) * sec, call = hash(cj, 43) < 0.5 && ct < 2.5 ? sin((PI * ct) / 2.5) ** 2 * sin(TAU * (110 * ct - 8 * ct * ct)) : 0
+      const [l, r] = echo(...pan(0.09 * a * bub, bp))
+      const y = a * (0.02 * bugs + 0.05 * hiss + 0.09 * cry(call, 400) + 0.04 * rumble(n, 70))
+      return verb(l + y, r + y)
+    }
+  },
+}`
+}
 
 // ---- modes ----------------------------------------------------------------------------------------------------
 // A pitch of the major/minor song → the mode on the same tonic. Seven-note modes map degree to degree; a chromatic

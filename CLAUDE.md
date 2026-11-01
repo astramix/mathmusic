@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (37 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (38 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -116,7 +116,7 @@ Builders (inside audio()): `poly(tone, {life, release})` → p(), p.hit(f, vel, 
 `plucker({life, decay})` KS strings, p.hit(f, vel, {bright, at samples}) — exactly tuned (fractional delay minus the loop filter's
 and the interpolation's phase delay; it used to round to whole samples: +8…+26 ¢) · `guitarBody()` ·
 `strings({voices, attack, release, cutoff, gain})` → s(freqs[]) ⇒ [l, r] (with the body's resonances 280 Hz, 1.1 / 2.7 kHz) ·
-`flute()` → fl(f, on) · `voice({size, breath, rough})` → v(f, F[3], on) ·
+`flute()` → fl(f, on) · `panpipe({breath})` → pp(f, on, vib) (a stopped pipe: odd harmonics 1, 3, 5, breath through the tube, a chiff and a scoop of ⅓ semitone into each note, a late 4.8 Hz vibrato) · `voice({size, breath, rough})` → v(f, F[3], on) ·
 `meower({size, rough})` → c(n from F5, u|null, tSec) · `bowed({base, body, sec})` → b(note, tSec) ·
 `pulse(duty)`, `triangle4()`, `lfsr({metal})` → n(rateHz) chip channels ·
 drums: `kickDrum()` (τ in BEATS, on), `snareDrum` (two membrane modes 1 : 1.59 struck sharp, wires, the stick's crack), `clapDrum, hatDrum({decay, cutoff}), rimDrum,
@@ -279,7 +279,7 @@ A block in the song file between `// ==== MathMusic project` and `// ==== end of
 mode, length, sections }, removed?: [code track keys], tracks: [{ id, name, inst, vol, pan, fx?, notes: [[beat, MIDI, length,
 vel]], gen?: { style, seed, kind, part?, ref? } }] }` (plain JSON, a bar of notes per line), the instruments used, and
 `__project(song)` — `export default __project({ … })` adds a track per PROJECT track (key = its name, made unique), drops the
-`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (74, in `GROUPS`: keys,
+`removed` ones, applies `song`. MIDI may be fractional; every pitch 440·2^((n−69)/12). `INSTRUMENTS` (76, in `GROUPS`: keys,
 mallets, plucked (KS koto/oud/qanun/sitar…), bowed, winds, voices, synths, bass, gamelan, drums): { id, label, group, kind poly |
 mono | chord | drums, role lead | keys | pad | bass | drums, range, fx, color, program (GM, −1 drums), level (evened out by
 measured rms), formula }. The generator's own sounds are there too (pluck, synthlead, moog, sawchords, hornsection, spiccato,
@@ -355,14 +355,14 @@ tuning.js id) — `temperData`: TEMPER + tuneHz (offset interpolated between not
 sets the beat for key changes and the adaptive tuning; the song gets a `tuning` field. Without these options (and the
 others' dice untouched — each draws its own rng) a seed gives byte for byte the song it always gave.
 **Families** (`STYLE_FAMILIES`, the menus' order, most finished first; `STYLE_LIST` follows it, `styleGroups(keep)` for menus/optgroups,
-`familyOf(id)`): ⚔️ Арена (boss jbattle fight) · 🎮 Игровой (factory factorycave factorydanger darkecho prime artifact) · 🕹️ Ретро-игры
+`familyOf(id)`): ⚔️ Арена (boss jbattle fight) · 🎮 Игровой (factory factorycave factorydanger darkecho prime artifact brinstar) · 🕹️ Ретро-игры
 (zunpet oldzun podskazka chiptune) · ⚡ Неоновый танцпол (edm hardstyle synthwave) · 🌃 Андеграунд (phonk breakcore babushka) · 📻 Радиоволна
 (disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue) · 🌙 После полуночи (jazz bossa lofi) ·
 🌌 Невесомость (ambient space) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🎈 Разное (meow).
 A new style goes into a family (test/generate.test.js checks every style is in exactly one).
 Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic ambient
 edm disco epic factory factorycave factorydanger darkecho ishope prime nordic artifact zunpet oldzun fight babushka podskazka hardstyle phonk
-breakcore — each: tempo/keys, forms
+breakcore brinstar — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -485,7 +485,15 @@ slendroKunst, `micros` null / eighth / quarter (pelog left out: its eighth-tone 
 pumpsaw, seqbass, choir/synthlead/bells over LEADS.saron (saronTone) / celesta / pluck, ARPS.bonang (two rows interlocking — imbal —, eighths,
 sixteenths when loud, left/right), TEXTURES.temple (the gong ageng on the tonic every gongan of 32 beats and at each loud section, kempul on
 the root every 8, a sub drone, wind); prime's themes (`only: ['prime', 'artifact']`) + Relic Chamber (a minor-pentatonic line: slendro takes
-it note for note). **zunpet** (🎺 ZUNpet, 148–176, Touhou's Windows era): LEADS.zunpet (two bright brass voices ±4 ¢ — the SC-88 trumpet —,
+it note for note).
+**brinstar** (🌿 Brinstar Depths, 76–84 BPM, theme 'void', `stage: true`): the deep jungle of a 16-bit adventure (our own themes in its idiom, none of
+the game's): LEADS.panpipe (the `panpipe` instrument, an echo hall) / vibes / bells, lead2 epiano / flute / bells, counter vibes, CHORDS.rhodes (sparse
+comping) or tremolo, strings or choir pad, BASSES.fretless (`electricBass` bright 0.22, sustain 1.6, no slap, a long–short line on the root and fifth),
+ARPS.marimba (bubbles at ½ beat), KITS.tribal (a soft kick, tomL / tomM / tomH and a bongo by `taikoDrum`, a rim, a shaker; half time; the build-up's roll
+on the mid tom), TEXTURES.jungle (rising bubbles, insects = a noise band chopped at 31 Hz, a vent every 16 beats, a creature groaning every 32, a rumble, a
+long wet echo); modes minor / dorian / phrygian; themes Deep Moss (Em: i VI iv V7), Spore Drift (Dm: i ♭II VII i), Lair Below (Am: i VII VI V7) (`only`).
+Project instruments: panpipe, fretless.
+**zunpet** (🎺 ZUNpet, 148–176, Touhou's Windows era): LEADS.zunpet (two bright brass voices ±4 ¢ — the SC-88 trumpet —,
 a scoop into each note, a late vibrato), lead2 piano / violin / flute (the stage theme), counter violin, CHORDS.zunpiano (octave bass and
 off-beat chords in 3 + 3 + 2, rolling sixteenths over two octaves in the spell cards), BASSES.zunbass (picked electric bass in octaves,
 pushed sixteenths, a half step into each next root), KITS.zun (crash on every phrase, tom fills, ride when calm); themes Shrine of Endless
@@ -677,3 +685,5 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | tokyo-chase | generated phonk (seed 4) | 126 | Cm | Memphis Ghost on the cowbell (i / ♭II), steel pan, dark saws |
 | glass-rain | generated breakcore (seed 4) | 185 | Dm | chopped Amen at 185, piano and celesta on Glass Rain, half-speed breakdown, gabber chaos |
 | lost-angel | generated breakcore (seed 8) | 198 | C♯m | Static Tears on a synth lead over minor ninths, Reese, glitches, Amen rolls |
+| hollow-canopy | generated brinstar (seed 9) | 78 | B dorian | pan pipes on Lair Below and Spore Drift, rhodes, synth strings, fretless bass, tribal toms, marimba bubbles, the jungle's night |
+| drowned-lair | generated brinstar (seed 3) | 76 | F♯m | bells on Deep Moss and Lair Below, e-piano, tremolo strings, fretless bass, tribal kit, steam and a creature far below |

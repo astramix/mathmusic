@@ -134,6 +134,9 @@ export const INSTRUMENTS = [
   I('flute', 'Флейта', WINDS, 'mono', 'lead', [60, 96], 'echo', '#e8f4ff', 73,
     ['Fl = a\\big(0.6\\sin 2\\pi\\!\\int\\! g + 0.1\\sin 4\\pi\\!\\int\\! g + 0.06\\,\\BP_{2g}\\,\\eta + 0.5e^{-25t}\\,\\HP_{3000}\\,\\eta\\big)', 'g = f\\cdot 2^{\\,0.2\\min(1,\\,t/0.6)\\sin(2\\pi\\cdot 5.2T)/12}'],
     MONO('const fl = flute()', 'fl(f, on)', 0.34)),
+  I('panpipe', 'Пан-флейта', WINDS, 'mono', 'lead', [60, 96], 'echo', '#c8f0b0', 73,
+    ['Pp = a\\big(0.7\\sin 2\\pi\\!\\int\\! g + 0.16\\sin 6\\pi\\!\\int\\! g + 0.05\\sin 10\\pi\\!\\int\\! g + 0.14\\,\\BP_{g}\\,\\eta + 0.3e^{-30t}\\,\\HP_{2500}\\,\\eta\\big)', 'g = f\\cdot 2^{\\,(-0.35e^{-t/0.04} + 0.14\\,s(t)\\sin(2\\pi\\cdot 4.8T))/12}\\quad\\text{— закрытая трубка: нечётные гармоники}'],
+    MONO('const fl = panpipe()', 'fl(f, on)', 0.34)),
   I('whistle', 'Вистл / синобуэ', WINDS, 'mono', 'lead', [62, 98], 'echo', '#a8f0c8', 78,
     ['Sb = a\\big(0.55\\sin 2\\pi\\!\\int\\! g + 0.15\\sin 4\\pi\\!\\int\\! g + 0.05\\BP_{2g}\\eta + \\text{чифф}\\big)\\quad\\text{— высокая яркая флейта}'],
     MONO('const fl = shinobue()', 'fl(f, on)', 0.9)),
@@ -224,6 +227,9 @@ export const INSTRUMENTS = [
   I('slapbass', 'Бас-гитара (слэп)', BASS, 'poly', 'bass', [28, 67], 'dry', '#5aa7ff', 36,
     ['y[n] = e[n] + g\\big(a\\,y[n - D] + (1 - a)\\,y[n - D - 1]\\big),\\quad D = \\tfrac{44100}{f} - \\varphi(a)\\ \\text{— струна с точным строем; слэп большим пальцем, глушение в конце ноты}'],
     `sec => { const e = electricBass({ seed: 5 }); let end = -1; return { hit: (n, v, d, b) => { e.hit(F(n), 0.55 + 0.4 * v, { slap: true }); end = b + d * 0.92 }, out: x => { if (end > 0 && x >= end) { e.mute(0.03); end = -1 } return 0.8 * e() } } }`),
+  I('fretless', 'Бас-гитара (безладовая)', BASS, 'poly', 'bass', [28, 67], 'dry', '#5aa7ff', 35,
+    ['y = \\LP_{2400}\\,B(f),\\quad B:\\ \\text{мягкая струна с точным строем, без слэпа; глушение в конце ноты}'],
+    `sec => { const e = electricBass({ bright: 0.22, sustain: 1.6, seed: 31 }), lp = filter('lp'); let end = -1; return { hit: (n, v, d, b) => { e.hit(F(n), 0.55 + 0.4 * v); end = b + d * 0.9 }, out: x => { if (end > 0 && x >= end) { e.mute(0.06); end = -1 } return 0.85 * lp(e(), 2400) } } }`),
   I('metalbass', 'Бас-гитара (медиатор, перегруз)', BASS, 'poly', 'bass', [28, 60], 'dry', '#5aa7ff', 34,
     ['B = 0.9\\LP_{220}s + 0.35\\LP_{1800}\\tanh(1.5s),\\quad s:\\ \\text{струна с точным строем, медиатор; глушение в конце ноты}'],
     `sec => { const e = electricBass({ bright: 0.6, seed: 7 }), lp = filter('lp'), low = filter('lp'); let end = -1; return { hit: (n, v, d, b) => { e.hit(F(n), 0.6 + 0.35 * v); end = b + d * 0.92 }, out: x => { if (end > 0 && x >= end) { e.mute(0.02); end = -1 } const y = e(); return 0.9 * low(y, 220) + 0.35 * lp(tanh(1.5 * y), 1800) } } }`),
@@ -303,7 +309,7 @@ function recipeMake(m) {
 const DRUM_RU = { kick: 'бочка', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
   toms: 'томы', rim: 'римшот', shaker: 'шейкер', tamb: 'бубен', china: 'китайская', taiko: 'тайко', boom: 'бум', far: 'далёкий барабан', heart: 'сердце',
   clank: 'сталь', chain: 'цепь', low: 'большой барабан', frame: 'рамочный', tick: 'тик', swell: 'свелл', spoons: 'ложки', hands: 'ладоши',
-  bd: 'бочка', sd: 'малый', hh: 'хэт', top: 'тарелка', perc: 'перкуссия' }
+  tomL: 'том низкий', tomM: 'том средний', tomH: 'том высокий', bongo: 'бонго', bd: 'бочка', sd: 'малый', hh: 'хэт', top: 'тарелка', perc: 'перкуссия' }
 // all of them (registered at the end of the module)
 export const GEN_INSTRUMENTS = []
 const recipeNames = m => (m.lead ? partInstrument('lead', m.lead) : partInstrument('kit', m.kit, m.variant ?? null)).names
@@ -382,7 +388,7 @@ const INSTRUMENT_NAMES = ['poly', 'pan', 'pianoTone', 'epianoTone', 'vibesTone',
   'shakerDrum', 'shamisen', 'koto', 'biwa', 'shakuhachi', 'shinobue', 'taikoDrum', 'woodClack', 'kaneDrum', 'templeBellTone', 'oud', 'qanun', 'ney',
   'darbukaDrum', 'riqDrum', 'sitar', 'tablaDrum', 'saronTone', 'bonangTone', 'kenongTone', 'gongTone', 'timpaniTone', 'harpTone', 'celestaTone', 'organ',
   'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal', 'metalGuitar', 'leadGuitar',
-  'cowbellTone', 'steelpanTone', 'accordion', 'opn']
+  'cowbellTone', 'steelpanTone', 'accordion', 'opn', 'panpipe']
 const LANES = { lead: [1, 3], keys: [-1, 0.9], pad: [-1.7, -0.5], bass: [-3, -2], drums: [2.2, 4.5] }
 
 const r4 = v => +(+v).toFixed(4)
@@ -653,7 +659,7 @@ export function readTrackNotes(midi, length, { rate = 96, drums = false } = {}) 
 // which instrument plays a part of another song, by the part's name (the generator names a track by its instrument)
 const BY_NAME = [
   [/kick|snare|drum|kit|perc|hat|clap|kendhang/i, 'drums'], [/taiko/i, 'taiko'], [/tabla/i, 'tabla'], [/darbuka|riq/i, 'darbuka'],
-  [/growl/i, 'growl'], [/slap|zunbass|snesbass/i, 'slapbass'], [/reese|acid|hardbass|fmbass/i, 'synthbass'], [/metalbass/i, 'metalbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
+  [/growl/i, 'growl'], [/fretless/i, 'fretless'], [/panpipe/i, 'panpipe'], [/slap|zunbass|snesbass/i, 'slapbass'], [/reese|acid|hardbass|fmbass/i, 'synthbass'], [/metalbass/i, 'metalbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
   [/cello|cellolead/i, 'cello'], [/bassoon/i, 'bassoon'], [/timp/i, 'timpani'], [/drone|pedal/i, 'organ'],
   [/rhodes|epiano/i, 'epiano'], [/harpsichord|continuo|alberti|prelude/i, 'harpsichord'], [/organ/i, 'organ'], [/nocturne|piano/i, 'piano'],
   [/celesta/i, 'celesta'], [/vibes/i, 'vibes'], [/marimba/i, 'marimba'], [/bell|glass|bonang|peking/i, 'bells'], [/saron|demung/i, 'saron'], [/kenong|kempul/i, 'kenong'], [/gong/i, 'gong'],
@@ -669,7 +675,7 @@ const BY_NAME = [
 // (a part named just "bass": a double bass in the acoustic styles, a synth bass in the electronic ones, the NES triangle in chiptune,
 // the style's own bass where it has one)
 const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass', ishope: 'metalbass', prime: 'seqbass', darkecho: 'cello', nordic: 'cello',
-  artifact: 'seqbass', zunpet: 'slapbass', oldzun: 'synthbass', fight: 'synthbass', babushka: 'synthbass', podskazka: 'slapbass', hardstyle: 'sub808', phonk: 'sub808', breakcore: 'synthbass' }
+  artifact: 'seqbass', brinstar: 'fretless', zunpet: 'slapbass', oldzun: 'synthbass', fight: 'synthbass', babushka: 'synthbass', podskazka: 'slapbass', hardstyle: 'sub808', phonk: 'sub808', breakcore: 'synthbass' }
 const ELECTRONIC = /^(synthwave|boss|hardstyle|dnb|phonk|space|kawaii|jbattle|gothic|minimal|meow|fight|babushka|breakcore|oldzun)$/
 // fallback: what a name nothing matches gets (null: "don't know")
 export function instrumentFor(name, style = null, fallback = 'piano') {
