@@ -27,6 +27,9 @@ Open a source file only to change it or when something here is unclear.
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
   the app's 🎲 menu.
+- A new generator style: the `/style` skill (.claude/skills/style/SKILL.md — the checklist). `node tools/style-check.mjs <style>
+  [--seeds 1-12] [--levels 1,2]` → per seed: key, mode, tempo, length, instruments, themes, the generator test's strong-beat check;
+  the levels table of the chosen seeds (rendered in parallel, like render.js, without rebuilding the app).
 - Program: `npm run exe [-- --shortcut]` → `MathMusic.exe` (viz/build-exe.js: page without my_songs, icon drawn in
   code, viz/launcher.cs compiled by Windows' own csc, C# 5). The exe serves the page + my_songs/ + generated/ itself (same API
   and checks as serve.js — test/serve.test.js runs all three servers), opens Chrome/Edge `--app` with its own profile
