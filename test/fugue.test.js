@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url'
 import { composeFugue } from '../src/fugue.js'
 import { check, speciesCanon, counterVoice, consonant, spelledDissonance } from '../src/counterpoint.js'
 import { generate, rng } from '../src/generate.js'
-import { parseKey, pc, songKey } from '../src/theory.js'
+import { parseKey, pc, songKey, QUALITIES } from '../src/theory.js'
 import { MODES } from '../src/modes.js'
 import { buildScore, guessParts } from '../src/score.js'
 import { musicXml } from '../src/musicxml.js'
@@ -81,6 +81,31 @@ test('fugues in eight keys and four church modes: no fault, the plan of a fugue'
     assert.equal(pc(last('s') - t), 0)
     assert.equal(pc(last('b') - t), 0)
     if (key.mode === 'minor') assert.equal(pc(last('a') - t), 4)
+  }
+})
+
+test('the organ style: a prelude of chord tones over the pedal, then the fugue on the organ', async () => {
+  const DIR = path.resolve('out/_test_fugue')
+  fs.mkdirSync(DIR, { recursive: true })
+  for (const [i, opts] of [{ seed: 1 }, { seed: 2, key: 'G' }, { seed: 3, length: 'short' }].entries()) {
+    const { source, meta } = generate({ style: 'organ', ...opts })
+    assert.equal(meta.fugue.faults, 0)
+    assert.equal(meta.style, 'organ')
+    const file = path.join(DIR, `o${i}.mjs`)
+    fs.writeFileSync(file, source.replace(/(['"])\.\.\/src\//g, `$1${pathToFileURL(path.resolve('src')).href}/`))
+    const song = (await import(pathToFileURL(file).href)).default
+    assert.equal(song.sections[0][1], 'prelude')
+    assert.ok(song.tracks.plenum && song.tracks.pedal, 'the prelude\'s manual and pedal')
+    // each bar of the prelude is one chord broken up: its notes make at most four pitch classes, all of one triad or seventh
+    for (let bar = 0; 4 * bar < song.sections[1][0]; bar++) {
+      const pcs = new Set()
+      for (let x = 4 * bar; x < 4 * bar + 4; x += 0.25) for (const n of song.tracks.plenum.midi(x)) pcs.add(pc(n))
+      assert.ok(pcs.size >= 3 && pcs.size <= 4, `bar ${bar}: ${[...pcs]}`)
+      const fits = [...Array(12).keys()].some(r => Object.values(QUALITIES).some(q => [...pcs].every(p => q.map(i => (r + i) % 12).includes(p))))
+      assert.ok(fits, `bar ${bar}: ${[...pcs]} is no chord`)
+    }
+    const stems = render({ ...song, length: 12 })
+    for (const [k, [L]] of Object.entries(stems)) for (let j = 0; j < L.length; j += 31) assert.ok(Number.isFinite(L[j]), `${k}: NaN`)
   }
 })
 

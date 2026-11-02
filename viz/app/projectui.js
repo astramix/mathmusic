@@ -12,7 +12,7 @@ import { MODE_GROUPS, keyFor, MODES } from './modes.js'
 import { harmonize } from './harmonize.js'
 import { parentMode } from './modes.js'
 
-const OWN = ['fugue', 'maqam', 'raga', 'gamelan', 'ambient'] // styles with a composer of their own: no arrangement under your melody
+const OWN = ['fugue', 'organ', 'maqam', 'raga', 'gamelan', 'ambient'] // styles with a composer of their own: no arrangement under your melody
 const newSeed = () => 1 + Math.floor(Math.random() * 999998)
 const styleLabel = id => `${STYLES[id]?.emoji ?? ''} ${STYLES[id]?.label ?? id}`
 

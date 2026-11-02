@@ -182,6 +182,14 @@ export const STYLES = {
     about: 'канон в октаву и трёхголосная фуга по правилам контрапункта: тема, тональный/реальный ответ, обратимое противосложение, интермедии-секвенции, средние проведения, стретта, кода с пикардийской терцией · камерный ансамбль / струнные / орган / клавесин',
     lead: ['violin', 'flute', 'organ', 'harpsichord'], chords: ['continuo'], bass: ['cello', 'pedal 16′'], kit: '—', forms: [], drums: {}, themes: {},
   },
+  // The organ: a prelude (a progression broken into sixteenths on the plenum over the pedal, a tonic pedal at the start,
+  // a dominant pedal before the half cadence) and then a canon and a three-part fugue on the stops of a church organ
+  organ: {
+    label: 'Органная прелюдия и фуга', emoji: '⛪', theme: 'gothic', bpm: [60, 76], swing: 0.5, ensemble: 'organPrelude', prelude: true,
+    keys: ['Dm', 'Gm', 'Cm', 'Am', 'Em', 'Fm', 'Bm', 'C', 'D', 'G', 'F', 'Bb', 'Eb', 'A'], moods: ['classical'],
+    about: 'прелюдия на пленуме — ломаные аккорды шестнадцатыми над педалью, органный пункт на тонике и доминанте, полукаденция — и фуга по правилам контрапункта на регистрах церковного органа',
+    lead: ['organ'], chords: ['plenum'], bass: ['pedal 16′'], kit: '—', forms: [], drums: {}, themes: {},
+  },
   // Arabic music in quarter tones (src/maqam.js): a maqam's sayr in phrases AA′BA, a tahwil to a related maqam, taqsims
   // over a drone, heterophony of a takht (oud, qanun, ney, violin, cello), the iqa' on darbuka and riq (generateMaqam)
   maqam: {
@@ -722,7 +730,7 @@ export const STYLE_FAMILIES = [
   { id: 'underground', label: 'Андеграунд', emoji: '🌃', about: 'дрифт-фонк с коровьим колокольчиком 808, брейккор с аменом на 200 BPM, кибербабушки с хардбасом и баяном', styles: ['phonk', 'breakcore', 'babushka'] },
   { id: 'radio', label: 'Радиоволна', emoji: '📻', about: 'поп-хиты: нью-диско и фанк, аниме J-pop', styles: ['disco', 'kawaii'] },
   { id: 'cinema', label: 'Большой экран', emoji: '🎬', about: 'кино и трейлеры: остинато струнных, валторны, тайко, брааамы; тяжёлый метал-саундтрек, северные горы', styles: ['epic', 'ishope', 'nordic'] },
-  { id: 'hall', label: 'Концертный зал', emoji: '🏛️', about: 'классика: романтический оркестр, барокко, фуга по правилам контрапункта', styles: ['romantic', 'classical', 'fugue'] },
+  { id: 'hall', label: 'Концертный зал', emoji: '🏛️', about: 'классика: романтический оркестр, барокко, фуга по правилам контрапункта', styles: ['romantic', 'classical', 'fugue', 'organ'] },
   { id: 'night', label: 'После полуночи', emoji: '🌙', about: 'джаз и чилл: свинг, босса-нова, лоу-фай', styles: ['jazz', 'bossa', 'lofi'] },
   { id: 'cosmos', label: 'Невесомость', emoji: '🌌', about: 'эмбиент и космос: петли несоизмеримых длин, натуральный звукоряд', styles: ['ambient', 'space'] },
   { id: 'folk', label: 'Голоса Земли', emoji: '🌍', about: 'народная музыка в своих строях и ладах: Ирландия, макам, рага, гамелан', styles: ['celtic', 'maqam', 'raga', 'gamelan'] },
@@ -906,6 +914,7 @@ const NAMES = {
   chiptune: [['pixel', 'super', 'mega', 'tiny', 'turbo', 'hyper'], ['quest', 'castle', 'hero', 'dungeon', 'star', 'island']],
   synthwave: [['neon', 'chrome', 'midnight', 'laser', 'outrun', 'retro'], ['highway', 'city', 'sunset', 'grid', 'drive', 'arcade']],
   classical: [['little', 'grand', 'royal', 'gentle', 'baroque', 'autumn'], ['canon', 'suite', 'prelude', 'fugue', 'sonata', 'air']],
+  organ: [['cathedral', 'gothic', 'great', 'solemn', 'vaulted', 'eternal', 'stellar'], ['prelude', 'toccata', 'fantasia', 'fugue', 'chorale', 'passacaglia']],
   kawaii: [['kira', 'sakura', 'sparkle', 'candy', 'magical', 'starry'], ['heart', 'dream', 'girl', 'sky', 'parade', 'wish']],
   space: [['silent', 'deep', 'cold', 'distant', 'dark', 'lunar'], ['orbit', 'nebula', 'comet', 'void', 'station', 'signal']],
   meow: [['fluffy', 'sleepy', 'tiny', 'ginger', 'purring', 'naughty'], ['kitten', 'paws', 'whiskers', 'tail', 'meow', 'nap']],
@@ -951,7 +960,7 @@ export function generate(opts = {}) {
     instruments: (opts.instruments ?? (seed * 104729 + 3)) >>> 0,
   }
   // the fugue: its own composer (src/fugue.js) and writer
-  if (styleId === 'fugue') return generateFugue(opts, S, seeds)
+  if (styleId === 'fugue' || styleId === 'organ') return generateFugue(opts, S, seeds, styleId)
   if (styleId === 'maqam') return generateMaqam(opts, S, seeds)
   if (styleId === 'gamelan') return generateGamelan(opts, S, seeds)
   if (styleId === 'ambient') return generateAmbient(opts, S, seeds)
@@ -6269,18 +6278,43 @@ const ENSEMBLES = {
     ['principal', 's', ['fugue', 'tutti'], 'principal'], ['octave', 'a', ['fugue', 'tutti'], 'octave'], ['pedal 16', 'b', ['fugue', 'tutti'], 'pedal16'],
     ['mixture', 's', ['tutti'], 'mixture'], ['posaune', 'b', ['tutti'], 'posaune'],
   ] },
+  organPrelude: { label: 'орган: прелюдия на пленуме (принципалы, микстура) и педали 16′; гедакт и флейта 4′ в каноне, принципалы двух мануалов и педаль 16′ в фуге, микстура и тромбон 16′ в tutti', theme: 'gothic', tracks: [
+    ['plenum', 'p', ['prelude'], 'plenum'], ['pedal', 'q', ['prelude'], 'pedal16'],
+    ['gedackt', 's', ['canon'], 'gedackt'], ['flute 4', 'a', ['canon'], 'flute4'], ['pedal 8', 'b', ['canon'], 'pedalSoft'],
+    ['principal', 's', ['fugue', 'tutti'], 'principal'], ['octave', 'a', ['fugue', 'tutti'], 'octave'], ['pedal 16', 'b', ['fugue', 'tutti'], 'pedal16'],
+    ['mixture', 's', ['tutti'], 'mixture'], ['posaune', 'b', ['tutti'], 'posaune'],
+  ] },
   harpsichord: { label: 'клавесин: лютневый регистр в каноне, 8′ + 8′ в фуге, 4′ и 16′ в tutti', theme: 'classical', tracks: [
     ['lute stop', 's', ['canon'], 'lute'], ['lute stop II', 'a', ['canon'], 'lute'], ['harpsichord bass', 'b', PH, 'harpsichordV'],
     ['harpsichord', 's', ['fugue', 'tutti'], 'harpsichordV'], ['harpsichord II', 'a', ['fugue', 'tutti'], 'harpsichordV'],
     ['4 foot', 's', ['tutti'], 'harpsichord4', 12], ['16 foot', 'b', ['tutti'], 'harpsichord16', -12],
   ] },
 }
-const VOICE_ARR = { s: 'SOPRANO', a: 'ALTO', b: 'BASS' }
-const VOICE_LANE = { s: [1.3, 3.2, 62, 84], a: [-0.2, 1.4, 53, 74], b: [-3, -1.6, 34, 62] } // y0, y1, n0, n1 (MIDI)
+const VOICE_ARR = { s: 'SOPRANO', a: 'ALTO', b: 'BASS', p: 'PRELUDE', q: 'PEDAL' }
+const VOICE_LANE = { s: [1.3, 3.2, 62, 84], a: [-0.2, 1.4, 53, 74], b: [-3, -1.6, 34, 62], p: [-0.6, 3.2, 52, 82], q: [-3, -1.8, 30, 50] } // y0, y1, n0, n1 (MIDI)
 function fugueTrack([name, voice, phases, inst, dn = 0], { need }) {
   const ph = JSON.stringify(phases), color = { flute: '#e8f4ff', oboe: '#ffe8a3', bassoon: '#c9a46a', violin: '#ffd9a8', violin2: '#ffc58a', viola: '#e0a878', cello: '#c08a5a', violone: '#8a5a3a',
     gedackt: '#9fd8c8', flute4: '#c8f0e0', pedalSoft: '#6a8a9a', principal: '#e8c27a', octave: '#f2d38a', pedal16: '#a07a3a', mixture: '#fff1c4', posaune: '#d07a4a',
     lute: '#d8c8a8', harpsichordV: '#f2d38a', harpsichord4: '#fff3c8', harpsichord16: '#a88a4a', continuo: '#f2d38a', organchords: '#c9a227' }[inst] ?? '#ffffff'
+  if (inst === 'plenum') {
+    // the prelude's manual: every note sounding (the cadence chord whole) on the plenum — principals 8′ 4′ 2′, a quint,
+    // a mixture
+    need('instruments', 'organ')
+    const [y0, y1, n0, n1] = VOICE_LANE.p
+    return `{
+  color: '${color}',
+  graph: x => { const s = preludeAt(x); return s.length ? s.map(e => ${y0} + (e[1] + 60 - ${n0}) * ${round((y1 - y0) / (n1 - n0))}) : null },
+  midi: x => preludeAt(x).map(e => 60 + e[1]),
+  formula: ${JSON.stringify(['Pl = \\Rev\\sum_j\\sum_{s} a_s \\sin 2\\pi s f_j t,\\ s \\in \\{1, 2, 3, 4, 6, 8\\}\\quad\\text{— пленум: принципалы 8′ 4′, квинта 2⅔′, 2′, микстура}', '\\text{фигура на полтакта: } v_0\\,v_1\\,v_2\\,v_3\\,v_1\\,v_2\\,v_3\\,v_2\\ \\text{(шестнадцатые, как в прелюдии до мажор Баха)}'])},
+  audio() {
+    const o = organ({ voices: 4, stops: [[1, 1], [2, 0.6], [3, 0.2], [4, 0.35], [6, 0.12], [8, 0.1]], gain: 0.22 }), verb = reverb({ room: 0.96, damp: 0.3, wet: 0.52 })
+    return x => {
+      const [l, r] = o(preludeAt(x).map(e => hz(e[1], C4)))
+      return verb(l, r)
+    }
+  },
+}`
+  }
   if (inst === 'continuo' || inst === 'organchords') {
     const on = `x => ${ph}.some(p => x >= PHASES[p][0] && x < PHASES[p][1]) && chordAt(x)`
     if (inst === 'continuo') {
@@ -6337,7 +6371,7 @@ ${body}
     }
   },
 }})()`
-  const P = { s: 0.28, a: -0.22, b: 0.05 }[voice]
+  const P = { s: 0.28, a: -0.22, b: 0.05, p: 0, q: 0 }[voice]
   const bowedI = (body, gain, verbWet = 0.38) => {
     need('instruments', 'bowed')
     return wrap(['V = g(t)\\Big(0.3\\,\\LP\\,s + \\sum_{i=1}^{4}\\tfrac{G_i}{Q_i}\\BP_{' + body + 'R_i}\\,s\\Big),\\quad s = \\saw\\!\\big(f\\cdot 2^{\\,0.18\\min(1,t/0.4)\\sin(2\\pi\\cdot5.6T)/12}\\big) + 0.04\\eta', 'R = (300, 520, 1100, 2700)\\ \\text{Гц — резонансы корпуса}'],
@@ -6396,7 +6430,39 @@ ${body}
   throw new Error('fugue: no instrument ' + inst)
 }
 
-function generateFugue(opts, S, seeds) {
+// ---- the prelude before an organ fugue: a progression a bar a chord, voice-led in four parts, broken into sixteenths
+// (each half bar: the four notes up, then the upper three again — the figure of Bach's C major prelude), the pedal on the
+// bass, a tonic pedal under the opening and a dominant pedal before the end, a half cadence on V7 held a whole bar
+const PRELUDE_PROGS = {
+  major: [
+    ['I', 'ii7', 'V7', 'I', 'vi', 'V7/V', 'V', 'I', 'IV', 'vii°7', 'iii', 'vi', 'ii7', 'V7', 'I', 'V7'],
+    ['I', 'IV', 'vii°7', 'I', 'V7/vi', 'vi', 'ii7', 'V7', 'I', 'V7/IV', 'IV', 'ii7', 'I', 'IV', 'I', 'V7'],
+  ],
+  minor: [
+    ['i', 'iv', 'V7', 'i', 'VI', 'iiø7', 'V7', 'i', 'iv', 'VII7', 'III', 'VI', 'iiø7', '#vii°7', 'i', 'V7'],
+    ['i', 'iiø7', 'V7', 'i', 'V7/iv', 'iv', '#vii°7', 'i', 'VI', 'iv', 'iiø7', 'V7', 'i', 'iv', 'i', 'V7'],
+  ],
+}
+const FIGURE = [0, 1, 2, 3, 1, 2, 3, 2] // the voicing's notes, low to high, a sixteenth each, per half bar
+function composePrelude(key, r) {
+  const prog = pick(r, PRELUDE_PROGS[key.mode === 'minor' ? 'minor' : 'major']), n = prog.length
+  const chords = prog.map(s => roman(s, key)), notes = [], pedal = [], harmony = []
+  let prev = null
+  chords.forEach((c, bar) => {
+    const v = voiceLead(c.tones, prev, { lo: 55, hi: 77, voices: 4 })
+    prev = v
+    // the pedal: the tonic under the first two bars, the dominant under the two before the cadence, else the root
+    const pedalPc = bar < 2 ? key.tonic : bar === n - 3 || bar === n - 4 ? (key.tonic + 7) % 12 : c.root
+    const ped = 36 + ((pedalPc - 36) % 12 + 12) % 12
+    pedal.push([4 * bar, ped, 4])
+    harmony.push([4 * bar, 4, c.root, c.quality])
+    if (bar === n - 1) { for (const m of v) notes.push([4 * bar, m, 3.75]); return } // the half cadence: the chord held
+    for (let h = 0; h < 2; h++) FIGURE.forEach((i, j) => notes.push([4 * bar + 2 * h + j / 4, v[i], 0.25]))
+  })
+  notes.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  return { notes, pedal, harmony, length: 4 * n, prog }
+}
+function generateFugue(opts, S, seeds, styleId = 'fugue') {
   const RA = rng(seeds.arrangement), RM = rng(seeds.melody), RI = rng(seeds.instruments)
   const parsed = parseKey(opts.key) ?? parseKey(pick(RA, S.keys))
   const key = { tonic: Math.round(parsed.tonic) % 12, mode: parsed.mode }
@@ -6411,10 +6477,22 @@ function generateFugue(opts, S, seeds) {
   const bpm = opts.bpm ?? Math.round(S.bpm[0] + RA() * (S.bpm[1] - S.bpm[0]))
   const length = opts.length ?? 'normal'
   const canonBars = { short: 0, normal: 10, long: 14 }[length] ?? 10
-  const ensembleId = pick(RI, Object.keys(ENSEMBLES)), ens = ENSEMBLES[ensembleId]
+  // (the organ style: always the organ, with a prelude before the fugue — its own dice)
+  const ensembleId = S.ensemble ?? pick(RI, Object.keys(ENSEMBLES).filter(k => k !== 'organPrelude')), ens = ENSEMBLES[ensembleId]
   const fkey = modal ? { tonic: key.tonic, mode: 'modal', iv: modal.iv } : key
   const F = composeFugue({ key: fkey, r: RM, canon: canonBars > 0, canonBars })
-  const names = NAMES.fugue
+  const PRE = S.prelude ? composePrelude(key, rng((seeds.melody ^ 0x9e1de) >>> 0)) : null
+  if (PRE) {
+    // everything of the fugue moves on by the prelude's length
+    const P = PRE.length, sh = l => l.map(([b, ...r]) => [b + P, ...r])
+    F.voices = { s: sh(F.voices.s), a: sh(F.voices.a), b: sh(F.voices.b) }
+    F.sections = [[0, 'prelude'], ...sh(F.sections)]
+    F.keys = [[0, F.keys[0]?.[1] ?? fkey], ...sh(F.keys)]
+    F.harmony = [...PRE.harmony, ...sh(F.harmony)]
+    F.entries = F.entries.map(e => ({ ...e, at: e.at + P }))
+    F.length += P
+  }
+  const names = NAMES[styleId] ?? NAMES.fugue
   const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
   const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
   const skey = keyWithMode(key, modal ? opts.mode : null)
@@ -6435,7 +6513,7 @@ function generateFugue(opts, S, seeds) {
   const subjText = F.subject.notes.map(([, n]) => sp(n)).join(' ')
   const entryText = F.entries.map(e => `${e.at}: ${{ s: 'сопрано', a: 'альт', b: 'бас' }[e.voice]} — ${e.kind} (${kname(e.key)})`).join('\n//   ')
   const meta = {
-    style: 'fugue', seed: (opts.seed ?? 1) >>> 0, seeds, length, key: keyName(key), mode: modal ? opts.mode : null, modeName: modal?.name ?? null, bpm, title,
+    style: styleId, seed: (opts.seed ?? 1) >>> 0, seeds, length, key: keyName(key), mode: modal ? opts.mode : null, modeName: modal?.name ?? null, bpm, title,
     form: F.sections.map(s => s[1]), fixedKey: opts.key ?? null, micro: null, temperament: temperament?.id ?? null, meter: null, modulations: null,
     themes: { A: { from: 'контрапункт', title: `тема фуги ${subjText}`, how: F.subject.tonal ? 'тональный ответ' : 'реальный ответ' }, B: { from: 'контрапункт', title: 'противосложение (обратимое в октаву)', how: 'composed' }, bridge: { rhythmFrom: null } },
     instruments: { ensemble: ensembleId }, fugue: { entries: F.entries.length, stretto: F.subject.stretto, faults: F.faults.length, attempt: F.attempt },
@@ -6471,7 +6549,7 @@ const END = ${END}
 const FUGUE = ${FUGUE} // the fugue begins (before it: the canon)
 const TUTTI = ${TUTTI} // the stretto or the last entry, and the coda: everyone
 const C4 = 440 * 2 ** (-9 / 12) // 261.63 Hz, exact equal temperament
-const PHASES = { canon: [0, FUGUE], fugue: [FUGUE, TUTTI], tutti: [TUTTI, END] }
+const PHASES = { ${PRE ? `prelude: [0, ${PRE.length}], canon: [${PRE.length}, FUGUE]` : 'canon: [0, FUGUE]'}, fugue: [FUGUE, TUTTI], tutti: [TUTTI, END] }
 // the note of a voice at x in the given phases (moved by dn semitones: a 4′ or a 16′ doubling) → { n, d, τ, u, at } or null
 const playing = (list, x, phases, dn = 0) => {
   if (!phases.some(p => x >= PHASES[p][0] && x < PHASES[p][1])) return null
@@ -6482,7 +6560,15 @@ ${temperament ? temperData({ temperament, key, sectionInfo: [] }) + '\n' : ''}
 // ---- the voices: [beat, n from C4, length] ---------------------------------------------------------------------------
 const SOPRANO = ${notes(F.voices.s)}
 const ALTO = ${notes(F.voices.a)}
-const BASS = ${notes(F.voices.b)}
+const BASS = ${notes(F.voices.b)}${PRE ? `
+
+// ---- the prelude (${PRE.prog.join(' – ')}): the manual's sixteenths, the pedal — [beat, n from C4, length]
+const PRELUDE = ${notes(PRE.notes)}
+const PEDAL = ${notes(PRE.pedal)}
+// the prelude's notes sounding at x, by quarter beats (the held cadence chord sounds whole)
+const PRE_AT = []
+for (const e of PRELUDE) for (let q = floor(e[0] * 4); q < Math.ceil((e[0] + e[2]) * 4); q++) (PRE_AT[q] ??= []).push(e)
+const preludeAt = x => (PRE_AT[floor(4 * x)] ?? []).filter(e => e[0] <= x && x < e[0] + e[2] * 0.94)` : ''}
 
 // ---- the continuo: the chords the voices make (planned in the episodes and the coda) — [start, length, bass MIDI,
 // voicing MIDI (voice-led), chord]
@@ -6508,9 +6594,9 @@ const chordAt = x => BY_HALF[floor(2 * x)] ?? null
   mode: '${opts.mode}', // ${modal.name}: ${modal.iv.join(' ')}` : ''}${temperament ? `
   tuning: { id: '${temperament.id}', name: ${JSON.stringify(temperament.name)}, offsets: TEMPER }, // cents of C … B from 12-TET` : ''}
   length: END,
-  theme: '${ens.theme}',
-  style: 'fugue',
-  generator: ${JSON.stringify({ style: 'fugue', seed: meta.seed, seeds, length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}) })},${localKeys.length > 1 ? `
+  theme: '${S.theme ?? ens.theme}',
+  style: '${styleId}',
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds, length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}) })},${localKeys.length > 1 ? `
   keys: ${JSON.stringify(localKeys)}, // the key of each entry and episode — for the note names
   signature: 'home', // the score keeps the home key signature (accidentals for the entries elsewhere, as Bach wrote them)` : ''}
   parts: ${JSON.stringify(parts)}, // the staves of the score
@@ -7206,7 +7292,7 @@ export const PART_IDS = () => ({
 export function generatedRecipes(gen) {
   const S = gen?.styleDef ?? STYLES[gen?.style]
   // (the fugue, maqam, raga, gamelan and ambient styles write their own ensembles)
-  if (!S?.lead || !S.chords || ['fugue', 'maqam', 'raga', 'gamelan', 'ambient'].includes(gen.style)) return null
+  if (!S?.lead || !S.chords || ['fugue', 'organ', 'maqam', 'raga', 'gamelan', 'ambient'].includes(gen.style)) return null
   const seed = (gen.seed ?? 1) >>> 0, RI = rng((gen.seeds?.instruments ?? seed * 104729 + 3) >>> 0)
   const inst = { lead: pick(RI, S.lead), lead2: pick(RI, S.lead2), chords: pick(RI, S.chords), bass: pick(RI, S.bass), pad: pick(RI, S.pad), arp: pick(RI, S.arp), texture: pick(RI, S.texture) }
   if (inst.lead2 === inst.lead) inst.lead2 = S.lead2.find(x => x !== inst.lead) ?? inst.lead2

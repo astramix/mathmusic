@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (38 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (39 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -394,10 +394,10 @@ others' dice untouched — each draws its own rng) a seed gives byte for byte th
 **Families** (`STYLE_FAMILIES`, the menus' order, most finished first; `STYLE_LIST` follows it, `styleGroups(keep)` for menus/optgroups,
 `familyOf(id)`): ⚔️ Арена (boss jbattle fight) · 🎮 Игровой (factory factorycave factorydanger darkecho prime artifact brinstar) · 🕹️ Ретро-игры
 (zunpet oldzun podskazka chiptune) · ⚡ Неоновый танцпол (edm hardstyle synthwave) · 🌃 Андеграунд (phonk breakcore babushka) · 📻 Радиоволна
-(disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue) · 🌙 После полуночи (jazz bossa lofi) ·
+(disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue organ) · 🌙 После полуночи (jazz bossa lofi) ·
 🌌 Невесомость (ambient space) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🎈 Разное (meow).
 A new style goes into a family (test/generate.test.js checks every style is in exactly one).
-Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue maqam raga gamelan jazz celtic ambient
+Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue organ maqam raga gamelan jazz celtic ambient
 edm disco epic factory factorycave factorydanger darkecho ishope prime nordic artifact zunpet oldzun fight babushka podskazka hardstyle phonk
 breakcore brinstar — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
@@ -444,6 +444,13 @@ mixture + posaune 16′; harpsichord — lute stop, 8′ + 8′, 4′ and 16′)
 The song: SOPRANO/ALTO/BASS, HARMONY (the continuo's chords), PHASES canon/fugue/tutti, `keys` + `signature: 'home'`, `parts`.
 `length: short` drops the canon (6 tracks). A church mode → a modal fugue; other modes, `micro` and `meter` are ignored;
 `temperament` works (Werckmeister III, meantone… suit it). Its seeds are new, so the other styles' songs are untouched.
+**organ** (⛪ Органная прелюдия и фуга, 60–76 BPM, theme 'gothic'): generateFugue with `S.ensemble: 'organPrelude'` and `S.prelude` —
+`composePrelude(key, r)` (its own dice): a progression of 16 bars from PRELUDE_PROGS (two per mode; secondary dominants, ♯vii°7 in
+minor, the last bar V7 held: a half cadence into the fugue), voice-led in four parts, each half bar broken into the figure v0 v1 v2 v3
+v1 v2 v3 v2 in sixteenths on the plenum (principals 8′ 4′, quint, 2′, mixture: PRELUDE / `preludeAt`, the 'plenum' track), the pedal
+16′ on the bass — the tonic under the first two bars, the dominant under the two before the cadence (PEDAL); then the fugue's
+whole plan moves on by the prelude's length (PHASES.prelude). The 🎲 menu's «⛪ Радио — бесконечный орган» keeps making them
+(radio.style = a style id). test/fugue.test.js: no fault, the prelude first, every bar one chord broken up.
 **maqam** (🪘 Макам, 88–112 BPM, theme 'desert'): `generateMaqam` — composeMaqam on the melody seed; a takht in heterophony:
 the oud (TAQSIM_1, risha strokes on long notes), the qanun (tremolo every ⅛ beat, the lower octave), the ney (legato, the
 quickest notes left out), the violin, the cello (the melody an octave down on the beats; DRONE under the taqsims), darbuka +
@@ -689,6 +696,7 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | kagekiri | jbattle: rawstyle × samurai | 150 | Dm | 2 min, shamisen screech (sawari + crush + wah), kick melody (tsuba), biwa tale, euphoric koto/supersaw theme, rolling rbass |
 | oni-matsuri | jbattle: festival fight | 136 | D (yo)→Bm→E | 2 min, yo scale + sus chords, Euclidean taiko E(5,16)/E(7,16)/E(11,16) and E(5,12) (3:4), kane, hyoshigi, kotsuzumi + shouts, timpani bass |
 | shogun-requiem | jbattle: epic, half time ↔ full | 168 | Cm→Dm→D | 2 min, in-scale + ♭II, male chant choir, biwa, 7/4 koto stretto K₂ = K₁(x − 3/2) − 12, chorale, boom kick, Picardy end |
+| eternal-fugue | generated organ (seed 1) | 65 | Cm | prelude i – iv – V7 – i – VI – iiø7 – V7 … – V7 on the plenum over the pedal, canon on gedackt and flute 4′, fugue on the principals, mixture and posaune in the stretto |
 | fughetta-serena | generated fugue (seed 1) | 66 | Cm | canon at the octave (flute/oboe/bassoon), 3-voice fugue: tonal answer, invertible CS, sequences, stretto, Picardy coda |
 | bahr-al-layl | generated maqam (seed 2, bayati) | 101 | D bayati | quarter tones (E𝄳), taqsims of oud and ney, tahwil to Hijaz, takht heterophony, maqsum |
 | nadi-swar | generated raga (seed 1) | 88 | D (Sa) bhairav | alap → jor → gat → antara → taans → jhala, shrutis 256/243 & 128/81, andolan, tihais |

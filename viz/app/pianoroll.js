@@ -100,7 +100,7 @@ export function createPianoRoll(root) {
   const kbBtn = h('button', { title: 'играть: MIDI-клавиатура или компьютерная (A W S E D F T G Y H U J K O L P — от до; Z/X — октава; Shift — +шаг сетки высоты, например E𝄳). Питч-бенд ±2 полутона даёт ¼ и ⅛ тона' }, '🎹 играть')
   const recBtn = h('button', { title: 'запись: пока песня играет — ноты ложатся на её доли (по сетке); на паузе — пошагово от курсора (аккорд — клавиши вместе)' }, '⏺ запись')
   const styleSel = h('select', { title: 'стиль песни для «✨ песня»' })
-  for (const f of styleGroups(st => !['fugue', 'maqam', 'raga', 'gamelan', 'ambient'].includes(st.id))) styleSel.append(h('optgroup', { label: `${f.emoji} ${f.label}` }, ...f.list.map(st => new Option(`${st.emoji} ${st.label}`, st.id))))
+  for (const f of styleGroups(st => !['fugue', 'organ', 'maqam', 'raga', 'gamelan', 'ambient'].includes(st.id))) styleSel.append(h('optgroup', { label: `${f.emoji} ${f.label}` }, ...f.list.map(st => new Option(`${st.emoji} ${st.label}`, st.id))))
   const songBtn = h('button', { title: 'сочинить целую песню на эту мелодию: тональность и гармония — по ней (гармонизатор), мелодия — тема A' }, '✨ песня')
   root.append(h('div', { class: 'pr-head' }, h('span', { class: 'title' }, '🎹 пианоролл'), sel, baseSel, gridSel, resSel, play,
     h('button', { title: 'новая мелодия в коде', onclick: () => newMelody() }, '＋ новая'), kbBtn, recBtn, styleSel, songBtn, info, h('span', { class: 'sp' }),

@@ -116,15 +116,16 @@ export const createIn = t => create({ style: genOf()?.style ?? last.style, key: 
 
 async function radioNext() {
   const g = genOf()
-  const style = radio.style === 'all' || !g ? STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id : g.style
+  // radio.style: 'same' (the playing song's style), 'all', or a style's id (the organ radio)
+  const style = STYLES[radio.style] ? radio.style : radio.style === 'all' || !g ? STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id : g.style
   const meta = await create(radio.style !== 'all' && g?.styleDef ? { styleDef: g.styleDef } : { style }, { save: false, quiet: true })
   if (meta) toast(`📻 ${describe(meta)}`, { ms: 6000 })
 }
 function toggleRadio(style) {
   radio.on = style ? true : !radio.on
   if (style) radio.style = style
-  toast(radio.on ? `📻 радио: после песни — новая ${radio.style === 'all' ? 'в случайном стиле' : 'в том же стиле'}` : '📻 радио выключено', { ms: 3000 })
-  if (radio.on && !genOf()) radioNext()
+  toast(radio.on ? `📻 радио: после песни — новая ${radio.style === 'all' ? 'в случайном стиле' : STYLES[radio.style] ? `«${STYLES[radio.style].label}»` : 'в том же стиле'}` : '📻 радио выключено', { ms: 3000 })
+  if (radio.on && (!genOf() || (STYLES[radio.style] && genOf()?.style !== radio.style))) radioNext()
 }
 
 export function menuItems() {
@@ -150,6 +151,7 @@ export function menuItems() {
     '-',
     { label: '📻 Радио — бесконечно, тот же стиль', checked: radio.on && radio.style === 'same', action: () => (radio.on && radio.style === 'same' ? toggleRadio() : toggleRadio('same')) },
     { label: '📻 Радио — все стили вперемешку', checked: radio.on && radio.style === 'all', action: () => (radio.on && radio.style === 'all' ? toggleRadio() : toggleRadio('all')) },
+    { label: '⛪ Радио — бесконечный орган: прелюдии и фуги', checked: radio.on && radio.style === 'organ', action: () => (radio.on && radio.style === 'organ' ? toggleRadio() : toggleRadio('organ')) },
     '-',
     { icon: '⚙', label: 'Параметры генерации…', action: dialog },
     { html: 'Мелодии берутся из песен проекта вместе с их гармонией, переносятся в новую тональность и лад, варьируются или сочиняются заново по правилам голосоведения.' },
