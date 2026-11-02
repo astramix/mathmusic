@@ -942,7 +942,8 @@ const NAMES = {
 }
 
 export function generate(opts = {}) {
-  const styleId = STYLES[opts.style] ? opts.style : 'lofi', S = STYLES[styleId]
+  // opts.styleDef: a style made from a recording (src/audiostyle.js) — a STYLES entry of its own, carried in the song
+  const styleId = opts.styleDef?.id ?? (STYLES[opts.style] ? opts.style : 'lofi'), S = opts.styleDef ?? STYLES[styleId]
   const seed = (opts.seed ?? 1) >>> 0
   const seeds = {
     arrangement: (opts.arrangement ?? seed) >>> 0,
@@ -988,7 +989,7 @@ export function generate(opts = {}) {
 
   // themes from the library: the style's own list (weights), only those that can live in this mode;
   // A and B preferably from different songs. A melody marked `only` belongs to its style alone
-  const LIB = MELODIES.filter(m => !m.only || [].concat(m.only).includes(styleId))
+  const LIB = [...(S.ownThemes ?? []), ...MELODIES.filter(m => !m.only || [].concat(m.only).includes(styleId))]
   const allowed = LIB.filter(m => !opts.sources || opts.sources.includes(m.from))
   const fits = m => parseKey(m.key).mode === key.mode || m.modal
   const weightOf = m => S.themes?.[m.id] ?? 0.15 * (1 + m.moods.filter(x => S.moods.includes(x)).length)
@@ -1179,7 +1180,7 @@ export function generate(opts = {}) {
     variants = toMeter(meter, P)
     END = P.END
   }
-  const names = NAMES[styleId] ?? NAMES.lofi
+  const names = S.names ?? NAMES[styleId] ?? NAMES.lofi
   // the name follows the arrangement; a mutated melody or sound gets a variant number
   const variant = opts.melody != null || opts.instruments != null ? `-${((seeds.melody * 31 + seeds.instruments) >>> 0) % 900 + 100}` : ''
   const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
@@ -1193,11 +1194,13 @@ export function generate(opts = {}) {
     instruments: inst,
   }
   MT = meter
+  UT = S.timbres ?? null
   let source
   try {
     source = emit({ S, styleId, key, mode, modeIn, micro, temperament, bpm, sections, sectionInfo, END, harmony, plans, A, B, BR, RUN, inst, solo, meta, r: RI, BL, LINKS, meter, variants })
   } finally {
     MT = null
+    UT = null
   }
   return { source, meta }
 }
@@ -1362,8 +1365,8 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   need('instruments', 'improvise')
   // ---- tracks
   const T = (name, code) => tracks.push({ name, code })
-  const leadCode = (id, at, laneR, gainMul = 1, panv = 0.15) => LEADS[id]({ at, lane: laneR, gain: gainMul * (S.gains?.[{ leadAt: 'lead', lead2At: 'lead2' }[at] ?? 'counter'] ?? 1), pan: panv, need, sw, hard: pumped, tonic: round(pc(key.tonic)), ...extra })
-  T(inst.lead, leadCode(inst.lead, 'leadAt', lane.lead, 1, 0.12))
+  const leadCode = (id, at, laneR, gainMul = 1, panv = 0.15) => recipe(LEADS, id, 'lead')({ at, lane: laneR, gain: gainMul * (S.gains?.[{ leadAt: 'lead', lead2At: 'lead2' }[at] ?? 'counter'] ?? 1), pan: panv, need, sw, hard: pumped, tonic: round(pc(key.tonic)), ...extra })
+  T(String(inst.lead).replace('timbre:', ''), leadCode(inst.lead, 'leadAt', lane.lead, 1, 0.12))
   // bells carry a melody alone at full level, but next to another lead they cut through: softer
   const LEAD2_GAIN = { bells: 0.45 }
   // boss: the chip lead and its counter stand up to the supersaw and the kick
@@ -1372,14 +1375,14 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   // named by its instrument too ("vibes counter"), so a MIDI export knows what plays it
   const counterVoice = S.counter ?? COUNTER_VOICE[inst.lead] ?? inst.lead2
   T(counterVoice + ' counter', leadCode(counterVoice, 'counterAt', lane.counter, 0.5 * louder * (boss ? 2 : 1), -0.4))
-  T(inst.chords, CHORDS[inst.chords]({ need, comp: S.comp, lane: lane.chords, hard: pumped, ...extra, ...(S.gains?.chords ? { gain: S.gains.chords } : {}) }))
+  T(String(inst.chords).replace('timbre:', ''), recipe(CHORDS, inst.chords, 'keys')({ need, comp: S.comp, lane: lane.chords, hard: pumped, ...extra, ...(S.gains?.chords ? { gain: S.gains.chords } : {}) }))
   if (inst.pad) T(inst.pad === 'strings' ? 'strings' : inst.pad, PADS[inst.pad]({ need, lane: lane.pad, gain: boss ? 3 : hard ? 4 : S.gains?.pad ?? 1, hard: pumped && !boss }))
-  T('bass', BASSES[inst.bass]({ need, line: S.bassline, lane: lane.bass, hard: pumped, tonic: round(pc(key.tonic)), ...extra, ...(S.gains?.bass ? { gain: S.gains.bass } : {}) }))
+  T('bass', recipe(BASSES, inst.bass, 'bass')({ need, line: S.bassline, lane: lane.bass, hard: pumped, tonic: round(pc(key.tonic)), ...extra, ...(S.gains?.bass ? { gain: S.gains.bass } : {}) }))
   if (hard) T('rbass', reverseBassTrack({ need, lane: lane.bass, gain: S.gains?.rbass ?? (boss ? 1 : 0.7) }))
   if (inst.arp) T(inst.arp + ' arp', ARPS[inst.arp]({ need, step: S.arpStep, poly: S.arpPoly, lane: lane.arp, hard: pumped, ...extra, ...(S.gains?.arp ? { gain: S.gains.arp } : {}) }))
   if (hard) T('kick', hardKickTrack({ need, gain: S.gains?.kick ?? (boss ? 1 : 0.6) }))
   if (club) T('kick', clubKickTrack({ need, kick: S.club.sound, gain: S.gains?.kick }))
-  T('drums', KITS[S.kit]({ need, drums: S.drums, ...extra }))
+  T('drums', KITS[S.kit]({ need, drums: S.drums, sound: S.kitSound, ...extra }))
   if (inst.texture) T(inst.texture, TEXTURES[inst.texture]({ need, ...extra }))
 
   // unique keys
@@ -1429,7 +1432,7 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   length: END,
   theme: '${S.theme}',
   style: '${styleId}',
-  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}), ...(meta.meter ? { meter: meta.meter } : {}), ...(meta.userTheme ? { userTheme: { notes: meta.userTheme.notes, title: meta.userTheme.title } } : {}) })},${meta.meter ? `
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}), ...(meta.meter ? { meter: meta.meter } : {}), ...(meta.userTheme ? { userTheme: { notes: meta.userTheme.notes, title: meta.userTheme.title } } : {}), ...(S.ownThemes ? { styleDef: S } : {}) })},${meta.meter ? `
   meter: '${METERS[meta.meter].text}', // ${METERS[meta.meter].label}${METERS[meta.meter].compound ? ' — a beat (x) is a dotted quarter' : ''}` : ''}${meta.modulations?.length ? `
   keys: ${JSON.stringify(keysField(key, sectionInfo))}, // the key of each stretch (the score's signatures, note names)` : ''}
   sections: SECTIONS,${bossField}
@@ -5782,6 +5785,106 @@ TEXTURES.jungle = o => {
 }`
 }
 
+// ---- a style made from a recording (src/audiostyle.js): its resynthesised instruments and its measured drums ------------
+// UT: the timbres of the style being written (generate sets it, like MT); 'timbre:lead' | 'timbre:bass' | 'timbre:keys'
+let UT = null
+const timbreFormula = M => ['R(f,t) = g\\sum_k a_k(f)\\,\\min\\!\\big(1, \\tfrac{t}{\\tau_k}\\big)\\big(s_k + (1 - s_k)e^{-d_k(f)\\,t}\\big)\\sin 2\\pi r_k f\\,(1 + \\nu(t))\\,t + \\sum_b n_b\\,\\BP_{f_b}\\eta',
+  `r_k = ${M.p.slice(0, 6).map(p => p[0]).join(',\\ ')}\\ldots\\quad \\text{— измерено по ${M.notes} нот${M.notes === 1 ? 'е' : 'ам'} записи; } a_k(f)\\ \\text{по номеру и по частоте (форманты), } d_k \\text{ по кривой затухания}`,
+  ...(M.vib ? [`\\nu(t) = 2^{${M.vib.depth}\\min(1, (t - ${M.vib.delay})^+/0.35)\\sin(2\\pi\\cdot ${M.vib.rate}t)/1200} - 1\\quad\\text{— вибрато}`] : [])]
+const timbreOf = id => {
+  const M = UT?.[id.slice('timbre:'.length)]
+  if (!M) throw new Error(`no timbre ${id} in this style`)
+  return M
+}
+const TIMBRE = {
+  lead: id => o => {
+    const M = timbreOf(id), fx = M.kind === 'struck' ? FX.echoHall : FX.hall
+    o.need('instruments', 'resynthTone')
+    return `{
+  color: '#9ff0e0',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(timbreFormula(M))},
+  audio({ bpm }) {
+    const sec = 60 / bpm, p = poly(resynthTone(${JSON.stringify(M)}), { release: ${M.release ?? 0.2}, life: ${M.kind === 'struck' ? 6 : 40} }), fire = trigger()${fx.init}
+    return x => {
+      const m = ${o.at}(x)
+      if (fire(m ? m.at : null)) p.hit(hz(m.n, C4), 0.72 + 0.16 * hash(floor(4 * x), 3), m.d * sec)
+      const y = ${round((M.gain ?? 1) * o.gain)} * p()${pumpIf(o)}
+      return ${fx.out('y', o.pan)}
+    }
+  },
+}`
+  },
+  bass: id => o => {
+    const M = timbreOf(id)
+    o.need('instruments', 'resynthTone')
+    return `(() => {
+  ${bassData(o.line)}
+  return {
+  color: '#5aa7ff',
+  graph: x => (bassAt(x) ? ${o.lane[0]} + (bassAt(x).n - 28) / 24 : null),
+  midi: x => (bassAt(x) && x - bassAt(x).at < bassAt(x).d * 0.9 ? [bassAt(x).n] : []),
+  formula: ${JSON.stringify(timbreFormula(M))},
+  audio({ bpm }) {
+    const sec = 60 / bpm, p = poly(resynthTone(${JSON.stringify(M)}), { release: ${Math.min(0.12, M.release ?? 0.08)}, life: 4 }), fire = trigger()
+    return x => {
+      const m = bassAt(x)
+      if (m && fire(m.at)) p.hit(hz(m.n - 60, C4), mod(m.at, 1) === 0 ? 0.85 : 0.7, m.d * sec * 0.95)
+      return ${round(1.6 * (M.gain ?? 1) * (o.gain ?? 1))} * p()${pumpIf(o)}
+    }
+  },
+}})()`
+  },
+  keys: id => o => {
+    const M = timbreOf(id)
+    o.need('instruments', 'resynthTone', 'chorus')
+    return `(() => {
+  ${compHit(o.comp)}
+  return {
+  color: '#ffd59f',
+  graph: x => (compAt(x) && chordAt(x) ? chordAt(x)[3].map(n => ${o.lane[0]} + (n - 48) / 20) : null),
+  midi: x => { const h = compAt(x), c = chordAt(x); return h && c && x - h.at < h.d * 0.9 ? c[3] : [] },
+  formula: ${JSON.stringify(timbreFormula(M))},
+  audio({ bpm }) {
+    const sec = 60 / bpm, keys = poly(resynthTone(${JSON.stringify(M)}), { release: ${M.release ?? 0.3}, life: 8 }), fire = trigger(), ch = chorus({ mix: 0.3 }), verb = reverb({ room: 0.8, wet: 0.28 })
+    return x => {
+      const h = compAt(x), c = chordAt(x)
+      if (h && c && fire(h.at)) c[3].forEach((n, i) => keys.hit(hz(n - 60, C4), h.vel * (0.9 + 0.1 * hash(floor(x), i)), h.d * sec * 0.95, i * 0.01))
+      const y = ${round(0.55 * (M.gain ?? 1) * (o.gain ?? 1))} * keys()${pumpIf(o)}
+      return verb(...ch(y, y))
+    }
+  },
+}})()`
+  },
+}
+// a recipe by id, the style's resynthesised instruments included
+const recipe = (table, id, kind) => (String(id).startsWith('timbre:') ? TIMBRE[kind](id) : table[id])
+// the kit of a style from a recording: its patterns (drumData) on drums tuned to what was measured — the kick's pitch and
+// length, the snare's brightness, the hats' length and brightness
+KITS.audio = o => {
+  o.need('instruments', 'kickDrum', 'snareDrum', 'hatDrum', 'rimDrum')
+  const K = o.sound?.kick ?? { f: 50, decay: 0.3 }, Sn = o.sound?.snare ?? { bright: 2400 }, H = o.sound?.hat ?? { len: 0.05, bright: 8000 }
+  const clampv = (v, a, b) => Math.max(a, Math.min(b, v))
+  const kf = clampv(K.f, 38, 90), sc = clampv(Math.round(Sn.bright * 0.55), 700, 4200), hd = clampv(Math.round(2.3 / Math.max(0.01, H.len)), 12, 160), hc = clampv(Math.round(H.bright * 0.9), 4500, 11500)
+  return `(() => {
+  ${drumData(o.drums)}
+  return {
+  color: '#ff4f8b',
+  ${drumGraph}
+  formula: ${JSON.stringify([`D = \\Rev\\big[0.56K + 0.3S + 0.08H\\big],\\quad K = e^{-k\\tau}\\tanh\\!\\Big(1.6\\sin 2\\pi\\!\\int\\!\\big(${kf} + ${Math.round(kf * 1.6)}e^{-35\\tau}\\big)\\Big)\\ \\text{— бочка на измеренной высоте}`, `S:\\ \\HP_{${sc}}\\eta + \\text{мембрана},\\quad H = e^{-${hd}t}\\,\\HP_{${hc}}\\eta\\quad\\text{— как в записи}`])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, kick = kickDrum({ f0: ${kf}, f1: ${Math.round(kf * 2.6)}, sweep: 35, decay: Math.max(3, Math.min(14, (2.3 * sec) / ${clampv(K.decay, 0.06, 0.8)})), drive: 1.6 })
+    const snare = snareDrum({ tone: 190, cutoff: ${sc}, decay: 15 }), hat = hatDrum({ decay: ${hd}, cutoff: ${hc} }), open = hatDrum({ decay: 9, cutoff: ${hc} }), rim = rimDrum()
+    const verb = reverb({ room: 0.6, damp: 0.45, wet: 0.16 })
+    const play = (x, d, f, scale) => { const h = lastHit(x, d); return h ? h.vel * f(h.τ * scale, true) : f(1, false) }
+    return x => {
+      const y = 0.56 * play(x, 'kick', kick, 1) + 0.3 * play(x, 'snare', snare, sec) + 0.08 * play(x, 'hat', hat, sec) + 0.06 * play(x, 'open', open, sec) + 0.18 * play(x, 'rim', rim, sec)
+      return verb(...pan(y, 0))
+    }
+  },
+}})()`
+}
+
 // ---- modes ----------------------------------------------------------------------------------------------------
 // A pitch of the major/minor song → the mode on the same tonic. Seven-note modes map degree to degree; a chromatic
 // note (the leading tone of minor, a ♭II) goes to whichever neighbouring degree of the mode lies nearer (ties: the
@@ -7101,7 +7204,7 @@ export const PART_IDS = () => ({
 // level and side it had there — or null (a part made from the chords, not from a voice)
 // the recipes a generated song (its `generator` field) was made with — drawn as generate() draws them, from the instrument seed
 export function generatedRecipes(gen) {
-  const S = STYLES[gen?.style]
+  const S = gen?.styleDef ?? STYLES[gen?.style]
   // (the fugue, maqam, raga, gamelan and ambient styles write their own ensembles)
   if (!S?.lead || !S.chords || ['fugue', 'maqam', 'raga', 'gamelan', 'ambient'].includes(gen.style)) return null
   const seed = (gen.seed ?? 1) >>> 0, RI = rng((gen.seeds?.instruments ?? seed * 104729 + 3) >>> 0)
@@ -7110,7 +7213,7 @@ export function generatedRecipes(gen) {
   return inst
 }
 export function generatedPart(gen, key) {
-  const S = STYLES[gen?.style], inst = generatedRecipes(gen)
+  const S = gen?.styleDef ?? STYLES[gen?.style], inst = generatedRecipes(gen)
   if (!inst) return null
   const boss = gen.style === 'boss', louder = boss ? 1.6 : 1, counter = S.counter ?? COUNTER_VOICE[inst.lead] ?? inst.lead2
   const clean = t => t.replace(/[^\w ]/g, '').trim()

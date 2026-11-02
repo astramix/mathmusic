@@ -14,6 +14,7 @@ import { modeOf } from './modes.js'
 import { themeFor } from './themes.js'
 import * as acorn from './acorn.js'
 import { shelfOf } from './library.js'
+import { audioStyleDialog, audioStyles, forgetStyle } from './audiostyleui.js'
 
 const newSeed = () => 1 + Math.floor(Math.random() * 999998)
 const KEEP = 20 // songs kept in generated/: the 21st new one takes the place of the oldest
@@ -44,7 +45,7 @@ async function create(opts,{ save = true, quiet = false, from = 0 } = {}) {
   // new songs modulate (the dialog can say no); a song made again keeps what it had (older ones: none)
   if (!('modulations' in opts)) opts = { ...opts, modulations: last.modulations ?? true }
   for (const k of ['key', 'mode', 'temperament', 'micro', 'modulations', 'meter']) if (opts[k] == null) delete opts[k]
-  const t = quiet ? null : toast(`${STYLES[opts.style]?.emoji ?? '🎲'} сочиняю…`, { progress: true })
+  const t = quiet ? null : toast(`${opts.styleDef?.emoji ?? STYLES[opts.style]?.emoji ?? '🎲'} сочиняю…`, { progress: true })
   await new Promise(r => setTimeout(r, 30))
   let res
   try {
@@ -71,14 +72,14 @@ export async function mutate(which) {
   const seeds = { ...g.seeds, [which]: newSeed() }
   const label = { melody: '🔁 новые мелодии', arrangement: '🎚 новая аранжировка', instruments: '🎻 новые инструменты' }[which]
   toast(label + '…', { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...seeds })
+  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...(g.styleDef ? { styleDef: g.styleDef } : {}), ...seeds })
 }
 // the current generated song again — the same seeds, in another tonic and mode
 export function regenerate(t, { from = 0 } = {}) {
   const g = genOf()
   if (!g) return toast('пересочинить можно только сгенерированную песню — 🎲 «Новая песня в этом ладу»')
   toast(`↻ ${g.style} · seed ${g.seed} → ${t.tonic} …`, { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}) }, { from })
+  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...(g.styleDef ? { styleDef: g.styleDef } : {}) }, { from })
 }
 // the music playing now, in another tonic and mode, going on from the same beat (paused stays paused): a generated
 // song is made again from its seeds; any other — a built-in one too — becomes a retuned copy (src/retune.js: every
@@ -116,7 +117,7 @@ export const createIn = t => create({ style: genOf()?.style ?? last.style, key: 
 async function radioNext() {
   const g = genOf()
   const style = radio.style === 'all' || !g ? STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id : g.style
-  const meta = await create({ style }, { save: false, quiet: true })
+  const meta = await create(radio.style !== 'all' && g?.styleDef ? { styleDef: g.styleDef } : { style }, { save: false, quiet: true })
   if (meta) toast(`📻 ${describe(meta)}`, { ms: 6000 })
 }
 function toggleRadio(style) {
@@ -133,8 +134,16 @@ export function menuItems() {
     // a submenu per family, the most finished first
     ...styleGroups().map(f => ({ icon: f.emoji, label: f.label, note: f.about, items: () => f.list.map(s => ({ icon: s.emoji, label: s.label, checked: s.id === last.style, action: () => { last.style = s.id; remember(); create({ style: s.id }) } })) })),
     { icon: '🎲', label: 'Случайный стиль', action: () => create({ style: STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id }) },
+    // styles made from audio files (src/audiostyle.js): kept in this browser, each song carries its own
+    { icon: '🎧', label: 'Стили из аудио', note: 'стиль по вашему аудиофайлу: темп, свинг, тональность, гармония, форма, ритм, звуки ударных, тембры', items: () => [
+      { icon: '📂', label: 'Новый стиль из аудиофайла…', action: () => audioStyleDialog(create) },
+      ...audioStyles().map(s => ({ icon: '🎧', label: s.label.replace(/^🎧 /, ''), note: `${s.source?.bpm ?? ''} BPM · ${s.source?.key ?? ''}`, items: () => [
+        { icon: '🎲', label: 'Сочинить песню', action: () => create({ styleDef: s }) },
+        { icon: '🗑', label: 'Удалить стиль', action: () => { forgetStyle(s.id); toast(`стиль «${s.label}» удалён (песни в нём остаются)`) } },
+      ] })),
+    ] },
     '-',
-    { header: g ? `Эта песня: ${STYLES[g.style]?.emoji ?? ''} ${STYLES[g.style]?.label ?? g.style} · seed ${g.seed}` : 'Мутации — для сгенерированной песни' },
+    { header: g ? `Эта песня: ${g.styleDef ? g.styleDef.label : `${STYLES[g.style]?.emoji ?? ''} ${STYLES[g.style]?.label ?? g.style}`} · seed ${g.seed}` : 'Мутации — для сгенерированной песни' },
     { icon: '🔁', label: 'Ещё такую же, но другую', kbd: 'M', disabled: !g, action: () => mutate('melody'), note: 'те же аранжировка, тональность и инструменты — новые мелодии' },
     { icon: '🎚', label: 'Другая аранжировка', disabled: !g, action: () => mutate('arrangement'), note: 'тональность, темп, форма — мелодии и инструменты те же' },
     { icon: '🎻', label: 'Другие инструменты', disabled: !g, action: () => mutate('instruments') },

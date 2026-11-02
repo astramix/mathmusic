@@ -21,7 +21,9 @@ Open a source file only to change it or when something here is unclear.
   projects (test/project.test.js: every instrument plays, the block round-trips, a song becomes a project, notes back from
   midi(), arrangements under a melody), jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours),
   celtic (test/celtic.test.js: its own modes and meters, cuts and rolls, the drone), ambient (test/ambient.test.js: the loops' LCM, the
-  harmonic series' cents), harmonize (test/harmonize.test.js: key, chord tones, cadence; a song on your melody keeps it as written), retune (every song in two modes), theory, MIDI export, the song
+  harmonic series' cents), audio styles (test/audiostyle.test.js: a synthetic band's tempo, key, chords and backbeat; a bar's
+  partials, decays and a flute's vibrato measured back; resynthesis as loud as computed; a style's songs render, their
+  formulas parse, a song made again from its generator field is byte for byte the same), harmonize (test/harmonize.test.js: key, chord tones, cadence; a song on your melody keeps it as written), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
@@ -55,6 +57,11 @@ Open a source file only to change it or when something here is unclear.
   (render.js rebuilds it too; opened as a file it saves via File System Access); `npm run dev` rebuilds on
   every change. See "The app" below.
 - `npm run device` rebuilds `MathMusic.amxd` (only after moving the folder).
+- `node tools/from-audio.mjs file.wav [--name N] [--lead 49-80] [--bass a-b] [--keys a-b] [--seed 1] [--songs 1] [--render]`
+  → a style from a recording (out/<audio-id>/style.json; `--style-json` that file generates again) and songs/<title>.js.
+  WAV only here (tools/wav.mjs); the app decodes anything the browser does. --lead/--bass/--keys: seconds where that
+  instrument plays alone — its timbre is resynthesised from there (from a full mix the lead's timbre is taken only when its
+  notes are clean, purity ≥ 0.35; else a library instrument).
 
 ## Song file contract
 ```js
@@ -106,7 +113,9 @@ export default {
 Pure: `notesAt(list, t)` (list of [start, n, d], sorted) → {n, d, τ, u, at} | null ·
 `tail(x, rate, count, (j, τ) ⇒ y)` · `hash(j, seed)` ∈ [0,1) deterministic · `smoothstep` ·
 `pan(y, p)` → [l, r] · `env(u, attack, release)` · `arrangement(sections)` → x ⇒ {name, i, t} ·
-`fm(f, t, {ratio, index, decay, idecay})` bell · `pianoTone, epianoTone, vibesTone, marimbaTone,
+`fm(f, t, {ratio, index, decay, idecay})` bell · `resynthTone(M)` an instrument measured from a recording (src/timbre.js) for
+poly(): partials as rotating phasors, levels by number/frequency (M.wF), decays by frequency, vibrato and scoop at a control
+rate of 32 samples, noise in seven octave bands (a burst + a breath) · `pianoTone, epianoTone, vibesTone, marimbaTone,
 uprightTone` = (f, t s, vel) ⇒ y · `meowBend(u)` · `vol4(v)` 4-bit volume · `VOWELS{a,e,i,o,u}`, `blend` ·
 `improvise({start, length, rate, seed, scale: x⇒pcs, chord: x⇒pcs, lo, hi, phrase, rest, hold,
 breathe, swing})` → events for a solo (lo/hi taken in whole notes: a microtonal theme's 8.5 used to give NaN).
@@ -307,6 +316,34 @@ alteration from the nearest degree; ♭3 of C major → ♭3 of D dorian = F; an
 PROJECT.song key/mode, `PROJECT.tuning` = the temperament's offsets (F() adds them to whole notes); code tracks, if any, through
 retuneSource, whose __retuneSong skips tracks with `project: true` and whose prelude stays in front of the project block. A user theme longer than its
 section makes the theme/final sections grow (generate.js), so it plays whole.
+
+## analyze.js, timbre.js, audiostyle.js (a style from a recording — the app's 🎧, tools/from-audio.mjs, tests; not imported by songs)
+`analyzeAudio(mono, sr, { progress })` (at 22.05 kHz) → { bpm, beats, downbeat, swing, key { tonic, mode, modal, ranked },
+bars [{ t, beats, end, chords [{ root, q, roman }] (two per bar), drums { kick, snare, hat: 16 steps }, tonal (pitched onsets),
+bass (8 eighths: pc, hit), db, drumLevel }], sections [{ from, bars, energy, role }], melody, clean (notes alone: purity),
+drumSound { kick { f, decay }, snare { bright }, hat { len, bright } }, brightness }. Tempo: Ellis's DP beat tracker; the
+candidates (autocorrelation peaks × ½ ⅔ ¾ 1 4⁄3 3⁄2 2, 60–200) judged by how the onsets fall on their sixteenth grid in 8-beat
+windows (G) and on the beats (B); the double tempo only by a margin of 0.1 in G (30 of 31 of our renders right). Key:
+Krumhansl–Kessler on the chroma + the bass, whose pitch is found by harmonic summation (a low note's fifth and octave
+fool a plain chroma), then the harmony decides among the likeliest 8 (the tonic chord's time, phrase starts, cadences
+V → I / ♭VII → i, the last chord) — 24 of 32; a mode only on clear evidence of its degree. Chords: 7 qualities × 12 by
+templates per half bar, Viterbi with a wish to stay; `romanOf(ch, key)`. Downbeat: where the chords change (+ kicks).
+`measureNote(x, sr, { t, d, n })`, `extractTimbre(x, sr, notes)` → model { kind struck | sustained, f0, B, wF, p: [[ratio,
+level, attack, decay /s, sustain]] (peaks of the note's early spectrum — inharmonic too —, 6 dB above what rang before the
+onset, weak ones only on harmonics), fa / fd (spectral envelope / decay over Hz from every note), attack, release, vib
+{ rate, depth ¢, delay }, scoop ¢, noise { atk[7], sus[7] (octave bands NOISE_BANDS 212 … 13576 Hz, against the partials'
+peak power), dec } }; wF: how the spectrum follows pitch — by partial number or by frequency (formants), whichever predicts
+the measured notes better; `loudnessOf(M)` the RMS of a played note, computed (the app cannot load engine.js).
+`styleFromAudio(mono, sr, { name, regions: { lead | bass | keys: [s, s] }, progress })` = analyzeAudio + `buildStyle(A, mono,
+sr, { name, regions, key, palette })` → { style, analysis, timbres, report }: a STYLES entry with id `audio-<slug>`, the
+harmony's two commonest 4-bar loops as `ownThemes` (the recording's melodic rhythm, new notes by `compose` on its chords),
+the form (roles from loudness and drums), drums = the nearest groove of our plain styles (GROOVE_LIB; the kick's click
+taken out of the snare's band first — a dense mix's raw transcription is not a drummer's), comp from the pitched onsets,
+the bassline from the bass track, `kit: 'audio'` with `kitSound`, the accompaniment of the nearest plain style
+(PALETTES by brightness, swing, drums, tempo; `palette` overrides), `timbres` { lead, bass, keys } → instruments
+'timbre:lead' / 'timbre:bass' / 'timbre:keys' (generate.js TIMBRE recipes: poly(resynthTone(M)) at M.gain), `names`.
+`generate({ styleDef })` plays it (S = styleDef: LIB gets its ownThemes, UT its timbres while emitting, NAMES its names);
+the song's `generator.styleDef` carries the whole style, so mutations, «эта же музыка в …», the radio work on it.
 
 ## loudness.js
 `lufs(L, R, sr)` integrated loudness (ITU-R BS.1770-4: K-weighting, 400 ms blocks, −70 / −10 LU gates), `loudnessRange`,
@@ -557,7 +594,10 @@ projectui.js: every song's tracks — the project's (edited here: absolute MIDI,
 code's (read only, ❄ = into notes, 🗑 = `removed`, ↶) — M/S, instrument, volume, pan, room, ⋯ menu; ＋ a track (empty, a melody in a
 style, a part under another track's melody), 🎼 arrangement (the generator on the melody as userTheme, `alignedParts`, the bass on
 the style's bass instrument; 'all' adds/overwrites tracks, or one track gets the part of its role), 🔁 rewrite (its gen with a new
-seed); «Песня → Новый проект…» (name, tempo, tonic, any of the 100 modes, bars, first instrument, a melody in a style)) · genui.js (dialog: Строй, Микротоны ¼/⅛) · export.js (MP3
+seed); «Песня → Новый проект…» (name, tempo, tonic, any of the 100 modes, bars, first instrument, a melody in a style)) · genui.js (dialog: Строй, Микротоны ¼/⅛; 🎲 → «Стили из аудио»: each kept style → сочинить / удалить) · audiostyleui.js
+(«🎧 Стиль из аудиофайла»: a file dropped or picked, decoded by the browser, analyzeAudio on the main thread (a few seconds),
+what was heard shown; key, palette and solo regions (lead / bass / keys, seconds) correct it — buildStyle again at once;
+💾 keeps it in localStorage `mm.audioStyles` (30 at most), 🎲 makes a song) · export.js (MP3
 320 / WAV 24 / OGG Opus / MIDI type 1 via src/midi.js: every tick read, GM program by track name, drums
 ch. 10 / MIDI MPE: microtones and tunings as per-note pitch bends — lower zone, members ch. 2–9, ±48 st, MCM + RPN 0 /
 the tuning as .scl .kbm .ascl in a ZIP / stems ZIP) · scoreview.js («Ноты», S: the score as SVG in Bravura — viz/vendor/bravura, SIL OFL, embedded by build.js as a font-face;

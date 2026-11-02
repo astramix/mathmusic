@@ -1480,3 +1480,98 @@ export function improvise({ start, length, rate = 2, seed = 1, scale, chord, lo,
   for (let k = 0; k + 1 < events.length; k++) events[k][2] = Math.min(events[k][2], events[k + 1][0] - events[k][0])
   return events
 }
+
+// ---- resynthesis: an instrument measured from a recording (src/timbre.js) ---------------------------------------------
+// M = { kind: 'struck' | 'sustained', f0, B, p: [[ratio, level, attack s, decay /s, sustain]…], fa: [[Hz, dB]…] (the
+// spectral envelope over every measured note), fd: [[Hz, decay /s]…], attack, release, vib: { rate, depth ¢, delay s },
+// scoop ¢, noise: { atk, sus, fc, dec } }. For poly(): resynthTone(M) is a tone whose .voice(f, vel) plays one note —
+// each partial a rotating phasor (two multiplies a sample), its level at this pitch half from the reference note's ratio
+// and half from the spectral envelope at its frequency (a body's resonances stay where they are), its decay from the
+// decay curve at its frequency; a harder note brighter; vibrato and scoop at a control rate of 32 samples; the noise
+// band-passed at its centre, a burst on the attack and a breath while held.
+const RESYNTH_BANDS = [212, 424, 849, 1697, 3394, 6788, 13576] // src/timbre.js NOISE_BANDS
+const BAND_POWER = new Map()
+function bandPower(fc) {
+  const key = Math.round(Math.log2(fc) * 12)
+  if (!BAND_POWER.has(key)) {
+    const bp = filter('bp'), z = noise(17)
+    let e = 0
+    for (let i = 0; i < 8192; i++) { const y = bp(z(), 2 ** (key / 12), 1.4); if (i >= 2048) e += y * y }
+    BAND_POWER.set(key, Math.sqrt(e / 6144) || 1)
+  }
+  return BAND_POWER.get(key)
+}
+export function resynthTone(M) {
+  const P = M.p, ref = M.f0, fa = M.fa ?? [], fd = M.fd ?? [], wF = M.wF ?? 0.5
+  const lerpLog = (pts, F) => {
+    if (!pts.length) return null
+    if (F <= pts[0][0]) return pts[0][1]
+    for (let i = 1; i < pts.length; i++) if (F <= pts[i][0]) { const u = Math.log(F / pts[i - 1][0]) / Math.log(pts[i][0] / pts[i - 1][0]); return pts[i - 1][1] * (1 - u) + pts[i][1] * u }
+    return pts[pts.length - 1][1]
+  }
+  const cache = new Map()
+  const atPitch = f => {
+    const key = Math.round(f * 100)
+    if (cache.has(key)) return cache.get(key)
+    const out = []
+    for (let k = 0; k < P.length; k++) {
+      const [r, a, at, dec, sus] = P[k], F = f * r
+      if (F > 0.45 * SR) break
+      const envDb = lerpLog(fa, F), refDb = lerpLog(fa, ref * r)
+      // by partial number (the instrument's own recipe) and by frequency (its resonances), as M.wF weighs them
+      const level = a * (envDb == null ? 1 : 10 ** ((wF * (envDb - refDb)) / 20))
+      const dRef = lerpLog(fd, ref * r), dHere = lerpLog(fd, F)
+      const d = dec * (dRef && dHere ? dHere / dRef : (f / ref) ** 0.5)
+      out.push({ r, level, at: Math.max(0.0005, at), d, sus })
+    }
+    cache.set(key, out)
+    return out
+  }
+  const N = M.noise ?? { atk: [], sus: [], dec: 0.02 }, V = M.vib, scoop = M.scoop ?? 0
+  const bands = RESYNTH_BANDS.map((fc, b) => ({ fc, atk: N.atk?.[b] ?? 0, sus: N.sus?.[b] ?? 0 })).filter(b => (b.atk > 0.002 || b.sus > 0.002) && b.fc < 0.45 * SR)
+  const tone = () => 0
+  tone.voice = (f, vel = 0.8) => {
+    const ps = atPitch(f), n = ps.length, c = new Float64Array(n), s = new Float64Array(n), cr = new Float64Array(n), sr = new Float64Array(n)
+    const env = new Float64Array(n), dk = new Float64Array(n), amp = new Float64Array(n)
+    const bright = Math.max(0.2, vel / 0.8)
+    let norm = 0
+    for (let k = 0; k < n; k++) {
+      const ph = TAU * frac(Math.sin((k + 1) * 12.9898 + f * 0.0137) * 43758.5453) // fixed scattered phases: no peaky sum
+      c[k] = cos(ph); s[k] = sin(ph)
+      amp[k] = ps[k].level * bright ** (0.45 * Math.log2(k + 1)); dk[k] = exp(-ps[k].d / SR); env[k] = 1
+      norm += ps[k].level
+    }
+    const g = vel / Math.max(1, Math.sqrt(norm)), bps = bands.map(() => filter('bp')), η2 = noise(Math.round(f * 7) % 9973)
+    // the noise in the partials' units: its measured power ratio against their peak power, through a band-pass whose own
+    // output power (white in) was measured once
+    let pk = 0
+    for (let k = 0; k < n; k++) pk += (amp[k] * amp[k]) / 2
+    const nzGain = bands.map(b => Math.sqrt(pk) / bandPower(b.fc))
+    let t = 0, ctl = 0
+    return () => {
+      if (ctl-- <= 0) {
+        ctl = 31
+        let cents = scoop ? scoop * exp(-t / 0.05) : 0
+        if (V) cents += V.depth * Math.min(1, Math.max(0, t - V.delay) / 0.35) * sin(TAU * V.rate * t)
+        const pm = 2 ** (cents / 1200)
+        for (let k = 0; k < n; k++) { const w = (TAU * f * ps[k].r * pm) / SR; cr[k] = cos(w); sr[k] = sin(w) }
+      }
+      if ((floor(t * SR) & 1023) === 0) for (let k = 0; k < n; k++) { const m = 1 / Math.hypot(c[k], s[k]); c[k] *= m; s[k] *= m }
+      let y = 0
+      for (let k = 0; k < n; k++) {
+        const q = ps[k], cc = c[k] * cr[k] - s[k] * sr[k]
+        s[k] = s[k] * cr[k] + c[k] * sr[k]; c[k] = cc
+        env[k] *= dk[k]
+        y += amp[k] * Math.min(1, t / q.at) * (q.sus + (1 - q.sus) * env[k]) * s[k]
+      }
+      let nz = 0
+      if (bands.length) {
+        const w = η2(), burst = exp(-t / Math.max(0.002, N.dec)), on = Math.min(1, t / 0.002)
+        for (let b = 0; b < bands.length; b++) nz += nzGain[b] * bps[b](w, bands[b].fc, 1.4) * on * (bands[b].atk * burst + bands[b].sus)
+      }
+      t += 1 / SR
+      return g * (y + nz)
+    }
+  }
+  return tone
+}
