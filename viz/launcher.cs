@@ -26,7 +26,7 @@ using Microsoft.Win32;
 [assembly: AssemblyProduct("MathMusic")]
 [assembly: AssemblyCompany("Astramix")]
 [assembly: AssemblyCopyright("Автор: Astramix")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
 
 static class App {
     const int PORT = 5178;
