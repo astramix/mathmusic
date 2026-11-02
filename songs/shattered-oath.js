@@ -391,7 +391,7 @@ export default {
   bpm: 89,
   key: 'Cm',
   length: END,
-  theme: 'gothic',
+  theme: 'arena',
   style: 'epic',
   generator: {"style":"epic","seed":1,"seeds":{"arrangement":1,"melody":7936,"instruments":104732},"length":"normal"},
   sections: SECTIONS,

@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (39 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (44 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -405,11 +405,11 @@ others' dice untouched — each draws its own rng) a seed gives byte for byte th
 `familyOf(id)`): ⚔️ Арена (boss jbattle fight) · 🎮 Игровой (factory factorycave factorydanger darkecho prime artifact brinstar) · 🕹️ Ретро-игры
 (zunpet oldzun podskazka chiptune) · ⚡ Неоновый танцпол (edm hardstyle synthwave) · 🌃 Андеграунд (phonk breakcore babushka) · 📻 Радиоволна
 (disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue organ) · 🌙 После полуночи (jazz bossa lofi) ·
-🌌 Невесомость (ambient space) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🎈 Разное (meow).
+🌌 Невесомость (ambient space nightstorm) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🌐 Интернет-легенды (montagem velora xperror keygen) · 🎈 Разное (meow).
 A new style goes into a family (test/generate.test.js checks every style is in exactly one).
 Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue organ maqam raga gamelan jazz celtic ambient
 edm disco epic factory factorycave factorydanger darkecho ishope prime nordic artifact zunpet oldzun fight babushka podskazka hardstyle phonk
-breakcore brinstar — each: tempo/keys, forms
+breakcore brinstar montagem velora xperror keygen nightstorm — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -547,6 +547,30 @@ ARPS.marimba (bubbles at ½ beat), KITS.tribal (a soft kick, tomL / tomM / tomH 
 on the mid tom), TEXTURES.jungle (rising bubbles, insects = a noise band chopped at 31 Hz, a vent every 16 beats, a creature groaning every 32, a rumble, a
 long wet echo); modes minor / dorian / phrygian; themes Deep Moss (Em: i VI iv V7), Spore Drift (Dm: i ♭II VII i), Lair Below (Am: i VII VI V7) (`only`).
 Project instruments: panpipe, fretless.
+**montagem** (❓ Montagem Mysterious Game, 126–132, `stage`, variant cave, theme 'mystery'): LEADS.mysterybox (a music box + a 3.5 : 1 FM
+glass bell an octave up, struck twice ±7 ¢ left and right, a ping-pong echo of 3/16), BASSES.mont808 (sine + its sub through tanh, harder in
+the drops, sliding 60 ms, on the tamborzão's 3 + 3 + 2), KITS.tamborzao (a punchy kick, the "tum" — a low drum bending down —, a clap in a room,
+hats and shaker swapping sides, rimshots; 3 + 3 + 2 everywhere), TEXTURES.funkvox ("ah / oh / ê" formant chops on the off-beats, pitched to
+the root, left and right, the last of a phrase falling like a tape stop), dark pumpsaw, choirpad; themes The Riddle, Shadow Game.
+**velora** (💜 VELORA, 132–140, `stage`, variant velora, theme 'favela'): Brazilian phonk in the spirit of Rushex and the montagem producers —
+LEADS.cowbellwide (the 808 cowbell driven ×3.2, doubled ±9 ¢ and 11 ms apart: Haas), supersaw stabs, mont808, the tamborzão with sixteenth
+hats and doubled claps, funkvox; themes Night Rush, Velvet Drift.
+**xperror** (🪟 Error XP, 122–128, `club` pump 0.6, theme 'xp'): the sounds of an old desktop as a club track — LEADS.xpding (a glassy chime,
+partials 1, 2, 3.01, 4.2, and its octave 28 ms later), ARPS.errbeep (square blips falling a fourth in 60 ms, 8 bits, ping-pong),
+TEXTURES.desktop (mouse clicks, a hard disk seeking, a notification chime on the chord's own root, third and fifth opening the sections, an
+"error" two-tone fifth → root every 8 bars), pumpsaw, strings, clubbass, KITS.edm; themes Green Hill Desktop, Startup Sky (modal, major).
+**keygen** (🔑 KeyGen Church, 138–150, `stage`, theme 'keygen'): keygen music in a cathedral — LEADS.keygen (a pulse whose width sweeps
+0.12–0.5, a vibrato after 150 ms, 8 bits, an octave voice, the tracker's ping-pong), pulsearp, CHORDS.pipeorgan, choirpad, chiptri,
+KITS.tracker (an 8-bit kick, an LFSR snare with a tone, metallic LFSR hats, a church bell — FM 1 : 2.76 — on the chord's root at every
+section, a long stone reverb), TEXTURES.cathedral (a choir's "ah" on root and fifth, wind in the vaults); themes Pixel Cathedral, Silicon Requiem.
+**nightstorm** (⛈️ Ночная буря, 158–166, `stage`, theme 'storm'): the style of the user's own nightstorm.mp3, listened to (decoded with
+Python's miniaudio, tools/from-audio.mjs, spectrograms): 162 BPM, B♭ with the ♭VII (I – ♭VII – ii – vi), no beat, the intro a soft voice alone,
+then a wall of strings trembling in sixteenths (its 10.8 Hz pulse), low strings, rising runs, rain in the highs. LEADS.nightlead (the intro's
+voice resynthesised from the recording: NIGHT_LEAD, partials 1, 2, 3, 4, 6, attack 0.37 s, vibrato 4 Hz ±6 ¢), CHORDS.stormstrings (strings +
+a low-passed supersaw layer, tremolo in sixteenths when the storm is up, long bows in the calm, wide), lowstrings, harp runs, choir/cello,
+TEXTURES.storm (rain(), thunder at the storm's sections, wind in the calm), KITS.storm (no beat: a timpani on the bass note and a deep drum
+opening the storm's sections, every 8 beats in the loudest, a timpani roll into a build); themes Before the Storm (the recording's own intro
+melody C5 – G4 – D5 – F4 over ii – vi – iii – I) and Night Storm (I – ♭VII – IV – I).
 **zunpet** (🎺 ZUNpet, 148–176, Touhou's Windows era): LEADS.zunpet (two bright brass voices ±4 ¢ — the SC-88 trumpet —,
 a scoop into each note, a late vibrato), lead2 piano / violin / flute (the stage theme), counter violin, CHORDS.zunpiano (octave bass and
 off-beat chords in 3 + 3 + 2, rolling sixteenths over two octaves in the spell cards), BASSES.zunbass (picked electric bass in octaves,
@@ -637,7 +661,13 @@ IndexedDB (`where: 'pending'`) and moves in on connect; unique names, file names
 song moves to its new file; "write to songs/" asks before replacing; tabs synced via a localStorage ping) ·
 themes.js · scenery.js (Вид → «Тематический фон», `app.view.scenery`, on by default, also in videos: a landscape per theme —
 space, rainy city, 8-bit hills, sunset sea, sakura, baroque hall, rose window + pointed arcade, outrun sun + grid, neon tunnel,
-drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club, desert night (crescent, medina, dunes, fanous lanterns,
+drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club, a factory at dusk (smokestacks, gears turning a tooth a beat, crates
+stepping on a conveyor, sparks on the kick: factory styles), Brinstar's jungle (glowing roots and bulbs, spores, bubbles), a cathedral's
+nave with the organ lit pipe by pipe (organ), an arena (floodlight beams, tiers of a crowd with phones: fight, epic), northern lights over
+snow peaks and pines (nordic), an old desktop (a green hill, error dialogs cascading a beat at a time, a cursor: xperror), a demoscene
+cathedral (copper bars, a starfield, a pixel rose window, a sine scroller: keygen), a haunted arcade (a neon maze, question blocks flipping on
+the beats, scanlines, a glitch on the kick: montagem), a favela at night (houses up the hill, lasers on the kick, a moon: velora), a night storm (clouds in layers, lightning on the sections
+and the timpani, a lighthouse whose beam turns once a bar, the sea's swell, slant rain, buoys: nightstorm), desert night (crescent, medina, dunes, fanous lanterns,
 horseshoe arches in 3D), temple night (shikharas, the river with lotuses, diyas on the beats, toranas in 3D), Java (a smoking volcano,
 stupas, rice terraces), green hills (a ruined tower, mist, standing stones with glowing spirals, trilithons in 3D); classic: `scenery2d` behind the curves (silhouettes
 on world-fixed grids, the nearest layer on bar lines via X(b)); space: `sceneryBack` at the horizon + `sceneryRoad` props
@@ -742,6 +772,16 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | ghost-district | generated phonk (seed 3) | 124 | C♯m | 808 cowbell on Midnight Drift, steel pan, sliding 808, trap rolls, Memphis voices |
 | tokyo-chase | generated phonk (seed 4) | 126 | Cm | Memphis Ghost on the cowbell (i / ♭II), steel pan, dark saws |
 | glass-rain | generated breakcore (seed 4) | 185 | Dm | chopped Amen at 185, piano and celesta on Glass Rain, half-speed breakdown, gabber chaos |
+| shadow-maze | generated montagem (seed 3) | 126 | Bm | the mystery box on The Riddle over the tamborzão, sliding 808, "ah / oh" chops |
+| midnight-puzzle | generated montagem (seed 2) | 130 | Gm | Shadow Game (i / ♭II) on the mystery box, music box answering, dark saws |
+| rapid-pulse | generated velora (seed 3) | 132 | C♯m | the wide cowbell on Night Rush, supersaw stabs, rolling hats, doubled claps |
+| purple-pulse | generated velora (seed 1) | 135 | Gm | Velvet Drift on the cowbell, steel pan, the 808 clipping in the drops |
+| green-dialog | generated xperror (seed 3) | 122 | A | the desktop's chime on Green Hill Desktop, error beeps, clicks, side-chained pads |
+| system-shutdown | generated xperror (seed 2) | 126 | D | Startup Sky on the chime, notification chimes opening the sections |
+| holy-mass | generated keygen (seed 3) | 138 | F♯m | the PWM keygen lead on Pixel Cathedral, pipe organ, choir, tracker kit with the bell |
+| ascii-keygen | generated keygen (seed 2) | 145 | Gm | Silicon Requiem in the cathedral, chip arpeggio, 8-bit kit |
+| stormy-cloud | generated nightstorm (seed 3) | 158 | F | the intro's own melody on the resynthesised night voice, strings trembling in sixteenths, choir, timpani, rain and thunder |
+| midnight-cloud | generated nightstorm (seed 1) | 161 | B♭ mixolydian | Night Storm on the night voice, cello, harp runs, the calm in the middle |
 | lost-angel | generated breakcore (seed 8) | 198 | C♯m | Static Tears on a synth lead over minor ninths, Reese, glitches, Amen rolls |
 | hollow-canopy | generated brinstar (seed 9) | 78 | B dorian | pan pipes on Lair Below and Spore Drift, rhodes, synth strings, fretless bass, tribal toms, marimba bubbles, the jungle's night |
 | drowned-lair | generated brinstar (seed 3) | 76 | F♯m | bells on Deep Moss and Lair Below, e-piano, tremolo strings, fretless bass, tribal kit, steam and a creature far below |

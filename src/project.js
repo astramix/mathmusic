@@ -309,7 +309,7 @@ function recipeMake(m) {
 const DRUM_RU = { kick: 'бочка', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
   toms: 'томы', rim: 'римшот', shaker: 'шейкер', tamb: 'бубен', china: 'китайская', taiko: 'тайко', boom: 'бум', far: 'далёкий барабан', heart: 'сердце',
   clank: 'сталь', chain: 'цепь', low: 'большой барабан', frame: 'рамочный', tick: 'тик', swell: 'свелл', spoons: 'ложки', hands: 'ладоши',
-  tomL: 'том низкий', tomM: 'том средний', tomH: 'том высокий', bongo: 'бонго', bd: 'бочка', sd: 'малый', hh: 'хэт', top: 'тарелка', perc: 'перкуссия' }
+  tum: 'тум (тамборзао)', roll: 'дробь литавр', bell: 'колокол', tomL: 'том низкий', tomM: 'том средний', tomH: 'том высокий', bongo: 'бонго', bd: 'бочка', sd: 'малый', hh: 'хэт', top: 'тарелка', perc: 'перкуссия' }
 // all of them (registered at the end of the module)
 export const GEN_INSTRUMENTS = []
 const recipeNames = m => (m.lead ? partInstrument('lead', m.lead) : partInstrument('kit', m.kit, m.variant ?? null)).names

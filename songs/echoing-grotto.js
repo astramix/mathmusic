@@ -443,7 +443,7 @@ export default {
   key: 'Dm',
   mode: 'phrygian', // Фригийский: 0 1 3 5 7 8 10
   length: END,
-  theme: 'void',
+  theme: 'factory',
   style: 'factorycave',
   generator: {"style":"factorycave","seed":1,"seeds":{"arrangement":1,"melody":7936,"instruments":104732},"length":"normal","mode":"phrygian"},
   sections: SECTIONS,

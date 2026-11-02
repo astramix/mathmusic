@@ -483,7 +483,7 @@ export default {
   bpm: 128,
   key: 'C♯m',
   length: END,
-  theme: 'gothic',
+  theme: 'arena',
   style: 'fight',
   generator: {"style":"fight","seed":3,"seeds":{"arrangement":3,"melody":23774,"instruments":314190},"length":"normal"},
   sections: SECTIONS,

@@ -513,7 +513,7 @@ export default {
   key: 'Dm',
   mode: 'phrygian', // Фригийский: 0 1 3 5 7 8 10
   length: END,
-  theme: 'phonk',
+  theme: 'factory',
   style: 'factorydanger',
   generator: {"style":"factorydanger","seed":1,"seeds":{"arrangement":1,"melody":7936,"instruments":104732},"length":"normal","mode":"phrygian"},
   sections: SECTIONS,

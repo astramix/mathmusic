@@ -185,7 +185,7 @@ export const STYLES = {
   // The organ: a prelude (a progression broken into sixteenths on the plenum over the pedal, a tonic pedal at the start,
   // a dominant pedal before the half cadence) and then a canon and a three-part fugue on the stops of a church organ
   organ: {
-    label: 'Органная прелюдия и фуга', emoji: '⛪', theme: 'gothic', bpm: [60, 76], swing: 0.5, ensemble: 'organPrelude', prelude: true,
+    label: 'Органная прелюдия и фуга', emoji: '⛪', theme: 'cathedral', bpm: [60, 76], swing: 0.5, ensemble: 'organPrelude', prelude: true,
     keys: ['Dm', 'Gm', 'Cm', 'Am', 'Em', 'Fm', 'Bm', 'C', 'D', 'G', 'F', 'Bb', 'Eb', 'A'], moods: ['classical'],
     about: 'прелюдия на пленуме — ломаные аккорды шестнадцатыми над педалью, органный пункт на тонике и доминанте, полукаденция — и фуга по правилам контрапункта на регистрах церковного органа',
     lead: ['organ'], chords: ['plenum'], bass: ['pedal 16′'], kit: '—', forms: [], drums: {}, themes: {},
@@ -416,7 +416,7 @@ export const STYLES = {
   // theme, violins answering, taiko and big toms, the boom on every downbeat of the action, braams, a reversed cymbal
   // swelling into each drop, a high piano in 4 against 3
   epic: {
-    label: 'Эпический трейлер', emoji: '🎬', theme: 'gothic', bpm: [84, 100], swing: 0.5, stage: true,
+    label: 'Эпический трейлер', emoji: '🎬', theme: 'arena', bpm: [84, 100], swing: 0.5, stage: true,
     gains: { lead2: 1.3, pad: 1.3, arp: 1.9 }, // levels against the other tracks (the mix is balanced by render.js's table)
     themes: { 'epic-banners': 5, 'epic-laststand': 5, 'void-orbit': 1.5, 'void-nebula': 1 },
     keys: ['Dm', 'Cm', 'Em', 'Gm', 'Am', 'Bm', 'Fm', 'C#m'], moods: ['epic', 'dark'],
@@ -434,7 +434,7 @@ export const STYLES = {
   // the town (major, steady, four on the floor), the caves (minor, half time, dripping water, long echoes) and danger
   // (a wave attacking the core: driving sixteenths, toms, a supersaw, a siren far away)
   factory: {
-    label: 'Конвейер: город', emoji: '🏭', theme: 'chip', bpm: [118, 126], swing: 0.5, variant: 'city',
+    label: 'Конвейер: город', emoji: '🏭', theme: 'factory', bpm: [118, 126], swing: 0.5, variant: 'city',
     gains: { pad: 1.5, counter: 1.5 }, // levels against the other tracks (the mix is balanced by render.js's table)
     themes: { 'factory-dawn': 5, 'chip-level': 1.5, 'chip-level-b': 1, 'synthwave-lead': 1, 'kawaii-hook': 0.5 },
     keys: ['D', 'C', 'G', 'F', 'A', 'E', 'Bb'], modes: [null, null, 'mixolydian'], moods: ['game', 'bright', 'epic'],
@@ -448,7 +448,7 @@ export const STYLES = {
     drums: {}, comp: {}, bassline: 'octaves', arpStep: 0.25, arpPoly: false,
   },
   factorycave: {
-    label: 'Конвейер: пещеры', emoji: '⛏️', theme: 'void', bpm: [108, 116], swing: 0.5, variant: 'cave',
+    label: 'Конвейер: пещеры', emoji: '⛏️', theme: 'factory', bpm: [108, 116], swing: 0.5, variant: 'cave',
     gains: { pad: 1.5, counter: 1.5 }, // levels against the other tracks (the mix is balanced by render.js's table)
     themes: { 'factory-deepore': 5, 'chip-cave': 2.5, 'void-nebula': 2, 'void-orbit': 1 },
     keys: ['Em', 'Dm', 'F#m', 'Am', 'Bm', 'Cm', 'C#m'], modes: [null, 'dorian', null, 'phrygian'], moods: ['dark', 'space', 'game'],
@@ -462,7 +462,7 @@ export const STYLES = {
     drums: {}, comp: {}, bassline: 'octaves', arpStep: 0.25, arpPoly: false,
   },
   factorydanger: {
-    label: 'Конвейер: опасность', emoji: '🚨', theme: 'phonk', bpm: [128, 136], swing: 0.5, variant: 'danger',
+    label: 'Конвейер: опасность', emoji: '🚨', theme: 'factory', bpm: [128, 136], swing: 0.5, variant: 'danger',
     gains: { lead: 0.9, lead2: 1.3, counter: 1.6, pad: 1.5, bass: 1.3, arp: 1.4 }, // levels against the other tracks (the mix is balanced by render.js's table)
     themes: { 'factory-breach': 5, 'chip-boss': 2, 'void-orbit': 1.5, 'synthwave-lead': 1 },
     keys: ['Cm', 'Dm', 'Em', 'F#m', 'Am', 'Gm', 'Bm'], modes: [null, null, 'phrygian'], moods: ['epic', 'dark', 'game'],
@@ -531,7 +531,7 @@ export const STYLES = {
   // (a soft kick, three toms, a bongo, a shaker), a fretless bass, an electric piano and synth strings, marimba bubbles
   // rising in the arpeggio, the night of the swamp (bubbles, insects, steam, a creature far below) in a long wet echo
   brinstar: {
-    label: 'Brinstar Depths', emoji: '🌿', theme: 'void', bpm: [76, 84], swing: 0.5, stage: true,
+    label: 'Brinstar Depths', emoji: '🌿', theme: 'jungle', bpm: [76, 84], swing: 0.5, stage: true,
     gains: { chords: 1.6, pad: 1.5, counter: 1.8, arp: 1.7, bass: 1.25 }, // levels against the other tracks (the mix is balanced by render.js's table)
     variety: { 'as written': 2, ornamented: 2, recomposed: 3 },
     themes: { 'brin-moss': 4, 'brin-spore': 4, 'brin-lair': 4 },
@@ -546,11 +546,92 @@ export const STYLES = {
     comp: { 0: [[0, 0.45, 3.8]], 1: [[0, 0.5, 1.8], [2, 0.45, 1.8]], 2: [[0, 0.55, 1.4], [1.5, 0.4, 0.4], [2, 0.5, 1.8]], 3: [[0, 0.6, 1.4], [1.5, 0.45, 0.4], [2, 0.55, 0.9], [3, 0.45, 0.8]] },
     bassline: [[0, 'R', 1.4], [1.5, 'R', 0.4], [2, 'R', 1.4], [3.5, '5', 0.4]], arpStep: 0.5, arpPoly: false,
   },
+  // Montagem Mysterious Game: Brazilian montagem — a hypnotic music-box riddle over the tamborzão (3 + 3 + 2), a distorted
+  // 808 sliding under it, "ah / oh / ê" chops on the off-beats, dark saws far back; minor or Phrygian, wide and deep
+  montagem: {
+    label: 'Montagem Mysterious Game', emoji: '❓', theme: 'mystery', bpm: [126, 132], swing: 0.5, stage: true, variant: 'cave',
+    gains: { lead: 1.8, lead2: 0.9, counter: 1.2, chords: 0.9, pad: 1.3, bass: 1.1 }, // levels against the other tracks (the mix is balanced by render.js's table)
+    themes: { 'mont-riddle': 5, 'mont-shadow': 5 },
+    keys: ['Am', 'Dm', 'Em', 'Gm', 'Cm', 'Fm', 'Bm'], modes: [null, null, 'phrygian'], moods: ['dark', 'game'],
+    voicing: 'close', chordRange: [52, 72], bassRange: [26, 38],
+    lead: ['mysterybox'], lead2: ['bells', 'musicbox'], counter: 'bells', chords: ['pumpsaw'], bass: ['mont808'], pad: ['choirpad', null], arp: [null], texture: ['funkvox'], kit: 'tamborzao',
+    forms: [
+      [['o jogo', 4, 'intro', 1], ['montagem', 16, 'theme', 3], ['o mistério', 8, 'themeB', 2], ['silêncio', 4, 'break', 0], ['subindo', 4, 'build', 2], ['montagem II', 16, 'final', 3], ['fim de jogo', 4, 'outro', 1]],
+      [['o jogo', 4, 'intro', 1], ['o mistério', 8, 'themeB', 2], ['montagem', 16, 'theme', 3], ['a pista', 8, 'bridge', 1], ['subindo', 4, 'build', 2], ['montagem II', 16, 'final', 3], ['fim de jogo', 4, 'outro', 1]],
+    ],
+    drums: {}, comp: {}, bassline: 'octaves', arpStep: 0.5, arpPoly: false,
+  },
+  // VELORA (in the spirit of Rushex & the montagem producers): Brazilian phonk — a wide, driven 808 cowbell riff, supersaw
+  // stabs, the tamborzão with rolling hats and doubled claps, chants, the 808 clipping in the drops
+  velora: {
+    label: 'VELORA', emoji: '💜', theme: 'favela', bpm: [132, 140], swing: 0.5, stage: true, variant: 'velora',
+    gains: { lead: 2.4, lead2: 0.6, counter: 1, chords: 1.1, pad: 1.3, bass: 1.1 }, // levels against the other tracks (the mix is balanced by render.js's table)
+    themes: { 'velora-rush': 5, 'velora-drift': 5 },
+    keys: ['F#m', 'Gm', 'Am', 'Em', 'Cm', 'Bm', 'C#m'], modes: [null, 'phrygian', null], moods: ['dark'],
+    voicing: 'close', chordRange: [52, 72], bassRange: [26, 38],
+    lead: ['cowbellwide'], lead2: ['mysterybox', 'steelpan'], counter: 'mysterybox', chords: ['stabs'], bass: ['mont808'], pad: [null, 'choirpad'], arp: [null], texture: ['funkvox'], kit: 'tamborzao',
+    forms: [
+      [['entrada', 4, 'intro', 1], ['velora', 16, 'theme', 3], ['a noite', 8, 'themeB', 2], ['freio', 4, 'break', 0], ['velora II', 16, 'final', 3], ['neblina', 8, 'bridge', 1], ['saída', 4, 'outro', 1]],
+      [['entrada', 4, 'intro', 1], ['a noite', 8, 'themeB', 2], ['velora', 16, 'theme', 3], ['neblina', 8, 'bridge', 1], ['subindo', 4, 'build', 2], ['velora II', 16, 'final', 3], ['saída', 4, 'outro', 1]],
+    ],
+    drums: {},
+    comp: { 0: [[0, 0.45, 0.4]], 1: [[0, 0.5, 0.4], [2.5, 0.45, 0.4]], 2: [[0, 0.55, 0.3], [0.75, 0.45, 0.3], [2.5, 0.5, 0.3]], 3: [[0, 0.6, 0.3], [0.75, 0.5, 0.25], [1.5, 0.55, 0.3], [2.5, 0.5, 0.25], [3.25, 0.5, 0.25]] },
+    bassline: 'octaves', arpStep: 0.5, arpPoly: false,
+  },
+  // Error XP: the sounds of an old desktop made into a club track — a glassy "ding" lead and its octave, error beeps
+  // falling a fourth in the arpeggio, mouse clicks, a hard disk, a notification chime opening the sections, lush pads,
+  // four on the floor with a side-chain; bright major keys of the 2000s
+  xperror: {
+    label: 'Error XP', emoji: '🪟', theme: 'xp', bpm: [122, 128], swing: 0.5,
+    gains: { lead: 2.3, lead2: 0.9, counter: 1.3, pad: 1.5, bass: 0.6, arp: 3 }, // levels against the other tracks (the mix is balanced by render.js's table)
+    themes: { 'xp-bliss': 5, 'xp-startup': 5 },
+    keys: ['C', 'F', 'G', 'D', 'Bb', 'Eb', 'A'], moods: ['bright', 'pop'],
+    voicing: 'close', chordRange: [55, 76], bassRange: [33, 45],
+    lead: ['xpding'], lead2: ['pluck', 'bells'], counter: 'pluck', chords: ['pumpsaw'], bass: ['clubbass'], pad: ['strings'], arp: ['errbeep'], texture: ['desktop'], kit: 'edm',
+    club: { pump: 0.6, kick: { 1: 'x---x---x---x---', 2: 'x---x---x---x---', 3: 'x---x---x---x---' }, sound: { punch: 5, decay: 0.28, click: 0.35 } },
+    forms: [
+      [['startup', 8, 'intro', 1], ['desktop', 8, 'themeB', 2], ['loading', 4, 'build', 2], ['error', 16, 'theme', 3], ['safe mode', 8, 'bridge', 1], ['loading II', 4, 'build', 2], ['critical error', 16, 'final', 3], ['shutdown', 8, 'outro', 1]],
+      [['startup', 8, 'intro', 1], ['loading', 4, 'build', 2], ['error', 16, 'theme', 3], ['desktop', 8, 'themeB', 2], ['safe mode', 8, 'bridge', 1], ['loading II', 4, 'build', 2], ['critical error', 16, 'final', 3, { keyUp: 2 }], ['shutdown', 8, 'outro', 1]],
+    ],
+    drums: {}, comp: {}, bassline: 'octaves', arpStep: 0.25, arpPoly: false,
+  },
+  // KeyGen Church: keygen music in a cathedral — a tracker's PWM lead with its ping-pong echo, a chip arpeggio, a pipe
+  // organ, a choir in the vaults, an 8-bit kit in a stone nave with a bell on every section; dark minor, epic
+  keygen: {
+    label: 'KeyGen Church', emoji: '🔑', theme: 'keygen', bpm: [138, 150], swing: 0.5, stage: true,
+    gains: { lead: 1.5, lead2: 0.9, counter: 4, chords: 1.2, pad: 1.4, bass: 0.5, arp: 5 }, // levels against the other tracks (the mix is balanced by render.js's table)
+    themes: { 'kg-cathedral': 5, 'kg-requiem': 5 },
+    keys: ['Dm', 'Am', 'Em', 'Gm', 'Cm', 'Bm', 'F#m'], moods: ['dark', 'epic', 'game'],
+    voicing: 'close', chordRange: [52, 74], bassRange: [28, 42],
+    lead: ['keygen'], lead2: ['pulse', 'bells'], counter: 'pulse12', chords: ['pipeorgan'], bass: ['chiptri'], pad: ['choirpad'], arp: ['pulsearp'], texture: ['cathedral'], kit: 'tracker',
+    forms: [
+      [['nfo', 4, 'intro', 0], ['the scroller', 8, 'themeB', 2], ['keygen', 16, 'theme', 3], ['the nave', 8, 'bridge', 1], ['patching', 4, 'build', 2], ['cracktro', 16, 'final', 3], ['amen', 4, 'outro', 0]],
+      [['nfo', 4, 'intro', 0], ['keygen', 8, 'theme', 2], ['the scroller', 8, 'themeB', 2], ['the nave', 8, 'bridge', 1], ['solo', 8, 'solo', 2], ['patching', 4, 'build', 2], ['cracktro', 16, 'final', 3, { keyUp: 2 }], ['amen', 4, 'outro', 0]],
+    ],
+    drums: {}, comp: {}, bassline: 'octaves', arpStep: 0.25, arpPoly: false,
+  },
+  // Nightstorm (the user's own "nightstorm", listened to: 162 BPM, B♭ with the ♭VII, no beat): the intro's soft voice alone,
+  // then strings trembling in sixteenths under it, low strings pulsing, harp runs rising, a choir, rain all the way, thunder
+  // and a timpani's boom where the storm comes in, a calm in the middle, the storm again to the end
+  nightstorm: {
+    label: 'Ночная буря', emoji: '⛈️', theme: 'storm', bpm: [158, 166], swing: 0.5, stage: true,
+    gains: { lead: 1.6, lead2: 0.7, counter: 1, chords: 2, pad: 1.3, bass: 1.4, arp: 1.1 }, // levels against the other tracks (the mix is balanced by render.js's table)
+    variety: { 'as written': 4, ornamented: 3, recomposed: 2 },
+    themes: { 'ns-calm': 5, 'ns-storm': 5 },
+    keys: ['Bb', 'Bb', 'Bb', 'C', 'Eb', 'F'], modes: [null, null, 'mixolydian'], moods: ['epic', 'dark', 'calm'],
+    voicing: 'close', chordRange: [55, 77], bassRange: [28, 43],
+    lead: ['nightlead'], lead2: ['choir', 'cellolead'], counter: 'cellolead', chords: ['stormstrings'], bass: ['lowstrings'], pad: ['choirpad', 'strings'], arp: ['harp'], texture: ['storm'], kit: 'storm',
+    forms: [
+      [['тишина перед бурей', 8, 'intro', 0], ['первые капли', 8, 'themeB', 2], ['буря', 16, 'theme', 3], ['раскаты', 16, 'themeB', 3], ['затишье', 16, 'bridge', 1], ['ночная буря', 16, 'final', 3], ['рассвет', 8, 'outro', 1]],
+      [['тишина перед бурей', 8, 'intro', 0], ['буря', 16, 'theme', 2], ['раскаты', 16, 'themeB', 3], ['затишье', 8, 'bridge', 1], ['ветер', 4, 'build', 2], ['ночная буря', 16, 'final', 3], ['рассвет', 8, 'outro', 1]],
+    ],
+    drums: {}, comp: {}, bassline: 'octaves', arpStep: 0.25, arpPoly: false,
+  },
   // The North (in the spirit of a Skyrim score): men chanting the theme in octaves, horns, spiccato strings in 3 + 3 + 2,
   // low strings, a kantele's rolling figure, war drums (a great drum in 3 + 3 + 2, frame drums, a field snare), the
   // mountain wind; Aeolian, Dorian or plain minor, no leading tone where the theme doesn't ask for one
   nordic: {
-    label: 'Северные горы', emoji: '🏔️', theme: 'celtic', bpm: [76, 92], swing: 0.5, stage: true,
+    label: 'Северные горы', emoji: '🏔️', theme: 'snow', bpm: [76, 92], swing: 0.5, stage: true,
     gains: { lead2: 0.6, pad: 1.4, arp: 2, counter: 1.8 }, // levels against the other tracks (the mix is balanced by render.js's table)
     variety: { 'as written': 2, ornamented: 2, recomposed: 3 },
     themes: { 'nord-dovah': 4, 'nord-steps': 4, 'nord-frostfall': 4, 'epic-banners': 1, 'celtic-air': 0.6 },
@@ -618,7 +699,7 @@ export const STYLES = {
   // quiet glassy motif lost in the echoes — no singing melody; an acid or Reese bass, minor-seventh stabs in syncopation,
   // an ambient pad, a pluck arpeggio, a breakbeat over the club kick, an impact on every round, a riser into the last one
   fight: {
-    label: 'Test your fight', emoji: '🥊', theme: 'gothic', bpm: [128, 146], swing: 0.5, variant: 'danger',
+    label: 'Test your fight', emoji: '🥊', theme: 'arena', bpm: [128, 146], swing: 0.5, variant: 'danger',
     gains: { lead: 0.8, lead2: 0.8, counter: 1.1, pad: 1.6, bass: 0.82, arp: 1.1, chords: 1.25 }, // levels against the other tracks (the mix is balanced by render.js's table)
     themes: { 'fight-arena': 5, 'fight-kombat': 5, 'factory-breach': 0.5 },
     keys: ['Dm', 'Em', 'Cm', 'Am', 'F#m', 'Gm', 'Bm', 'C#m'], modes: [null, 'phrygian', null, 'dorian'], moods: ['dark', 'game', 'epic'],
@@ -732,8 +813,9 @@ export const STYLE_FAMILIES = [
   { id: 'cinema', label: 'Большой экран', emoji: '🎬', about: 'кино и трейлеры: остинато струнных, валторны, тайко, брааамы; тяжёлый метал-саундтрек, северные горы', styles: ['epic', 'ishope', 'nordic'] },
   { id: 'hall', label: 'Концертный зал', emoji: '🏛️', about: 'классика: романтический оркестр, барокко, фуга по правилам контрапункта', styles: ['romantic', 'classical', 'fugue', 'organ'] },
   { id: 'night', label: 'После полуночи', emoji: '🌙', about: 'джаз и чилл: свинг, босса-нова, лоу-фай', styles: ['jazz', 'bossa', 'lofi'] },
-  { id: 'cosmos', label: 'Невесомость', emoji: '🌌', about: 'эмбиент и космос: петли несоизмеримых длин, натуральный звукоряд', styles: ['ambient', 'space'] },
+  { id: 'cosmos', label: 'Невесомость', emoji: '🌌', about: 'эмбиент и космос: петли несоизмеримых длин, натуральный звукоряд', styles: ['ambient', 'space', 'nightstorm'] },
   { id: 'folk', label: 'Голоса Земли', emoji: '🌍', about: 'народная музыка в своих строях и ладах: Ирландия, макам, рага, гамелан', styles: ['celtic', 'maqam', 'raga', 'gamelan'] },
+  { id: 'internet', label: 'Интернет-легенды', emoji: '🌐', about: 'музыка интернета: бразильские монтажемы и фонк с ковбеллом, ремикс системных звуков рабочего стола, кейген-музыка демосцены в соборе', styles: ['montagem', 'velora', 'xperror', 'keygen'] },
   { id: 'other', label: 'Разное', emoji: '🎈', about: 'всё остальное', styles: ['meow'] },
 ]
 export const familyOf = id => STYLE_FAMILIES.find(f => f.styles.includes(id)) ?? STYLE_FAMILIES[STYLE_FAMILIES.length - 1]
@@ -938,6 +1020,11 @@ const NAMES = {
   factorycave: [['deep', 'crystal', 'sunken', 'hollow', 'echoing', 'molten'], ['ore', 'drill', 'vein', 'shaft', 'grotto', 'mine']],
   factorydanger: [['red', 'final', 'core', 'hostile', 'breach', 'siege'], ['wave', 'alert', 'protocol', 'defense', 'swarm', 'outbreak']],
   jbattle: [['thunder', 'crimson', 'silent', 'moonlit', 'shadow', 'fox', 'iron', 'storm'], ['blade', 'shrine', 'ronin', 'oni', 'shogun', 'kitsune', 'lotus', 'raijin']],
+  montagem: [['mysterious', 'hidden', 'secret', 'shadow', 'midnight', 'riddle'], ['game', 'montagem', 'puzzle', 'arcade', 'maze', 'level']],
+  velora: [['velora', 'velvet', 'neon', 'rapid', 'purple', 'turbo'], ['rush', 'drift', 'favela', 'night', 'pulse', 'run']],
+  xperror: [['critical', 'fatal', 'blue', 'green', 'system', 'desktop'], ['error', 'startup', 'shutdown', 'hill', 'dialog', 'click']],
+  keygen: [['pixel', 'silicon', 'cracked', 'holy', 'ascii', 'patched'], ['cathedral', 'requiem', 'keygen', 'chapel', 'mass', 'nfo']],
+  nightstorm: [['night', 'thunder', 'silver', 'stormy', 'midnight', 'electric'], ['storm', 'rain', 'tide', 'lighthouse', 'cloud', 'squall']],
   brinstar: [['mossy', 'spore', 'hollow', 'drowned', 'verdant', 'sunken', 'dripping'], ['depths', 'roots', 'swamp', 'caverns', 'lair', 'grotto', 'canopy']],
   artifact: [['relic', 'sunken', 'gilded', 'silent', 'ancient', 'echo', 'bronze'], ['temple', 'shrine', 'chamber', 'sanctum', 'altar', 'relic', 'gate']],
   zunpet: [['scarlet', 'eastern', 'lunar', 'phantom', 'border', 'faithful', 'spring'], ['mansion', 'shrine', 'night', 'dream', 'festival', 'requiem', 'maiden']],
@@ -5889,6 +5976,415 @@ KITS.audio = o => {
     return x => {
       const y = 0.56 * play(x, 'kick', kick, 1) + 0.3 * play(x, 'snare', snare, sec) + 0.08 * play(x, 'hat', hat, sec) + 0.06 * play(x, 'open', open, sec) + 0.18 * play(x, 'rim', rim, sec)
       return verb(...pan(y, 0))
+    }
+  },
+}})()`
+}
+
+// ---- Brazilian montagem and phonk (Montagem Mysterious Game, VELORA): the tamborzão under a hypnotic loop ---------------
+// the mystery box: a music box and a glass bell in one (a tine's modes 1, 6.27 and a 3.5 : 1 FM shimmer), struck twice
+// a few cents apart left and right, an octave above in a ping-pong echo of three sixteenths — the game's riddle, wide
+LEADS.mysterybox = o => {
+  o.need('instruments', 'fm')
+  return `{
+  color: '#c9a7ff',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(['Mb = \\Rev\\,\\Dly_{\\text{пинг-понг } 3/16}\\Big[T(f \\cdot 2^{-7/1200})_{L} + T(f \\cdot 2^{7/1200})_{R}\\Big],\\quad T = v\\big(e^{-t(0.9 + f/2000)}\\sin 2\\pi ft + 0.25e^{-9t}\\sin 2\\pi\\,6.27ft\\big) + 0.35\\,FM_{3.5}(2f)', '\\text{октавой выше, широко: две копии на } \\pm 7\\ \\text{центов слева и справа}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, tone = (f, t, v) => v * Math.min(1, t / 0.0008) * (exp(-t * (0.9 + f / 2000)) * (sin(TAU * f * t) + 0.25 * exp(-9 * t) * sin(TAU * 6.27 * f * t)) + 0.35 * fm(2 * f, t, { ratio: 3.5, index: 1.2, decay: 2.6, idecay: 8 }))
+    const L = poly(tone, { release: 0.6, life: 4 }), R = poly(tone, { release: 0.6, life: 4 }), fire = trigger()
+    const pingL = delay({ time: sec * 0.75, feedback: 0.42, wet: 0.32 }), verb = reverb({ room: 0.9, damp: 0.3, wet: 0.36 })
+    return x => {
+      const m = ${o.at}(x)
+      if (fire(m ? m.at : null)) { const f = hz(m.n + 12, C4), v = 0.8 + 0.15 * hash(floor(4 * x), 3); L.hit(f * 2 ** (-7 / 1200), v, m.d * sec + 0.5); R.hit(f * 2 ** (7 / 1200), v, m.d * sec + 0.5, 0.004) }
+      const k = ${round(0.17 * o.gain)}${pumpIf(o)}, l = k * L(), r = k * R()
+      const [el, er] = pingL(l, r)
+      return verb(el + 0.15 * er, er + 0.15 * el)
+    }
+  },
+}`.replace('[60 + m.n]', '[72 + m.n]')
+}
+// the wide cowbell of Brazilian phonk: the 808 cowbell driven hard, doubled ±9 cents and 11 ms apart (Haas: it fills the
+// stereo field), a ping-pong echo
+LEADS.cowbellwide = o => {
+  o.need('instruments', 'cowbellTone')
+  o.need('engine', 'tanh')
+  return `{
+  color: '#fff1a8',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(['Cw = \\Rev\\,\\Dly\\big[\\HP_{300}\\tanh(3.2\\,C(f \\cdot 2^{-9/1200}))_{L},\\ \\HP_{300}\\tanh(3.2\\,C(f \\cdot 2^{9/1200}))_{R}(t - 11\\,\\text{мс})\\big]', 'C \\text{ — ковбелл TR-808: два меандра } f \\text{ и } 1.48f \\text{ через полосовой фильтр}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, L = poly(cowbellTone, { release: 0.05, life: 1.2, max: 8 }), R = poly(cowbellTone, { release: 0.05, life: 1.2, max: 8 }), fire = trigger()
+    const hpL = filter('hp'), hpR = filter('hp'), echo = delay({ time: sec * 0.75, feedback: 0.33, wet: 0.24 }), verb = reverb({ room: 0.8, damp: 0.4, wet: 0.22 })
+    return x => {
+      const m = ${o.at}(x)
+      if (fire(m ? m.at : null)) { const f = hz(m.n, C4), v = 0.85 + 0.15 * hash(floor(4 * x), 9); L.hit(f * 2 ** (-9 / 1200), v, 1.1); R.hit(f * 2 ** (9 / 1200), v, 1.1, 0.011) }
+      const k = ${round(0.26 * o.gain)}${pumpIf(o)}
+      return verb(...echo(k * hpL(tanh(3.2 * L()), 300), k * hpR(tanh(3.2 * R()), 300)))
+    }
+  },
+}`
+}
+// the montagem 808: a sine with its own sub driven into tanh and clipped harder when everything plays, sliding 60 ms
+// between notes, on the tamborzão's 3 + 3 + 2
+BASSES.mont808 = o => {
+  o.need('engine', 'osc', 'tanh')
+  return `(() => {
+  const PAT = { 1: 'x---------------', 2: 'x-----x---x-----', 3: 'x--x--x-x--x--x-' }
+  const bassAt = x => {
+    const c = chordAt(x), e = energy(x)
+    if (!c || e < 1 || x >= END - 1) return null
+    if (role(x) === 'build' && x - sectionOf(x)[0] >= (sectionEnd(x) - sectionOf(x)[0]) / 2) return null
+    const P = PAT[Math.min(3, e)], bar = floor(x / 4) * 4
+    let k = floor(4 * (x - bar) + 1e-9)
+    while (k > 0 && P[k] !== 'x') k--
+    const at = bar + k / 4
+    return { n: c[2] + (k === 14 && hash(bar, 67) < 0.5 ? 12 : k === 6 && hash(bar, 71) < 0.3 ? 7 : 0), at }
+  }
+  return {
+  color: '#b48cff',
+  graph: x => (bassAt(x) ? ${o.lane[0]} + (bassAt(x).n - 26) / 28 : null),
+  midi: x => { const b = bassAt(x); return b && x - b.at < 0.7 ? [b.n] : [] },
+  formula: ${JSON.stringify(['808 = a\\,\\LP_{2500}\\tanh\\!\\big(d\\,(\\sin 2\\pi\\!\\int\\! g + 0.4\\sin \\pi\\!\\int\\! g)\\big),\\quad a = e^{-t/0.9},\\quad d = 2.5 \\ldots 5,\\quad g \\text{ скользит к } f \\text{ за 60 мс}', '\\text{ритм тамборзао: } x\\,\\cdot\\cdot\\,x\\,\\cdot\\cdot\\,x\\,\\cdot\\ x\\,\\cdot\\cdot\\,x\\,\\cdot\\cdot\\,x\\,\\cdot\\ (3 + 3 + 2)'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, o1 = osc('sine'), o2 = osc('sine'), lp = filter('lp'), glide = smooth(60), gate = smooth(4)
+    let n = 36
+    return x => {
+      const m = bassAt(x), e = energy(x)
+      if (m) n = m.n
+      const t = m ? (x - m.at) * sec : 9, f = hz(glide(n) - 60, C4), s = o1(f) + 0.4 * o2(f / 2), a = gate(m ? exp(-t / 0.9) : 0), d = e >= 3 ? 5 : 2.5
+      return ${round(0.34 * (o.gain ?? 1))} * a * lp(tanh(d * s) / Math.sqrt(d), 2500)${pumpIf(o)}
+    }
+  },
+}})()`
+}
+// the tamborzão: a punchy kick, the "tum" (a low drum bending down), a clap on 2 and 4 in a wide room, hats and a shaker
+// swapping sides, a rimshot "tchá" — 3 + 3 + 2 everywhere; VELORA's variant rolls the hats and doubles the claps
+KITS.tamborzao = o => {
+  o.need('instruments', 'kickDrum', 'clapDrum', 'hatDrum', 'shakerDrum', 'rimDrum', 'taikoDrum', 'crashCymbal')
+  o.need('engine', 'tanh')
+  const fast = o.variant === 'velora'
+  return `(() => {
+  ${stageHits(`      if (r === 'build') {
+        ${ROLL.replace("'snare'", "'clap'")}
+        steps('kick', 0.9, 'x---x---x---x---')
+      } else if (e >= 3) {
+        steps('kick', 1, 'x--x--x-x--x--x-')
+        steps('tum', 0.75, '--x--x----x--x--')
+        steps('clap', 0.95, '${fast ? '----x--x----x-x-' : '----x-------x---'}')
+        steps('hat', 0.5, '${fast ? 'xxxxxxxxxxxxxxxx' : '-x-x-x-x-x-x-x-x'}')
+        steps('shaker', 0.35, 'xxxxxxxxxxxxxxxx')
+        steps('rim', 0.55, '-------x------x-')
+        if (t === 0) add('crash', 0.9, 0)
+        if (fill) steps('tum', 0.9, '--------x-x-xxxx')
+      } else if (e === 2) {
+        steps('kick', 0.9, 'x--x--x---x-----')
+        steps('clap', 0.85, '----x-------x---')
+        steps('hat', 0.4, '-x-x-x-x-x-x-x-x')
+        steps('tum', 0.6, '------x-------x-')
+      } else if (e === 1) {
+        steps('tum', 0.6, 'x--x--x---------')
+        steps('shaker', 0.25, '--x---x---x---x-')
+      } else if (r === 'outro' && t === 0) add('crash', 0.8, 0)`)}
+  return {
+  color: '#ff5fa2',
+  ${stageGraph([['kick', 3.5, 0.6], ['clap', 3.2, 0.6], ['tum', 3, 0.5], ['crash', 4, 0.4]])}
+  ${stageMidi([['kick', 36], ['clap', 39], ['rim', 37], ['tum', 45], ['hat', 42], ['shaker', 70], ['crash', 49]])}
+  formula: ${JSON.stringify(['D = \\tanh\\!\\big(1.3\\,[0.6K + 0.45\\,\\text{Tum} + 0.32\\,\\text{Clap}]\\big) + \\text{хэт и шейкер слева и справа} + \\Rev_{\\text{хлопок}}', '\\text{тамборзао: } 3 + 3 + 2\\quad K = e^{-6\\tau}\\tanh\\!\\big(2.2\\sin 2\\pi\\!\\int\\!(46 + 160e^{-35\\tau})\\big)'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, kick = kickDrum({ f0: 46, f1: 160, sweep: 35, decay: 6, drive: 2.2 }), clap = clapDrum({ center: 1300 }), hat = hatDrum({ cutoff: 8000, decay: 85 })
+    const sh = shakerDrum(), rim = rimDrum(), tum = taikoDrum({ pitch: 78, decay: 0.45, bend: 7, crack: 0.2, boom: 0.4, seed: 91 }), crash = crashCymbal({ decay: 1.5, seed: 31 })
+    const room = reverb({ room: 0.75, damp: 0.4, wet: 0.3 })
+    const at = (d, f, x, s = sec) => { const h = x < END ? lastHit(x, d) : null; return h ? h.vel * f(h.τ * s, true) : f(1, false) }
+    return x => {
+      const side = floor(4 * x) % 2 ? 0.55 : -0.55
+      const body = tanh(1.3 * (0.6 * at('kick', kick, x, 1) + 0.45 * at('tum', tum, x) + 0.12 * at('rim', rim, x)))
+      const c = 0.32 * at('clap', clap, x), hi = 0.09 * at('hat', hat, x), s = 0.06 * at('shaker', sh, x), cr = 0.25 * at('crash', crash, x)
+      const [rl, rr] = room(c, c)
+      return [body + rl + hi * (1 - side) + s * (1 + side) + cr, body + rr + hi * (1 + side) + s * (1 - side) + cr]
+    }
+  },
+}})()`
+}
+// the voices of a montagem: formant chops — "ah", "oh", "ê" — on the off-beats, pitched to the chord's root an octave or
+// two up, cut short, thrown left and right, the last one of a phrase stretched and falling (a tape stop)
+TEXTURES.funkvox = o => {
+  o.need('instruments', 'voice', 'VOWELS', 'blend')
+  o.need('engine', 'tanh')
+  return `{
+  color: '#ffb0e0',
+  graph: x => { const c = chordAt(x); return c && energy(x) >= 2 && mod(x, 1) < 0.25 ? -2.9 + 0.1 * hash(floor(x), 3) : null },
+  formula: ${JSON.stringify(['V = \\tanh\\!\\big(1.6\\,\\text{голос}(f, F_{a|o|e})\\big)\\cdot e(t),\\quad f = f_{\\text{корень}}\\cdot 2^{1|2},\\ \\text{на слабых долях, слева и справа; в конце фразы — падение высоты (лента)}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, v = voice({ size: 1.05, breath: 0.08, rough: 0.3 }), gate = smooth(6), verb = reverb({ room: 0.7, damp: 0.4, wet: 0.25 }), echo = delay({ time: sec * 0.5, feedback: 0.25, wet: 0.2 })
+    const VS = [VOWELS.a, VOWELS.o, VOWELS.e]
+    let f = 220, F = VOWELS.a, side = 0
+    return x => {
+      const c = chordAt(x), e = energy(x), b = floor(2 * x), u = 2 * x - b, on = c && e >= 2 && x < END - 1 && b % 2 === 1 && hash(b, 41) < (e >= 3 ? 0.75 : 0.4)
+      const last = b % 16 === 15, len = last ? 0.95 : 0.42
+      if (c && u < 0.02) { f = hz(c[2] + 24 + (hash(b, 43) < 0.3 ? 12 : 0) - 60, C4); F = VS[floor(3 * hash(b, 47))]; side = hash(b, 53) < 0.5 ? -0.6 : 0.6 }
+      const drop = last ? 2 ** (-Math.max(0, u - 0.3) * 1.6) : 1, g = gate(on && u < len ? 1 : 0)
+      const y = 0.9 * tanh(1.6 * v(f * drop, F, g > 0.001)) * g
+      return verb(...echo(...pan(y, side)))
+    }
+  },
+}`
+}
+Object.assign(COUNTER_VOICE, { mysterybox: 'bells', cowbellwide: 'mysterybox' })
+
+// ---- Error XP: a desktop that sings its own error sounds over a club beat --------------------------------------------
+// the ding: a glassy chime (partials 1, 2, 3.01, 4.2, the high ones dying fast) and its octave 28 ms later, a little to
+// the side — the system's "something happened", made into a melody
+LEADS.xpding = o => struck('(f, t, v) => v * Math.min(1, t / 0.001) * (exp(-t * 2.2) * sin(TAU * f * t) + 0.45 * exp(-t * 4) * sin(TAU * 2 * f * t) + 0.22 * exp(-t * 7) * sin(TAU * 3.01 * f * t) + 0.12 * exp(-t * 12) * sin(TAU * 4.2 * f * t) + (t > 0.028 ? 0.4 * exp(-(t - 0.028) * 3) * sin(TAU * 2 * f * (t - 0.028)) : 0))', [], {
+  release: 0.5, life: 3, gain: 0.33, fx: { init: ', echo = delay({ time: sec * 0.375, feedback: 0.3, wet: 0.2 }), verb = reverb({ room: 0.86, damp: 0.3, wet: 0.32 })', out: (y, p) => `verb(...echo(...pan(${y}, ${p})))` }, extra: pumpIf(o),
+  formula: ['Ding = v\\big(e^{-2.2t}\\sin 2\\pi ft + 0.45e^{-4t}\\sin 4\\pi ft + 0.22e^{-7t}\\sin 2\\pi\\,3.01ft + 0.12e^{-12t}\\sin 2\\pi\\,4.2ft\\big) + 0.4\\,e^{-3(t - 28\\text{мс})}\\sin 4\\pi f(t - 28\\,\\text{мс})\\ \\text{— стеклянный «дзынь» и его октава}'],
+})({ ...o, color: '#9fd8ff' })
+// error beeps: the arpeggio as short square blips falling a fourth in 60 ms ("critical stop"), ping-pong, 8 bits
+ARPS.errbeep = o => {
+  return `(() => {
+  ${arpData(o.step, o.poly)}
+  return {
+  color: '#ff6b6b',
+  ${arpGraph(o.lane)}
+  formula: ${JSON.stringify(['E = \\tfrac{1}{128}\\big\\lfloor 128\\,\\Pi_{1/2}\\big(f\\cdot 2^{-5\\min(1, t/60\\text{мс})/12}\\big)\\,e^{-t/70\\text{мс}}\\big\\rceil\\quad\\text{— бип ошибки: падает на кварту, 8 бит, пинг-понг}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, lp = filter('lp'), echo = delay({ time: sec * 0.75, feedback: 0.35, wet: 0.3 })
+    let ph = 0, side = 1
+    return x => {
+      const m = arpAt(x), t = m ? (x - m.at) * sec : 9
+      if (m && t < 1 / 44100 * 2) side = -side
+      const f = m ? hz(m.n, C4) * 2 ** (-5 * Math.min(1, t / 0.06) / 12) : 0
+      ph = (ph + f / 44100) % 1
+      const sq = m && t < 0.3 ? (ph < 0.5 ? 1 : -1) * exp(-t / 0.07) : 0, y = lp(Math.round(128 * sq) / 128, 7000)
+      return echo(...pan(${round(0.06 * (o.gain ?? 1))} * y${pumpIf(o)}, 0.5 * side))
+    }
+  },
+}})()`
+}
+// the desktop: mouse clicks on the off-beats, a hard disk seeking (bursts of ticks), a notification chime (the chord's
+// root, third and fifth up) opening every section that brings the music in, an "error" two-tone (fifth → root) falling at the end of every 8 bars
+TEXTURES.desktop = o => {
+  o.need('engine', 'noise')
+  return `{
+  color: '#8fd0ff',
+  graph: x => (x < END ? -2.95 + 0.05 * sin(TAU * x / 4) : null),
+  formula: ${JSON.stringify(['\\text{щелчок: } e^{-t/2\\text{мс}}\\BP_{3000}\\eta;\\quad \\text{диск: } \\sum_i e^{-t_i/1\\text{мс}}\\BP_{5000}\\eta;\\quad \\text{уведомление: } \\sum_{k=0}^{2} e^{-3(t - 0.06k)}\\sin 2\\pi f_k t\\ (f_k:\\ \\text{корень, терция, квинта аккорда})'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, η = noise(77), bc = filter('bp'), bd = filter('bp'), verb = reverb({ room: 0.8, damp: 0.35, wet: 0.35 })
+    return x => {
+      const n = η(), a = x < END ? 1 : 0, e = energy(x)
+      // a click on the "and" of each beat now and then
+      const cb = floor(x * 2), ct = (x - cb / 2) * sec, click = cb % 2 && hash(cb, 5) < 0.5 && ct < 0.02 ? exp(-ct / 0.002) : 0
+      // the disk: a burst of ticks every 8 beats, somewhere
+      const db = floor(x / 8), dt = (x - 8 * db - 8 * hash(db, 9)) * sec, disk = dt > 0 && dt < 0.25 && hash(floor(dt / 0.012) + db * 31, 11) < 0.5 ? exp(-((dt % 0.012) / 0.001)) : 0
+      // the chime at a section start, the error at the end of 8 bars
+      const s = sectionOf(x), ts = (x - s[0]) * sec, k = Math.min(2, floor(ts / 0.06)), tk = ts - 0.06 * k
+      const c0 = chordAt(s[0]), root = c0?.[2] ?? 48, iv = c0 ? [0, c0[5][0], c0[5][1]] : [0, 4, 7] // the chord's own third and fifth
+      const chime = ts < 1.2 && s[2] >= 1 ? exp(-3 * tk) * sin(TAU * hz(root + 24 + iv[k] - 60, C4) * tk) : 0
+      const eb = floor(x / 32), et = (x - 32 * eb - 31) * sec, er = chordAt(32 * eb + 31)?.[2] ?? 48, err = et > 0 && et < 0.5 && e >= 2 ? exp(-6 * et) * sin(TAU * hz(er + (et > 0.12 ? 12 : 19) - 60, C4) * et) : 0
+      const y = 3 * a * (0.05 * bc(n, 3000, 3) * click * 6 + 0.03 * bd(n, 5000, 4) * disk * 6 + 0.07 * chime + 0.06 * err)
+      return verb(...pan(y, 0.2 * sin(TAU * x / 16)))
+    }
+  },
+}`
+}
+Object.assign(COUNTER_VOICE, { xpding: 'pluck' })
+
+// ---- KeyGen Church: a tracker's chip lead in a cathedral, an organ and a choir under it ---------------------------------
+// the keygen lead: a pulse whose width sweeps (PWM, 0.12 – 0.5 at 0.7 Hz), a vibrato after 150 ms, an 8-bit floor, its
+// echo three sixteenths later on the other side (the trackers' ping-pong), a second voice an octave up, quiet
+LEADS.keygen = o => {
+  return `{
+  color: '#7dffb0',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(['K = \\tfrac{1}{256}\\big\\lfloor 256\\,\\LP_{9000}\\,\\Pi_{w(T)}(g)\\big\\rceil,\\quad w = 0.31 + 0.19\\sin 2\\pi\\,0.7T,\\quad g = f\\cdot 2^{0.15\\min(1, (t - 0.15)^+/0.2)\\sin(2\\pi\\cdot 6T)/12}', '\\text{пинг-понг через 3/16, вторая октава } 0.25\\,\\Pi_{w}(2g)'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, lp = filter('lp'), gate = smooth(3), glide = smooth(10), echo = delay({ time: sec * 0.75, feedback: 0.38, wet: 0.3 }), verb = reverb({ room: 0.92, damp: 0.3, wet: 0.3 })
+    let ph = 0, ph2 = 0, n = 0
+    return x => {
+      const m = ${o.at}(x), T = x * sec, held = m ? m.τ * sec : 0
+      if (m) n = m.n
+      const g = hz(glide(n), C4) * 2 ** ((0.15 * Math.min(1, Math.max(0, held - 0.15) / 0.2) * sin(TAU * 6 * T)) / 12), w = 0.31 + 0.19 * sin(TAU * 0.7 * T)
+      ph = (ph + g / 44100) % 1; ph2 = (ph2 + (2 * g) / 44100) % 1
+      const s = (ph < w ? 1 : -1) + 0.25 * (ph2 < w ? 1 : -1), y = Math.round(256 * lp(s, 9000) / 1.25) / 256
+      const out = ${round(0.16 * o.gain)} * gate(m && m.u < 0.9 ? 1 : 0) * y${pumpIf(o)}
+      const [l, r] = echo(out, 0)
+      return verb(l + 0.2 * r, r + 0.6 * out)
+    }
+  },
+}`
+}
+// the tracker kit in a stone nave: an 8-bit kick (a sine diving, 6 bits), a noise snare from a 15-bit LFSR with a tone,
+// metallic LFSR hats, a church bell (FM 1 : 2.76) on every section's downbeat — all in a long reverb
+KITS.tracker = o => {
+  o.need('instruments', 'kickDrum', 'lfsr', 'fm')
+  return `(() => {
+  ${stageHits(`      if (r === 'build') {
+        ${ROLL}
+        steps('kick', 0.8, 'x---x---x---x---')
+      } else if (e >= 3) {
+        steps('kick', 1, 'x---x---x---x-x-')
+        steps('snare', 0.9, '----x-------x---')
+        steps('hat', 0.45, 'xxxxxxxxxxxxxxxx')
+        if (t === 0) add('bell', 1, 0)
+        if (fill) steps('snare', 0.7, '----------x-xxxx')
+      } else if (e === 2) {
+        steps('kick', 0.9, 'x-------x-x-----')
+        steps('snare', 0.8, '----x-------x---')
+        steps('hat', 0.35, 'x-x-x-x-x-x-x-x-')
+        if (t === 0) add('bell', 0.8, 0)
+      } else if (e >= 0) {
+        if (t === 0 || (r === 'intro' && mod(t, 8) === 0)) add('bell', 0.7, 0)
+        steps('hat', 0.2, '--x---x---x---x-')
+      }`)}
+  return {
+  color: '#59ffa0',
+  ${stageGraph([['kick', 3.5, 0.6], ['snare', 3.2, 0.6], ['bell', 4, 0.5]])}
+  ${stageMidi([['kick', 36], ['snare', 38], ['hat', 42], ['bell', 53]])}
+  formula: ${JSON.stringify(['D = \\Rev_{\\text{неф}}\\big[\\tfrac{1}{32}\\lfloor 32K\\rceil + 0.3\\,(N_{15}e^{-t/0.09} + 0.4\\sin 2\\pi\\,180t\\,e^{-t/0.05}) + 0.07\\,N^{\\text{metal}}e^{-t/0.03}\\big] + 0.3\\,FM_{2.76}(f_{\\text{тоника}})', 'N_{15} \\text{ — 15-битный регистр сдвига (шум NES), колокол на каждой первой доле раздела}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, kick = kickDrum({ f0: 50, f1: 180, sweep: 45, decay: 7, drive: 1.6 }), ns = lfsr(), nm = lfsr({ metal: true }), verb = reverb({ room: 0.93, damp: 0.3, wet: 0.38 })
+    const at = (d, x) => { const h = x < END ? lastHit(x, d) : null; return h ? [h.vel, h.τ] : [0, 9] }
+    let bellF = 130.81
+    return x => {
+      const cb = chordAt(x)
+      if (cb && x - floor(x) < 0.01) bellF = hz(cb[2] + 12 - 60, C4) // the bell on the chord's root
+      const [kv, kt] = at('kick', x), [sv, st] = at('snare', x), [hv, ht] = at('hat', x), [bv, bt] = at('bell', x)
+      const k = kv * Math.round(32 * kick(kt, true)) / 32, s0 = ns(9000), m0 = nm(14000)
+      const sn = sv * (s0 * exp(-(st * sec) / 0.09) + 0.4 * sin(TAU * 180 * st * sec) * exp(-(st * sec) / 0.05)), hh = hv * m0 * exp(-(ht * sec) / 0.03)
+      const bell = bv * fm(bellF, bt * sec, { ratio: 2.76, index: 1.6, decay: 0.7, idecay: 2.5 })
+      const y = 0.55 * k + 0.3 * sn + 0.07 * hh
+      const [l, r] = verb(y + 0.3 * bell, y + 0.3 * bell)
+      return [l + 0.1 * hh, r - 0.1 * hh]
+    }
+  },
+}})()`
+}
+// the cathedral: a choir's "ah" holding the chord's root and fifth far back, its swell following the energy, wind in the
+// vaults
+TEXTURES.cathedral = o => {
+  o.need('instruments', 'choir', 'VOWELS')
+  o.need('engine', 'noise')
+  return `{
+  color: '#c8ffd8',
+  graph: x => (x < END ? -2.95 + 0.05 * sin(TAU * x / 8) : null),
+  formula: ${JSON.stringify(['C = \\Rev_{0.97}\\,\\text{хор}(f_R, f_R\\cdot\\tfrac32;\\ F_a)\\cdot s(e) + \\BP_{400}\\eta\\ \\text{(ветер в сводах)}'])},
+  audio({ bpm }) {
+    const ch = choir({ voices: 4, size: 0.95 }), η = noise(13), wind = filter('bp'), level = smooth(800), verb = reverb({ room: 0.97, damp: 0.3, wet: 0.6 })
+    let v = [48, 55]
+    return x => {
+      const c = chordAt(x), e = energy(x)
+      if (c) v = [c[2] + 12, c[2] + 19]
+      const a = level(x < END - 1 && c ? [0.5, 0.35, 0.6, 0.85][Math.max(0, e)] : 0)
+      const [l, r] = ch(v.map(n => hz(n - 60, C4)), VOWELS.a)
+      const w = 0.03 * wind(η(), 400 + 150 * sin(TAU * x / 13), 3)
+      return verb(0.5 * a * l + w, 0.5 * a * r + w)
+    }
+  },
+}`
+}
+Object.assign(COUNTER_VOICE, { keygen: 'pulse12' })
+
+// ---- Nightstorm: the style of the user's own "nightstorm" (out of its recording: tools/from-audio.mjs and the eye) ------
+// the night lead: the intro's soft voice resynthesised from the recording (src/timbre.js) — a sine with a little of its
+// octave and fifth, a slow attack (0.37 s), a slight vibrato (4 Hz, ±6 ¢) — in a long hall
+const NIGHT_LEAD = { kind: 'sustained', f0: 524, B: 0.0008, wF: 0.63, p: [[0.9991, 0.4253, 0.369, 0, 1], [2.01, 0.1357, 0.369, 0, 1], [3, 0.0086, 0.369, 0.172, 0.9344], [4.03, 0.0254, 0.369, 0, 1], [6.04, 0.0048, 0.369, 0, 1]], fa: [[349, -0.48], [524, -7.43], [587, -7.66], [707, -1.39], [1051, -17.35], [1182, -12.7], [1488, -21.52], [1930, -31.9], [3164, -46.43], [3564, -42]], fd: [[349, 0.5283], [587, 0.085], [707, 0.6121], [1047, 0.5464], [1182, 0.5243], [1571, 0.172], [1763, 0.2321]], attack: 0.369, release: 0.25, vib: { rate: 4.05, depth: 5.75, delay: 0.14 }, scoop: 0.97, noise: { atk: [0, 0, 0, 0, 0, 0, 0], sus: [0.0001, 0.0016, 0.0008, 0.0002, 0.0002, 0.0002, 0.0002], dec: 0.02 }, notes: 3 }
+LEADS.nightlead = o => {
+  o.need('instruments', 'resynthTone')
+  return `{
+  color: '#b8d8ff',
+  ${graphLead(o.at, o.lane)}
+  formula: ${JSON.stringify(timbreFormula(NIGHT_LEAD))},
+  audio({ bpm }) {
+    const sec = 60 / bpm, p = poly(resynthTone(${JSON.stringify(NIGHT_LEAD)}), { release: 0.4, life: 30 }), fire = trigger()
+    const echo = delay({ time: sec * 1.5, feedback: 0.35, wet: 0.22 }), verb = reverb({ room: 0.94, damp: 0.3, wet: 0.42 })
+    return x => {
+      const m = ${o.at}(x)
+      if (fire(m ? m.at : null)) p.hit(hz(m.n, C4), 0.78, m.d * sec)
+      const y = ${round(0.75 * o.gain)} * p()${pumpIf(o)}
+      return verb(...echo(...pan(y, ${o.pan})))
+    }
+  },
+}`
+}
+Object.assign(COUNTER_VOICE, { nightlead: 'strings' })
+// the storm's strings: a string ensemble and a soft supersaw layer on the chord, its bow trembling in sixteenths when the
+// storm is up (the recording's pulse of 10.8 Hz at 162 BPM), long bows when calm, spread wide
+CHORDS.stormstrings = o => {
+  o.need('instruments', 'strings')
+  o.need('engine', 'supersaw')
+  return `{
+  color: '#9fb4ff',
+  graph: x => { const c = chordAt(x), e = energy(x); return c && e >= 0 && x < END - 1 ? c[3].map(n => ${o.lane[0]} + (n - 48) / 20 + (e >= 2 ? 0.03 * sin(TAU * 4 * x) : 0)) : null },
+  midi: x => { const c = chordAt(x); return c && energy(x) >= 0 && x < END - 1 && x - c[0] < c[1] - 0.05 ? c[3] : [] },
+  formula: ${JSON.stringify(['St = \\Rev\\Big[\\big(1 - d + d\\,|\\sin 2\\pi\\,2x|^{0.6}\\big)\\big(S + 0.35\\,\\LP_{f_c}\\sum_j SS_5(f_j)\\big)\\Big],\\quad d = 0.7 \\text{ в буре (тремоло шестнадцатыми), } 0 \\text{ в затишье}'])},
+  audio({ bpm }) {
+    const s = strings({ voices: 4, attack: 220, release: 700, cutoff: 3800, gain: 0.05 }), saws = [0, 1, 2, 3].map(j => supersaw({ voices: 5, detune: 0.18, width: 1, seed: 71 + j }))
+    const lp = [filter('lp'), filter('lp')], level = smooth(300), depth = smooth(200), verb = reverb({ room: 0.93, damp: 0.35, wet: 0.45 })
+    let v = [58, 62, 65, 70]
+    return x => {
+      const c = chordAt(x), e = energy(x)
+      if (c) v = c[3]
+      const on = c && e >= 0 && x < END - 1 && x - c[0] < c[1] - 0.05, a = level(on ? [0.5, 0.65, 0.85, 1][Math.max(0, e)] : 0), d = depth(e >= 2 ? 0.7 : 0)
+      const trem = 1 - d + d * Math.abs(sin(TAU * 2 * x)) ** 0.6
+      const fs = on ? v.map(n => hz(n - 60, C4)) : [], [sl, sr] = s(fs)
+      let l = 0, r = 0
+      saws.forEach((w, j) => { const [p, q] = w(hz((c ? v[j % v.length] : 60) - 60, C4)); l += p; r += q })
+      const fc = 900 + 1800 * Math.max(0, e) / 3, k = ${round(1.1 * (o.gain ?? 1))} * a * trem
+      return verb(k * (sl + 0.035 * lp[0](l, fc)), k * (sr + 0.035 * lp[1](r, fc)))
+    }
+  },
+}`
+}
+// the storm: rain on everything (the high band never rests in the recording), thunder rolling in at the sections that bring
+// the storm, a gust in the calm
+TEXTURES.storm = o => {
+  o.need('instruments', 'rain')
+  o.need('engine', 'noise')
+  return `{
+  color: '#7f9fbf',
+  graph: x => (x < END ? -2.95 + 0.05 * sin(TAU * x / 3) : null),
+  formula: ${JSON.stringify(['\\text{дождь } + \\text{гром: } \\LP_{90 + 700e^{-t}}\\eta\\,e^{-t/2.5}\\,(1 + 2e^{-t/0.08})\\ \\text{на разделах бури;}\\quad \\text{ветер: } \\BP_{350\\cdot 2^{\\sin(2\\pi T/11)}}\\eta'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, rn = rain({ wash: 0.06, drops: 0.12 }), η = noise(19), lp = filter('lp'), wind = filter('bp'), verb = reverb({ room: 0.95, damp: 0.3, wet: 0.5 })
+    return x => {
+      const [s, r, e] = x < END ? sectionOf(x) : [END, 'end', -1], a = x < END ? 1 : 0, n = η(), T = x * sec
+      const th = e >= 2 ? (x - s) * sec : 9, rumble = th < 7 ? 0.5 * exp(-th / 2.5) * (1 + 2 * exp(-th / 0.08)) * lp(n, 90 + 700 * exp(-th)) : lp(0, 200)
+      const w = (e <= 1 ? 0.06 : 0.025) * wind(n, 350 * 2 ** sin((TAU * T) / 11), 3)
+      const [rl, rr] = rn()
+      const [tl, tr] = verb(rumble + w, rumble + w)
+      return [a * (1.6 * rl + tl), a * (1.6 * rr + tr)]
+    }
+  },
+}`
+}
+// the storm's drums: no beat — a timpani's boom opening each section that brings the storm, and in the loudest ones on
+// every second downbeat; a soft roll into a build-up
+KITS.storm = o => {
+  o.need('instruments', 'timpaniTone', 'taikoDrum')
+  return `(() => {
+  ${stageHits(`      if (r === 'build') {
+        ${ROLL.replace("'snare'", "'roll'")}
+      } else if (e >= 3) {
+        if (mod(t, 8) === 0) add('boom', 1, 0)
+        if (mod(t, 16) === 12) add('boom', 0.7, 2)
+      } else if (e === 2) {
+        if (t === 0) add('boom', 0.9, 0)
+      }`)}
+  return {
+  color: '#8090c0',
+  ${stageGraph([['boom', 3.5, 0.8], ['roll', 3, 0.3]])}
+  ${stageMidi([['boom', 41], ['roll', 47]])}
+  formula: ${JSON.stringify(['D = \\Rev_{0.95}\\big[0.7\\,\\text{Timp}(f_{\\text{корень}}/2) + 0.5\\,T_{55}\\big] + \\text{дробь литавр в разгоне}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, timp = poly(timpaniTone, { release: 0.8, life: 4, max: 6 }), roll = poly(timpaniTone, { release: 0.2, life: 1.5, max: 12 }), fire = trigger(), fire2 = trigger()
+    const boom = taikoDrum({ pitch: 55, decay: 1.2, bend: 5, crack: 0.15, boom: 0.6, seed: 97 }), verb = reverb({ room: 0.95, damp: 0.35, wet: 0.45 })
+    return x => {
+      const b = x < END ? lastHit(x, 'boom') : null, rl = x < END ? lastHit(x, 'roll') : null, c = chordAt(x), f = hz((c ? c[2] : 34) + 12 - 60, C4) // the timpani on the bass note, an octave up (D2 … A3)
+      if (b && fire(x - b.τ)) timp.hit(f, b.vel, 2)
+      if (rl && fire2(x - rl.τ)) roll.hit(f, 0.3 + 0.4 * rl.vel, 0.2)
+      const y = 0.35 * timp() + 0.2 * roll() + 0.22 * (b ? b.vel * boom(b.τ * sec, true) : boom(1, false))
+      return verb(y, y)
     }
   },
 }})()`

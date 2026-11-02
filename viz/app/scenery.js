@@ -1,6 +1,8 @@
 // Themed scenery behind the curves (classic, 2D) and around the ribbons (space, 3D), one per theme:
 // a night in space, a rainy city, 8-bit hills, a sunset sea, sakura, a baroque hall, a cathedral,
-// outrun, a neon tunnel, a drift road, cats on roofs, ink mountains, a moonlit lake, a jazz club.
+// outrun, a neon tunnel, a drift road, cats on roofs, ink mountains, a moonlit lake, a jazz club, a factory at dusk,
+// Brinstar's glowing jungle, a cathedral's organ, a stadium, northern lights, an old desktop, a demoscene cathedral, a
+// haunted arcade, a favela at night.
 // It moves with the music, not the clock: x is the beat, so the sun's stripes, the floor grid, the
 // tunnel frames, road dashes and waves step exactly once per beat, the rose window's light goes round
 // once per bar, windows switch on every two bars, fireflies flash on beats; the nearest layer scrolls
@@ -372,7 +374,96 @@ function menhir(g, x, y, s, m, side, rgb, b = 0) {
   for (let a = 0; a < 3 * TAU; a += 0.2) { const r = 0.05 * s * a, px = x + Math.cos(a) * r, py = y - h * 0.55 + Math.sin(a) * r; a ? g.lineTo(px, py) : g.moveTo(px, py) }
   g.stroke()
 }
-const PROPS = { lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir }
+// a crate on a pallet, its stencilled arrow lit on the beat (the factory's road)
+function crate(g, x, y, s, m, side, rgb) {
+  g.fillStyle = 'rgba(40,30,22,0.95)'; g.fillRect(x - 1.1 * s, y - 0.25 * s, 2.2 * s, 0.25 * s)
+  g.fillStyle = 'rgba(120,80,40,0.95)'; g.fillRect(x - s, y - 2.2 * s, 2 * s, 1.95 * s)
+  g.strokeStyle = 'rgba(60,40,20,0.9)'; g.lineWidth = 0.12 * s
+  g.strokeRect(x - s, y - 2.2 * s, 2 * s, 1.95 * s)
+  g.beginPath(); g.moveTo(x - s, y - 2.2 * s); g.lineTo(x + s, y - 0.25 * s); g.stroke()
+  halo(g, x, y - 2.6 * s, 0.9 * s, rgb, 0.25 + 0.3 * m.pulse)
+}
+// a glowing mushroom, its cap pulsing on the beats (the jungle)
+function mushroom(g, x, y, s, m, side, rgb, b = 0) {
+  const h = (1.6 + 1.2 * hsh(b * 1.7)) * s, r = (0.9 + 0.5 * hsh(b * 2.3)) * s
+  g.fillStyle = 'rgba(200,255,230,0.25)'; g.fillRect(x - 0.15 * s, y - h, 0.3 * s, h)
+  g.fillStyle = rgba(rgb, 0.55 + 0.35 * m.pulse)
+  g.beginPath(); g.ellipse(x, y - h, r, r * 0.55, 0, Math.PI, TAU); g.fill()
+  halo(g, x, y - h, r * 2.4, rgb, 0.25 + 0.35 * m.pulse)
+}
+// an organ pipe standing by the road, its mouth glowing (the cathedral)
+function organpipe(g, x, y, s, m, side, rgb, b = 0) {
+  const h = (5 + 2 * hsh(b * 1.3)) * s, w = 0.5 * s
+  const gr = g.createLinearGradient(x - w, 0, x + w, 0)
+  gr.addColorStop(0, 'rgba(110,90,60,0.95)'); gr.addColorStop(0.45, 'rgba(240,215,160,0.95)'); gr.addColorStop(1, 'rgba(90,70,45,0.95)')
+  g.fillStyle = gr; g.fillRect(x - w, y - h, 2 * w, h)
+  g.fillStyle = 'rgba(20,12,8,0.9)'; g.beginPath(); g.ellipse(x, y - h * 0.15, w * 0.6, w * 0.3, 0, 0, TAU); g.fill()
+  halo(g, x, y - h, 1.4 * s, rgb, 0.2 + 0.3 * m.pulse)
+}
+// a floodlight mast, its head flashing on the kick (the arena)
+function floodlight(g, x, y, s, m, side, rgb) {
+  g.fillStyle = 'rgba(25,25,32,0.95)'; g.fillRect(x - 0.12 * s, y - 6 * s, 0.24 * s, 6 * s)
+  g.fillRect(x - 0.9 * s, y - 6.6 * s, 1.8 * s, 0.7 * s)
+  for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(255,255,235,0.95)'; g.fillRect(x - 0.8 * s + i * 0.42 * s, y - 6.5 * s, 0.3 * s, 0.5 * s) }
+  halo(g, x, y - 6.3 * s, 2.5 * s, '255,255,240', 0.35 + 0.4 * m.kick)
+}
+// a snowy pine (the north): tiers of dark green, snow on each
+function pineAt(g, x, y, h, col) {
+  for (let t = 0; t < 4; t++) {
+    const w = h * (0.55 - 0.1 * t), yt = y - h * (0.25 + 0.22 * t)
+    g.fillStyle = col; g.beginPath(); g.moveTo(x, yt - h * 0.3); g.lineTo(x - w, yt + h * 0.05); g.lineTo(x + w, yt + h * 0.05); g.closePath(); g.fill()
+    g.fillStyle = 'rgba(235,245,255,0.6)'; g.beginPath(); g.moveTo(x, yt - h * 0.3); g.lineTo(x - w * 0.5, yt - h * 0.12); g.lineTo(x + w * 0.5, yt - h * 0.12); g.closePath(); g.fill()
+  }
+  g.fillStyle = 'rgba(40,28,20,0.9)'; g.fillRect(x - h * 0.04, y - h * 0.25, h * 0.08, h * 0.25)
+}
+function pine(g, x, y, s, m, side, rgb) { pineAt(g, x, y, 4.5 * s, 'rgba(14,40,32,0.97)'); halo(g, x, y - 6.3 * s, 0.6 * s, rgb, 0.15 * m.down) }
+// an old CRT monitor showing a blue screen that turns red on the kick (Error XP)
+function monitor(g, x, y, s, m, side, rgb) {
+  g.fillStyle = 'rgba(210,205,190,0.97)'; g.fillRect(x - 1.4 * s, y - 2.8 * s, 2.8 * s, 2.3 * s)
+  g.fillRect(x - 0.5 * s, y - 0.5 * s, s, 0.5 * s)
+  g.fillStyle = m.kick > 0.4 ? 'rgba(200,40,40,0.95)' : 'rgba(30,80,200,0.95)'; g.fillRect(x - 1.15 * s, y - 2.55 * s, 2.3 * s, 1.7 * s)
+  g.fillStyle = 'rgba(255,255,255,0.8)'; for (let r = 0; r < 3; r++) g.fillRect(x - 0.9 * s, y - 2.3 * s + r * 0.4 * s, (1.2 + 0.5 * hsh(r)) * s, 0.12 * s)
+  halo(g, x, y - 1.7 * s, 2 * s, rgb, 0.12 + 0.15 * m.pulse)
+}
+// a candle of pixels on a stand, flickering in steps (KeyGen Church)
+function pixelCandle(g, x, y, s, m, side, rgb, b = 0) {
+  const P = Math.max(1, 0.35 * s)
+  g.fillStyle = 'rgba(60,50,80,0.95)'; g.fillRect(x - 2 * P, y - P, 4 * P, P)
+  g.fillStyle = 'rgba(230,225,210,0.95)'; g.fillRect(x - P, y - 7 * P, 2 * P, 6 * P)
+  const fl = Math.floor(m.x * 4 + b) % 3
+  g.fillStyle = 'rgba(255,200,60,0.95)'; g.fillRect(x - P + (fl - 1) * P * 0.5, y - 9 * P, 2 * P, 2 * P)
+  g.fillStyle = 'rgba(255,255,200,0.95)'; g.fillRect(x - P * 0.5, y - 8.5 * P, P, P)
+  halo(g, x, y - 8.5 * P, 3 * s, rgb, 0.3 + 0.2 * m.pulse)
+}
+// a question block on a post (the mystery game)
+function qblock(g, x, y, s, m, side, rgb, b = 0) {
+  g.fillStyle = 'rgba(30,20,50,0.95)'; g.fillRect(x - 0.1 * s, y - 3 * s, 0.2 * s, 3 * s)
+  const bob = Math.sin(m.x * Math.PI + b) * 0.2 * s
+  g.fillStyle = 'rgba(232,160,32,0.97)'; g.fillRect(x - 0.8 * s, y - 4.6 * s + bob, 1.6 * s, 1.6 * s)
+  g.fillStyle = 'rgba(255,246,192,0.95)'; g.font = `bold ${1.3 * s}px monospace`; g.fillText('?', x - 0.38 * s, y - 3.4 * s + bob)
+  halo(g, x, y - 3.8 * s + bob, 1.8 * s, '255,190,60', 0.2 + 0.3 * m.pulse)
+}
+// a speaker stack, its cones pumping with the kick (the favela's party)
+function speaker(g, x, y, s, m, side, rgb) {
+  g.fillStyle = 'rgba(18,14,24,0.97)'; g.fillRect(x - 0.9 * s, y - 3.6 * s, 1.8 * s, 3.6 * s)
+  for (const [cy, r] of [[-2.7, 0.55], [-1.1, 0.7]]) {
+    const pump = 1 + 0.12 * m.kick
+    g.fillStyle = 'rgba(60,50,70,0.95)'; g.beginPath(); g.arc(x, y + cy * s, r * s * pump, 0, TAU); g.fill()
+    g.fillStyle = rgba(rgb, 0.4 + 0.4 * m.kick); g.beginPath(); g.arc(x, y + cy * s, 0.2 * s * pump, 0, TAU); g.fill()
+  }
+  halo(g, x, y - 1.8 * s, 2.2 * s, rgb, 0.15 + 0.35 * m.kick)
+}
+// a buoy rocking on the swell, its light blinking on the downbeats (the storm)
+function lighthouseBuoy(g, x, y, s, m, side, rgb, b = 0) {
+  const tilt = 0.15 * Math.sin(m.x * Math.PI / 2 + b)
+  g.save(); g.translate(x, y); g.rotate(tilt)
+  g.fillStyle = 'rgba(200,50,50,0.95)'; g.fillRect(-0.6 * s, -2.2 * s, 1.2 * s, 2 * s)
+  g.fillStyle = 'rgba(240,240,240,0.95)'; g.fillRect(-0.6 * s, -1.5 * s, 1.2 * s, 0.4 * s)
+  g.fillStyle = 'rgba(30,30,40,0.95)'; g.fillRect(-0.15 * s, -3 * s, 0.3 * s, 0.8 * s)
+  g.restore()
+  halo(g, x, y - 3 * s, 1.8 * s, rgb, 0.15 + 0.6 * m.down)
+}
+const PROPS = { lighthouseBuoy, lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir, crate, mushroom, organpipe, floodlight, pine, monitor, pixelCandle, qblock, speaker }
 
 function torii(g, cx, y, s, half, rgb, a) {
   g.fillStyle = rgba(rgb, a)
@@ -1094,6 +1185,463 @@ const SKIES = {
     skyline(g, c, m, { par: 0.12, slot: 46, seed: 14, lo: hy * 0.08, hi: hy * 0.32, base: hy + (c.ground - hy) * 0.3, fill: hsla(m.hue, 35, 5), win: '255,205,130', winA: 0.4 })
     onBeats(c, 4, x => lamp(g, x, c.ground, H * 0.045, m, 1, '255,200,120'))
   },
+
+  // ---- the factory: smokestacks against a sodium dusk, gears turning a tooth a beat, a conveyor whose crates step one
+  // place a beat, sparks from a welder on the kick, warning lights blinking on the bars
+  factory(g, c, m) {
+    const { W, H, k, hy } = c
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(m.hue + 10, 35, 7)); sky.addColorStop(0.7, hsla(m.hue + 25, 55, 16)); sky.addColorStop(1, hsla(m.hue + 35, 70, 26))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    halo(g, W * 0.72, hy, W * 0.45, '255,150,60', 0.12 + 0.06 * m.energy)
+    // smoke drifting from the stacks
+    slots(c, 0.04, 140, (sx, i, st) => {
+      const x = sx + st * 0.5, top = hy - (60 + 70 * hsh(i * 3.3)) * k
+      g.fillStyle = hsla(m.hue + 15, 20, 9); g.fillRect(x - 6 * k, top, 12 * k, hy - top)
+      g.fillStyle = 'rgba(255,90,60,' + (0.5 + 0.5 * (Math.floor(m.x / 2 + i) % 2)) + ')'; g.fillRect(x - 2 * k, top + 4 * k, 4 * k, 3 * k)
+      for (let j = 0; j < 7; j++) {
+        const u = fr(m.time * 0.05 + j / 7 + hsh(i)), r = (6 + 26 * u) * k
+        g.fillStyle = `rgba(140,130,125,${0.16 * (1 - u)})`
+        g.beginPath(); g.arc(x + 40 * u * k + Math.sin(u * 6 + i) * 6 * k, top - 90 * u * k, r, 0, TAU); g.fill()
+      }
+    })
+    // the hall: a sawtooth roof line
+    ridge(g, c, { par: 0.08, y: hy, amp: 0, scale: 100, seed: 3, quant: 26, fill: hsla(m.hue + 20, 20, 6), to: H })
+    slots(c, 0.08, 52, (sx, i, st) => {
+      g.fillStyle = hsla(m.hue + 20, 20, 6)
+      g.beginPath(); g.moveTo(sx, hy); g.lineTo(sx + st * 0.75, hy - 26 * k); g.lineTo(sx + st * 0.75, hy); g.closePath(); g.fill()
+      g.fillStyle = `rgba(255,200,120,${0.18 + 0.25 * m.energy * hsh(i * 2.1 + Math.floor(m.x / 8))})`
+      g.fillRect(sx + st * 0.55, hy - 18 * k, st * 0.16, 16 * k)
+    })
+    // gears turning a tooth each beat
+    for (const [gx, gy, r, n, dir] of [[W * 0.18, hy * 0.62, 46, 12, 1], [W * 0.18 + 75 * k, hy * 0.62 + 30 * k, 30, 8, -1]]) {
+      const a = dir * ((Math.floor(m.x) + (1 - Math.exp(-8 * m.beat))) / n) * TAU
+      g.save(); g.translate(gx, gy); g.rotate(a)
+      g.fillStyle = hsla(m.hue + 20, 15, 12); g.strokeStyle = rgba(m.A, 0.35); g.lineWidth = 1.2 * k
+      g.beginPath()
+      for (let t = 0; t < n; t++) for (const [u, rr] of [[0, 1], [0.15, 1], [0.25, 0.8], [0.75, 0.8], [0.85, 1]]) { const ang = ((t + u) / n) * TAU; g.lineTo(Math.cos(ang) * rr * r * k, Math.sin(ang) * rr * r * k) }
+      g.closePath(); g.fill(); g.stroke()
+      g.fillStyle = hsla(m.hue, 30, 4); g.beginPath(); g.arc(0, 0, r * 0.25 * k, 0, TAU); g.fill()
+      g.restore()
+    }
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(m.hue + 20, 25, 8)); fl.addColorStop(1, hsla(m.hue + 20, 25, 3))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    // the conveyor: rollers and crates stepping one place a beat
+    const by = hy + (c.ground - hy) * 0.45
+    g.fillStyle = hsla(m.hue + 20, 15, 14); g.fillRect(0, by, W, 6 * k)
+    const step = 40 * k, shift = (Math.floor(m.x) + (1 - Math.exp(-10 * m.beat))) * step - c.scroll(0.5)
+    for (let i = -2; i < W / step + 2; i++) {
+      const x = i * step + (((shift % step) + step) % step)
+      g.fillStyle = hsla(m.hue + 20, 10, 22); g.beginPath(); g.arc(x, by + 8 * k, 3 * k, 0, TAU); g.fill()
+      if (hsh(Math.floor(i - shift / step) * 3.7) < 0.55) {
+        g.fillStyle = hsla(m.hue + 30, 45, 18); g.fillRect(x - 13 * k, by - 22 * k, 26 * k, 22 * k)
+        g.strokeStyle = rgba(m.A, 0.3); g.strokeRect(x - 13 * k, by - 22 * k, 26 * k, 22 * k)
+      }
+    }
+    // sparks on the kick
+    g.globalCompositeOperation = 'lighter'
+    const sxp = W * 0.62, syp = by - 26 * k
+    for (let i = 0; i < 24; i++) {
+      const a = -Math.PI * (0.1 + 0.8 * hsh(i * 1.3)), v = (40 + 80 * hsh(i * 2.7)) * k * (1 - m.kick)
+      g.fillStyle = `rgba(255,${180 + 60 * hsh(i)},90,${0.8 * m.kick})`
+      g.fillRect(sxp + Math.cos(a) * v, syp + Math.sin(a) * v + 30 * k * (1 - m.kick) ** 2, 2 * k, 2 * k)
+    }
+    halo(g, sxp, syp, 40 * k, '255,200,120', 0.4 * m.kick)
+    g.globalCompositeOperation = 'source-over'
+    onBeats(c, 4, x => {
+      g.fillStyle = hsla(m.hue + 20, 15, 10); g.fillRect(x - 3 * k, c.ground - 70 * k, 6 * k, 70 * k)
+      const on = Math.floor(m.x) % 2 === 0
+      halo(g, x, c.ground - 72 * k, 18 * k, '255,120,40', on ? 0.5 : 0.1)
+    })
+  },
+
+  // ---- Brinstar's jungle: a cave of glowing roots, bioluminescent bulbs pulsing on the beats, spores rising, bubbles,
+  // hanging vines swaying with the bar
+  jungle(g, c, m) {
+    const { W, H, k, hy } = c
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(170, 50, 4)); sky.addColorStop(1, hsla(150, 55, 12))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    // the cave's ceiling, roots hanging
+    ridge(g, c, { par: 0.03, y: hy * 0.18, amp: -hy * 0.14, scale: 90, seed: 41, fill: hsla(160, 40, 5), to: 0 })
+    slots(c, 0.06, 38, (sx, i) => {
+      const len = (40 + 120 * hsh(i * 2.3)) * k, sway = Math.sin(TAU * (m.x / 4) + i) * 6 * k
+      g.strokeStyle = hsla(150, 35, 10); g.lineWidth = (2 + 2 * hsh(i)) * k
+      g.beginPath(); g.moveTo(sx, 0); g.quadraticCurveTo(sx + sway, len * 0.5, sx + sway * 1.6, len); g.stroke()
+      if (hsh(i * 5.1) < 0.4) halo(g, sx + sway * 1.6, len, 9 * k, '120,255,200', 0.3 + 0.4 * m.pulse * hsh(i))
+    })
+    // far mountains of moss, then the glowing plants
+    ridge(g, c, { par: 0.07, y: hy, amp: hy * 0.25, scale: 70, seed: 42, fill: hsla(165, 45, 7), to: H })
+    g.globalCompositeOperation = 'lighter'
+    slots(c, 0.12, 70, (sx, i) => {
+      const x = sx + 20 * hsh(i) * k, h = (30 + 60 * hsh(i * 1.7)) * k, base = hy + 8 * k
+      g.strokeStyle = 'rgba(80,220,170,0.35)'; g.lineWidth = 2 * k
+      g.beginPath(); g.moveTo(x, base); g.quadraticCurveTo(x - 8 * k, base - h * 0.6, x + 4 * k * Math.sin(m.x + i), base - h); g.stroke()
+      const glow = 0.25 + 0.5 * (Math.floor(m.x) % 4 === i % 4 ? m.pulse : 0.15) + 0.2 * m.energy
+      const col = i % 3 ? '90,255,190' : '255,120,220'
+      halo(g, x + 4 * k * Math.sin(m.x + i), base - h, (10 + 8 * m.kick) * k, col, glow)
+      g.fillStyle = rgba(col, 0.9); g.beginPath(); g.arc(x + 4 * k * Math.sin(m.x + i), base - h, 3 * k, 0, TAU); g.fill()
+    })
+    // spores rising, bubbles wobbling up
+    for (let i = 0; i < 60; i++) {
+      const u = fr(m.time * (0.03 + 0.04 * hsh(i)) + hsh(i * 3.1)), x = fr(hsh(i * 7.3) + Math.sin(u * 5 + i) * 0.02) * W, y = H - u * H * 1.1
+      g.fillStyle = `rgba(160,255,210,${0.35 * Math.sin(Math.PI * u)})`
+      g.fillRect(x, y, 1.6 * k, 1.6 * k)
+    }
+    for (let i = 0; i < 9; i++) {
+      const u = fr(m.x / 8 + hsh(i * 2.9)), x = W * hsh(i * 4.4) + Math.sin(u * 14 + i) * 8 * k, y = H - u * (H - hy * 0.6)
+      g.strokeStyle = `rgba(150,255,230,${0.5 * (1 - u)})`; g.lineWidth = 1.2 * k
+      g.beginPath(); g.arc(x, y, (3 + 5 * hsh(i)) * k, 0, TAU); g.stroke()
+    }
+    g.globalCompositeOperation = 'source-over'
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(165, 50, 7)); fl.addColorStop(1, hsla(170, 50, 2))
+    g.fillStyle = fl; g.fillRect(0, hy + (c.ground - hy) * 0.55, W, H)
+    onBeats(c, 4, (x, b) => mushroom(g, x, c.ground, H * 0.03, m, 1, hsh(b) < 0.5 ? '90,255,190' : '255,120,220', b))
+  },
+
+  // ---- the cathedral: a nave seen down its length — piers and rib vaults receding, the organ's pipes at the end lit
+  // pipe by pipe as the music moves, light falling through the clerestory, candles on the kick
+  cathedral(g, c, m) {
+    const { W, H, k, hy } = c, cx = W / 2
+    g.fillStyle = hsla(m.hue, 25, 4); g.fillRect(0, 0, W, H)
+    // the organ case and its pipes: a flat of 21, the tallest in the middle; three lit a beat, round the bar
+    const pw = Math.min(W * 0.022, 16 * k), n = 21, top = hy * 0.18, base = hy * 0.95
+    g.fillStyle = 'rgba(34,20,12,0.96)'; g.fillRect(cx - (n / 2 + 1.5) * pw * 1.15, top - 20 * k, (n + 3) * pw * 1.15, base - top + 30 * k)
+    const lit = Math.floor(fr(m.x / 4) * n)
+    for (let j = 0; j < n; j++) {
+      const d = Math.abs(j - (n - 1) / 2), h = (base - top) * (1 - 0.55 * (d / (n / 2)) ** 1.4), x = cx + (j - (n - 1) / 2) * pw * 1.15
+      const glow = Math.exp(-Math.abs(j - lit) * 0.9) * (0.4 + 0.6 * m.pulse) + 0.15 * m.energy
+      const gr = g.createLinearGradient(x - pw / 2, 0, x + pw / 2, 0)
+      gr.addColorStop(0, 'rgba(120,100,70,0.9)'); gr.addColorStop(0.45, `rgba(${230 + 25 * glow},${200 + 40 * glow},${140 + 60 * glow},0.95)`); gr.addColorStop(1, 'rgba(90,70,50,0.9)')
+      g.fillStyle = gr; g.fillRect(x - pw / 2, base - h, pw, h)
+      g.fillStyle = 'rgba(20,12,8,0.9)'; g.beginPath(); g.ellipse(x, base - h * 0.12, pw * 0.32, pw * 0.18, 0, 0, TAU); g.fill() // the mouth
+      if (glow > 0.3) halo(g, x, base - h, pw * 3, m.B, 0.15 * glow)
+    }
+    // the clerestory's light: shafts falling slant, brighter with the energy
+    g.globalCompositeOperation = 'lighter'
+    for (let i = 0; i < 6; i++) {
+      const x0 = W * (0.1 + 0.16 * i), a = 0.04 + 0.05 * m.energy + 0.03 * Math.sin(m.x * 0.25 + i)
+      const gr = g.createLinearGradient(x0, 0, x0 + W * 0.12, H)
+      gr.addColorStop(0, `rgba(255,230,180,${a})`); gr.addColorStop(1, 'rgba(255,230,180,0)')
+      g.fillStyle = gr; g.beginPath(); g.moveTo(x0, 0); g.lineTo(x0 + 14 * k, 0); g.lineTo(x0 + W * 0.14, H); g.lineTo(x0 + W * 0.1, H); g.closePath(); g.fill()
+    }
+    // dust in the light
+    for (let i = 0; i < 40; i++) {
+      const u = fr(m.time * 0.02 * (0.5 + hsh(i)) + hsh(i * 2.2)), x = W * hsh(i * 9.1) + Math.sin(u * 7 + i) * 10 * k, y = H * u
+      g.fillStyle = `rgba(255,236,200,${0.25 * Math.sin(Math.PI * u)})`; g.fillRect(x, y, 1.5 * k, 1.5 * k)
+    }
+    g.globalCompositeOperation = 'source-over'
+    // the nave's piers and ribs, receding toward the organ
+    for (let j = 6; j >= 1; j--) {
+      const s = 1 / (0.35 + j * 0.28), half = W * 0.5 * s, y0 = hy + (H - hy) * 0.3 * s, ht = H * 0.9 * s
+      g.strokeStyle = `rgba(40,30,44,${0.6 + 0.06 * (6 - j)})`; g.lineWidth = (3 + 5 * s) * k
+      g.beginPath(); g.moveTo(cx - half, y0); g.lineTo(cx - half, y0 - ht * 0.55); g.quadraticCurveTo(cx - half * 0.3, y0 - ht * 1.05, cx, y0 - ht); g.quadraticCurveTo(cx + half * 0.3, y0 - ht * 1.05, cx + half, y0 - ht * 0.55); g.lineTo(cx + half, y0); g.stroke()
+    }
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(m.hue + 10, 20, 7)); fl.addColorStop(1, hsla(m.hue, 20, 2))
+    g.fillStyle = fl; g.fillRect(0, hy + (c.ground - hy) * 0.6, W, H)
+    onBeats(c, 4, (x, b) => candle(g, x, c.ground, H * 0.03, m, m.B, b))
+  },
+
+  // ---- the arena: a stadium at night — tiers of a crowd whose lit phones sway with the bar, floodlight towers, beams
+  // sweeping across the haze, a flash on every kick
+  arena(g, c, m) {
+    const { W, H, k, hy } = c
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(m.hue, 40, 4)); sky.addColorStop(1, hsla(m.hue, 45, 11))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    // beams from the towers, crossing in time
+    g.globalCompositeOperation = 'lighter'
+    for (let i = 0; i < 6; i++) {
+      const x0 = W * (i < 3 ? 0.06 + 0.05 * i : 0.94 - 0.05 * (i - 3)), y0 = hy * 0.12, a = Math.PI / 2 + (i < 3 ? -1 : 1) * (0.55 + 0.35 * Math.sin(TAU * (m.x / 8) + i))
+      const L = H * 1.6, w = 0.045 + 0.02 * m.kick
+      const gr = g.createRadialGradient(x0, y0, 0, x0, y0, L)
+      gr.addColorStop(0, rgba(i % 2 ? m.A : m.B, 0.3 + 0.2 * m.energy + 0.3 * m.kick)); gr.addColorStop(1, rgba(i % 2 ? m.A : m.B, 0))
+      g.fillStyle = gr
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + Math.cos(a - w) * L, y0 + Math.sin(a - w) * L); g.lineTo(x0 + Math.cos(a + w) * L, y0 + Math.sin(a + w) * L); g.closePath(); g.fill()
+      halo(g, x0, y0, 30 * k, '255,255,240', 0.5)
+    }
+    g.globalCompositeOperation = 'source-over'
+    for (const x0 of [W * 0.06, W * 0.11, W * 0.16, W * 0.84, W * 0.89, W * 0.94]) { g.fillStyle = 'rgba(20,20,28,0.95)'; g.fillRect(x0 - 2 * k, hy * 0.12, 4 * k, hy) }
+    // the tiers: rows of heads, phones lit and swaying
+    for (let row = 0; row < 5; row++) {
+      const y = hy * (0.5 + 0.1 * row), sz = (2.5 + 0.8 * row) * k
+      g.fillStyle = hsla(m.hue, 30, 13 + 3 * row + 6 * m.kick); g.fillRect(0, y - sz * 2, W, hy * 0.1 + 2)
+      slots(c, 0.05 + 0.03 * row, 9 + 3 * row, (sx, i) => {
+        const bob = Math.abs(Math.sin(TAU * (m.x / 2) + i * 0.7)) * 3 * k * m.energy
+        g.fillStyle = hsla(m.hue, 30, 3); g.beginPath(); g.arc(sx, y - bob, sz, 0, TAU); g.fill(); g.fillRect(sx - sz, y - bob, 2 * sz, sz * 2)
+        if (hsh(i * 1.9 + row) < 0.3) { const ph = sx + Math.sin(TAU * m.x / 4 + i) * 4 * k; g.fillStyle = 'rgba(230,240,255,0.9)'; g.fillRect(ph, y - bob - sz * 3, 1.5 * k, 2.5 * k); halo(g, ph, y - bob - sz * 3, 6 * k, '200,220,255', 0.3) }
+      })
+    }
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(m.hue, 30, 9)); fl.addColorStop(1, hsla(m.hue, 30, 3))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    halo(g, W / 2, hy + (H - hy) * 0.5, W * 0.5, '255,255,255', 0.05 + 0.25 * m.kick)
+    onBeats(c, 4, x => floodlight(g, x, c.ground, H * 0.03, m, 1, m.B))
+  },
+
+  // ---- the north: snow peaks under an aurora rippling with the bars, pines on the slopes, snow falling and swirling
+  snow(g, c, m) {
+    const { W, H, k, hy } = c
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(225, 45, 5)); sky.addColorStop(1, hsla(205, 40, 14))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(230,240,255,${0.3 + 0.4 * hsh(i * 3.3)})`; g.fillRect(hsh(i * 7.1) * W, hsh(i * 1.9) * hy * 0.7, 1.2 * k, 1.2 * k) }
+    // the aurora: curtains of light, their folds travelling a bar at a time
+    g.globalCompositeOperation = 'lighter'
+    for (let band = 0; band < 3; band++) {
+      const col = band === 1 ? '140,120,255' : '90,255,170'
+      for (let x = 0; x < W; x += 3 * k) {
+        const u = x / W, y = hy * (0.18 + 0.08 * band + 0.08 * Math.sin(u * 5 + m.x * 0.4 + band) + 0.04 * Math.sin(u * 13 - m.x * 0.9))
+        const h = hy * (0.18 + 0.12 * fbm(u * 3 + m.x * 0.05, band * 7)), a = (0.05 + 0.07 * m.energy + 0.06 * m.down) * (0.5 + 0.5 * Math.sin(u * 9 + m.x * 0.3 + band))
+        const gr = g.createLinearGradient(0, y, 0, y + h)
+        gr.addColorStop(0, rgba(col, 0)); gr.addColorStop(0.2, rgba(col, a)); gr.addColorStop(1, rgba(col, 0))
+        g.fillStyle = gr; g.fillRect(x, y, 3 * k, h)
+      }
+    }
+    g.globalCompositeOperation = 'source-over'
+    ridge(g, c, { par: 0.03, y: hy, amp: hy * 0.45, scale: 160, seed: 61, peaks: true, oct: 3, fill: hsla(215, 25, 22), line: 'rgba(240,248,255,0.7)', lw: 1.6, to: H })
+    ridge(g, c, { par: 0.06, y: hy + 4 * k, amp: hy * 0.25, scale: 110, seed: 62, peaks: true, oct: 3, fill: hsla(215, 25, 12), to: H })
+    slots(c, 0.1, 22, (sx, i) => { if (hsh(i * 2.2) < 0.6) pineAt(g, sx, hy + 10 * k + 10 * k * hsh(i), (8 + 10 * hsh(i * 3.1)) * k, hsla(200, 30, 7)) })
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(210, 25, 16)); fl.addColorStop(1, hsla(215, 30, 6))
+    g.fillStyle = fl; g.fillRect(0, hy + 20 * k, W, H)
+    for (let i = 0; i < 110; i++) {
+      const sp = 0.4 + hsh(i * 0.37), y = fr(m.time * 0.05 * sp + hsh(i * 5.5)) * H, x = fr(hsh(i * 2.9) + Math.sin(m.time * 0.3 * sp + i) * 0.01 - m.x * 0.002) * W
+      g.fillStyle = `rgba(245,250,255,${0.35 + 0.4 * sp / 1.4})`; g.beginPath(); g.arc(x, y, (0.8 + 1.4 * sp) * k, 0, TAU); g.fill()
+    }
+    onBeats(c, 4, (x, b) => pine(g, x, c.ground, H * 0.035, m, 1, '220,240,255', b))
+  },
+
+  // ---- Error XP: a green hill under a blue sky with drifting clouds — and error dialogs cascading down it, one more a
+  // beat, the newest flashing on the kick; a cursor wandering
+  xp(g, c, m) {
+    const { W, H, k, hy } = c
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, '#2f6fd8'); sky.addColorStop(0.6, '#6aa7f0'); sky.addColorStop(1, '#bcd9fb')
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy * 1.05)
+    for (let i = 0; i < 8; i++) {
+      const span = W * 1.6, x = ((hsh(i * 3.1) * span - c.scroll(0.02 + 0.01 * hsh(i))) % span + span) % span - W * 0.3, y = hy * (0.1 + 0.35 * hsh(i * 5.3)), s = (40 + 50 * hsh(i * 2.2)) * k
+      g.fillStyle = 'rgba(255,255,255,0.75)'
+      for (const [dx, dy, r] of [[0, 0, 0.5], [0.45, 0.1, 0.38], [-0.45, 0.12, 0.35], [0.2, -0.22, 0.32]]) { g.beginPath(); g.arc(x + dx * s, y + dy * s, r * s, 0, TAU); g.fill() }
+    }
+    // the hill: one long green curve, a lighter crest
+    const hill = (yb, amp, col, par) => {
+      g.fillStyle = col; g.beginPath(); g.moveTo(0, H)
+      for (let x = 0; x <= W + 8; x += 8 * k) g.lineTo(x, yb - amp * Math.sin(Math.PI * (x / W) * 0.9 + 0.25 + 0.1 * Math.sin(c.scroll(par) / (W * 2))))
+      g.lineTo(W, H); g.closePath(); g.fill()
+    }
+    hill(hy + 40 * k, hy * 0.28, '#4f9a2c', 0.01)
+    const gl = g.createLinearGradient(0, hy * 0.7, 0, H)
+    gl.addColorStop(0, '#79c447'); gl.addColorStop(1, '#2c6b17')
+    hill(hy + 80 * k, hy * 0.22, gl, 0.02)
+    // the dialogs: a new one each beat in a cascade, up to 12, cleared every 4 bars
+    const nWin = Math.min(12, Math.floor(m.x % 16)) + 1, base = Math.floor(m.x / 16)
+    for (let j = 0; j < nWin; j++) {
+      const x = W * (0.12 + 0.55 * hsh(base * 9.1)) + j * 18 * k, y = hy * (0.12 + 0.2 * hsh(base * 4.3)) + j * 16 * k, w = 170 * k, h = 70 * k, newest = j === nWin - 1
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 4 * k, y + 4 * k, w, h)
+      g.fillStyle = '#ece9d8'; g.fillRect(x, y, w, h)
+      const tb = g.createLinearGradient(0, y, 0, y + 16 * k)
+      tb.addColorStop(0, newest && m.kick > 0.3 ? '#5a8cff' : '#2a5fd6'); tb.addColorStop(1, '#0c3fb8')
+      g.fillStyle = tb; g.fillRect(x, y, w, 16 * k)
+      g.fillStyle = '#d6443a'; g.fillRect(x + w - 15 * k, y + 2 * k, 12 * k, 12 * k)
+      g.strokeStyle = '#fff'; g.lineWidth = 1.5 * k
+      g.beginPath(); g.moveTo(x + w - 12 * k, y + 5 * k); g.lineTo(x + w - 6 * k, y + 11 * k); g.moveTo(x + w - 6 * k, y + 5 * k); g.lineTo(x + w - 12 * k, y + 11 * k); g.stroke()
+      g.fillStyle = '#d6443a'; g.beginPath(); g.arc(x + 20 * k, y + 38 * k, 10 * k, 0, TAU); g.fill()
+      g.fillStyle = '#fff'; g.fillRect(x + 15 * k, y + 37 * k, 10 * k, 2.5 * k)
+      g.fillStyle = '#333'; g.font = `${10 * k}px Tahoma, Verdana, sans-serif`; g.fillText('Ошибка', x + 5 * k, y + 12 * k)
+      g.fillText('Что-то пошло музыкально.', x + 38 * k, y + 36 * k)
+      g.fillStyle = '#f4f3ee'; g.fillRect(x + w / 2 - 22 * k, y + h - 20 * k, 44 * k, 14 * k)
+      g.strokeStyle = '#003c74'; g.lineWidth = k; g.strokeRect(x + w / 2 - 22 * k, y + h - 20 * k, 44 * k, 14 * k)
+      g.fillStyle = '#000'; g.fillText('OK', x + w / 2 - 6 * k, y + h - 9 * k)
+    }
+    // the cursor
+    const cxp = W * (0.5 + 0.35 * Math.sin(m.x * 0.37)), cyp = hy * (0.45 + 0.3 * Math.sin(m.x * 0.53 + 1))
+    g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = k
+    g.beginPath(); g.moveTo(cxp, cyp); g.lineTo(cxp, cyp + 18 * k); g.lineTo(cxp + 5 * k, cyp + 14 * k); g.lineTo(cxp + 9 * k, cyp + 21 * k); g.lineTo(cxp + 12 * k, cyp + 19 * k); g.lineTo(cxp + 8 * k, cyp + 12 * k); g.lineTo(cxp + 14 * k, cyp + 12 * k); g.closePath(); g.fill(); g.stroke()
+    onBeats(c, 4, (x, b) => monitor(g, x, c.ground, H * 0.03, m, 1, m.A, b))
+  },
+
+  // ---- KeyGen Church: a demoscene intro — copper bars rolling, a starfield flying out, a pixel cathedral with a stained
+  // rose in sixteen colours, a sine scroller greeting everyone
+  keygen(g, c, m) {
+    const { W, H, k, hy } = c
+    g.fillStyle = '#05030a'; g.fillRect(0, 0, W, H)
+    // the starfield: out of the centre, faster with the energy
+    for (let i = 0; i < 120; i++) {
+      const z = fr(hsh(i * 3.7) - m.time * (0.05 + 0.12 * m.energy)), sx = (hsh(i * 1.3) - 0.5) / (z + 0.02), sy = (hsh(i * 2.9) - 0.5) / (z + 0.02)
+      const x = W / 2 + sx * W * 0.15, y = hy * 0.5 + sy * hy * 0.15, s = (1 - z) * 2.5 * k
+      if (x < 0 || x > W || y < 0 || y > H) continue
+      g.fillStyle = `rgba(200,230,255,${1 - z})`; g.fillRect(Math.round(x), Math.round(y), s, s)
+    }
+    // copper bars: eight bands rolling in sine, the colours of an Amiga's copper list
+    const pal = ['255,60,60', '255,160,40', '255,240,80', '80,255,120', '60,200,255', '120,90,255', '255,80,220', '255,255,255']
+    for (let i = 0; i < 8; i++) {
+      const y = hy * (0.5 + 0.38 * Math.sin(m.x * 0.5 + i * 0.45)), h = 6 * k
+      const gr = g.createLinearGradient(0, y - h, 0, y + h)
+      gr.addColorStop(0, rgba(pal[i], 0)); gr.addColorStop(0.5, rgba(pal[i], 0.22 + 0.25 * m.kick)); gr.addColorStop(1, rgba(pal[i], 0))
+      g.fillStyle = gr; g.fillRect(0, y - h, W, 2 * h)
+    }
+    // the pixel cathedral against the bars: blocks on a grid of 6 px, a rose window of 16 colours turning a pane a beat
+    const P = 6 * k, cx = W / 2, baseY = hy
+    const blocks = (x0, x1, y0, y1, col) => { g.fillStyle = col; for (let x = x0; x < x1; x += P) for (let y = y0; y < y1; y += P) g.fillRect(Math.round(x), Math.round(y), P - 1, P - 1) }
+    blocks(cx - 22 * P, cx + 22 * P, baseY - 18 * P, baseY, '#141026')
+    blocks(cx - 6 * P, cx + 6 * P, baseY - 34 * P, baseY - 18 * P, '#141026')
+    for (let r = 0; r < 8; r++) blocks(cx - (8 - r) * P / 1.3, cx + (8 - r) * P / 1.3, baseY - (42 - r) * P, baseY - (41 - r) * P, '#141026')
+    for (const tx of [-18, 18]) { blocks(cx + tx * P - 3 * P, cx + tx * P + 3 * P, baseY - 28 * P, baseY - 18 * P, '#141026'); for (let r = 0; r < 5; r++) blocks(cx + tx * P - (5 - r) * P / 1.7, cx + tx * P + (5 - r) * P / 1.7, baseY - (33 - r) * P, baseY - (32 - r) * P, '#141026') }
+    const rose = ['#ff3c3c', '#ffa028', '#fff050', '#50ff78', '#3cc8ff', '#785aff', '#ff50dc', '#ffffff']
+    for (let a = 0; a < 16; a++) for (let rr = 1; rr <= 3; rr++) {
+      const ang = (a / 16) * TAU, x = cx + Math.cos(ang) * rr * P * 1.1, y = baseY - 26 * P + Math.sin(ang) * rr * P * 1.1
+      const on = (a + Math.floor(m.x)) % 16 < 4
+      g.fillStyle = rose[(a + rr) % 8]; g.globalAlpha = on ? 1 : 0.45; g.fillRect(Math.round(x), Math.round(y), P - 1, P - 1)
+    }
+    g.globalAlpha = 1
+    for (let w = -16; w <= 16; w += 4) if (Math.abs(w) > 4) { const lit = hsh(w + Math.floor(m.x / 4)) < 0.6; g.fillStyle = lit ? 'rgba(255,220,120,0.85)' : '#2a2140'; g.fillRect(cx + w * P, baseY - 12 * P, P * 1.6, P * 4) }
+    // the scroller: letters on a sine, one step a sixteenth
+    const msg = '  ✦ KEYGEN CHURCH ✦ MATHMUSIC GREETS ALL MUSICIANS · ALL ORGANISTS · ALL TRACKERS · 16 CHANNELS · 1 CATHEDRAL ✦  '
+    g.font = `bold ${16 * k}px monospace`
+    const cw = 13 * k, off = (m.x * 4 * cw * 0.5) % (msg.length * cw)
+    for (let i = 0; i < W / cw + 2; i++) {
+      const ci = Math.floor((i * cw + off) / cw) % msg.length, x = i * cw - ((off % cw) + cw) % cw, y = H - (H - hy) * 0.35 + Math.sin(i * 0.35 + m.x * 2) * 12 * k
+      g.fillStyle = rgba(pal[(ci + Math.floor(m.x * 2)) % 8], 0.95); g.fillText(msg[ci], x, y)
+    }
+    onBeats(c, 4, (x, b) => pixelCandle(g, x, c.ground, H * 0.03, m, 1, m.A, b))
+  },
+
+  // ---- the mystery game: a haunted arcade screen — a purple fog, a maze of neon walls scrolling, question blocks
+  // floating and flipping on the beats, a CRT's scanlines and a glitch on the kick
+  mystery(g, c, m) {
+    const { W, H, k, hy } = c
+    const bg = g.createRadialGradient(W / 2, hy * 0.6, 0, W / 2, hy * 0.6, W * 0.8)
+    bg.addColorStop(0, hsla(275, 60, 14)); bg.addColorStop(1, hsla(260, 60, 3))
+    g.fillStyle = bg; g.fillRect(0, 0, W, H)
+    // the maze: neon walls on a 40-px grid scrolling, drawn where the hash says
+    const cell = 40 * k, off = c.scroll(0.08), j0 = Math.floor(off / cell)
+    g.strokeStyle = rgba(m.A, 0.35 + 0.25 * m.energy); g.lineWidth = 2 * k
+    for (let j = j0 - 1; j < j0 + W / cell + 2; j++) for (let r = 0; r < Math.floor(hy / cell); r++) {
+      const x = j * cell - off, y = r * cell + 10 * k, h = hsh(j * 13.1 + r * 7.7)
+      g.beginPath()
+      if (h < 0.4) { g.moveTo(x, y); g.lineTo(x + cell, y) } else if (h < 0.8) { g.moveTo(x, y); g.lineTo(x, y + cell) }
+      g.stroke()
+    }
+    // question blocks: floating, a flip on the beat they own, a coin popping on the downbeat
+    for (let i = 0; i < 6; i++) {
+      const x = W * (0.12 + 0.15 * i), y = hy * (0.35 + 0.15 * Math.sin(m.x * 0.5 + i)), s = 26 * k, flip = Math.floor(m.x) % 6 === i ? Math.cos(Math.PI * Math.min(1, m.beat * 2)) : 1
+      g.save(); g.translate(x, y); g.scale(flip, 1)
+      g.fillStyle = '#e8a020'; g.fillRect(-s / 2, -s / 2, s, s)
+      g.strokeStyle = '#6a3a00'; g.lineWidth = 2 * k; g.strokeRect(-s / 2, -s / 2, s, s)
+      g.fillStyle = '#fff6c0'; g.font = `bold ${18 * k}px monospace`; g.fillText('?', -5 * k, 7 * k)
+      g.restore()
+      halo(g, x, y, s * 1.6, '255,190,60', 0.12 + 0.2 * (Math.floor(m.x) % 6 === i ? m.pulse : 0))
+      if (i === Math.floor(m.x / 4) % 6) { const u = m.down; g.fillStyle = `rgba(255,220,60,${u})`; g.beginPath(); g.ellipse(x, y - s - 30 * k * (1 - u), 5 * k, 8 * k, 0, 0, TAU); g.fill() }
+    }
+    // fog rolling
+    for (let i = 0; i < 5; i++) { const x = fr(hsh(i) + m.time * 0.01 * (1 + i * 0.3)) * W * 1.4 - W * 0.2; halo(g, x, hy * (0.8 + 0.1 * i), W * 0.3, '170,90,255', 0.08) }
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(270, 60, 8)); fl.addColorStop(1, hsla(260, 60, 2))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    g.globalCompositeOperation = 'lighter'
+    floorGrid(g, c, m, m.A, 0.25 + 0.3 * m.kick, true)
+    g.globalCompositeOperation = 'source-over'
+    // the glitch: a slice shifted sideways on the kick, then the scanlines
+    if (m.kick > 0.45) { const y = hy * hsh(Math.floor(m.x * 4)), h = 14 * k; try { const img = g.getImageData(0, y, W, h); g.putImageData(img, 12 * k * m.kick, y) } catch {} }
+    g.fillStyle = 'rgba(0,0,0,0.18)'
+    for (let y = 0; y < H; y += 3 * k) g.fillRect(0, y, W, k)
+    onBeats(c, 4, (x, b) => qblock(g, x, c.ground, H * 0.03, m, 1, m.B, b))
+  },
+
+  // ---- the favela at night: a hillside of houses with lit windows climbing the slope, neon signs, laser beams
+  // sweeping from a rooftop party on the kick, the city's glow, a moon in the haze
+  favela(g, c, m) {
+    const { W, H, k, hy } = c
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(275, 55, 6)); sky.addColorStop(0.8, hsla(300, 60, 15)); sky.addColorStop(1, hsla(320, 70, 22))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    moon(g, W * 0.82, hy * 0.22, 26 * k, '255,220,240', 0.8)
+    // the hillside: houses stacked up a slope, windows lit, a few switching with the bars
+    for (let row = 0; row < 7; row++) {
+      const slopeY = x => hy - hy * (0.55 - 0.07 * row) * Math.max(0, Math.sin(Math.PI * (x / W) * 0.9 + 0.2))
+      slots(c, 0.02 + 0.012 * row, 22 + 4 * row, (sx, i, st) => {
+        const y0 = slopeY(sx) + row * 14 * k, w = st * (0.7 + 0.3 * hsh(i * 2.3 + row)), h = (12 + 10 * hsh(i * 4.1 + row)) * k
+        if (y0 > hy) return
+        g.fillStyle = hsla(300 - row * 6, 30, 8 + row); g.fillRect(sx, y0 - h, w, h + 14 * k)
+        const lit = hsh(i * 7.7 + row * 3 + Math.floor(m.x / 8)) < 0.45
+        if (lit) { const col = hsh(i + row) < 0.3 ? '255,120,220' : '255,210,140'; g.fillStyle = rgba(col, 0.85); g.fillRect(sx + w * 0.3, y0 - h * 0.6, w * 0.25, h * 0.3); halo(g, sx + w * 0.42, y0 - h * 0.45, 8 * k, col, 0.12) }
+      })
+    }
+    // lasers from the party on the hill, fanning on the kick
+    g.globalCompositeOperation = 'lighter'
+    const lx = W * 0.35, ly = hy * 0.45
+    for (let i = 0; i < 8; i++) {
+      const a = -Math.PI / 2 + (i - 3.5) * (0.12 + 0.18 * m.kick) + 0.3 * Math.sin(m.x * 0.5)
+      g.strokeStyle = rgba(i % 2 ? '120,255,200' : '255,60,200', 0.25 + 0.5 * m.kick); g.lineWidth = 1.5 * k
+      g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx + Math.cos(a) * H, ly + Math.sin(a) * H); g.stroke()
+    }
+    halo(g, lx, ly, 30 * k, '255,120,240', 0.3 + 0.4 * m.kick)
+    halo(g, W / 2, hy, W * 0.5, '255,80,200', 0.08 + 0.06 * m.energy)
+    g.globalCompositeOperation = 'source-over'
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(300, 50, 10)); fl.addColorStop(1, hsla(280, 50, 3))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    // the wet street: reflections of the lasers' glow
+    g.globalCompositeOperation = 'lighter'
+    for (let i = 0; i < 10; i++) { const x = W * hsh(i * 3.3); g.fillStyle = `rgba(255,${100 + 120 * hsh(i)},220,${0.06 + 0.1 * m.kick})`; g.fillRect(x, hy + 4 * k, 3 * k, (H - hy) * 0.6) }
+    g.globalCompositeOperation = 'source-over'
+    onBeats(c, 4, (x, b) => speaker(g, x, c.ground, H * 0.03, m, 1, m.A, b))
+  },
+
+  // ---- the storm: clouds rolling in layers, lightning forking on the section's flash and on the timpani, slant rain,
+  // the sea heaving a swell a bar, a lighthouse on the cliff whose beam goes round once a bar
+  storm(g, c, m) {
+    const { W, H, k, hy } = c
+    const bolt = Math.max(m.flash, m.kick > 0.7 ? m.kick - 0.5 : 0)
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(220, 30, 4 + 30 * bolt)); sky.addColorStop(1, hsla(215, 25, 10 + 25 * bolt))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    // the bolt: a forked line from the clouds to the sea, where the section's hash puts it
+    if (bolt > 0.05) {
+      const seed = Math.floor(m.x / 4), x0 = W * (0.2 + 0.6 * hsh(seed * 3.3))
+      g.strokeStyle = `rgba(230,240,255,${bolt})`; g.lineWidth = 2.2 * k
+      g.beginPath(); let x = x0, y = 0; g.moveTo(x, y)
+      for (let i = 0; i < 12; i++) { x += (hsh(seed * 7 + i) - 0.5) * 50 * k; y += hy / 12; g.lineTo(x, y); if (i === 5) { const bx = x, by = y; g.moveTo(bx, by); g.lineTo(bx + 40 * k, by + 50 * k); g.moveTo(bx, by) } }
+      g.stroke()
+      halo(g, x0, hy * 0.1, W * 0.5, '200,220,255', 0.35 * bolt)
+    }
+    // three layers of clouds rolling at their own pace
+    for (let layer = 0; layer < 3; layer++) {
+      ridge(g, c, { par: 0.02 + 0.03 * layer, y: hy * (0.18 + 0.12 * layer), amp: -hy * 0.12, scale: 70 + 30 * layer, seed: 80 + layer, oct: 5, fill: hsla(220, 15, 8 + 4 * layer + 20 * bolt * (1 - layer / 3)), to: 0 })
+    }
+    // the cliff and the lighthouse, its beam a turn a bar
+    const lx = W * 0.82, ly = hy - 40 * k
+    g.fillStyle = hsla(220, 20, 4); g.beginPath(); g.moveTo(W * 0.68, hy); g.lineTo(W * 0.76, ly + 8 * k); g.lineTo(W, ly); g.lineTo(W, hy); g.closePath(); g.fill()
+    g.fillStyle = 'rgba(220,220,230,0.9)'; g.fillRect(lx - 5 * k, ly - 46 * k, 10 * k, 46 * k)
+    g.fillStyle = 'rgba(200,60,60,0.9)'; for (let i = 0; i < 3; i++) g.fillRect(lx - 5 * k, ly - 40 * k + i * 14 * k, 10 * k, 5 * k)
+    const ang = TAU * fr(m.x / 4), dir = Math.cos(ang)
+    g.globalCompositeOperation = 'lighter'
+    const L = W * 0.9 * Math.abs(dir), y0 = ly - 50 * k
+    const gr = g.createLinearGradient(lx, y0, lx - Math.sign(dir) * L, y0)
+    gr.addColorStop(0, 'rgba(255,240,190,0.45)'); gr.addColorStop(1, 'rgba(255,240,190,0)')
+    g.fillStyle = gr; g.beginPath(); g.moveTo(lx, y0); g.lineTo(lx - Math.sign(dir) * L, y0 - 30 * k); g.lineTo(lx - Math.sign(dir) * L, y0 + 30 * k); g.closePath(); g.fill()
+    halo(g, lx, y0, 20 * k, '255,240,190', 0.5 + 0.3 * Math.abs(Math.sin(ang)))
+    g.globalCompositeOperation = 'source-over'
+    // the sea: swells rolling, a bar each, crests catching the lightning
+    for (let row = 0; row < 6; row++) {
+      const y = hy + (c.ground - hy) * (row / 6) ** 1.3, amp = (3 + 4 * row) * k
+      g.fillStyle = hsla(215, 30, 6 + row + 25 * bolt * (1 - row / 6))
+      g.beginPath(); g.moveTo(0, H)
+      for (let x = 0; x <= W + 10; x += 10 * k) g.lineTo(x, y + amp * Math.sin(x / (60 * k) + m.x * TAU / 4 + row))
+      g.lineTo(W, H); g.closePath(); g.fill()
+    }
+    // the rain, slanted, denser with the energy
+    g.strokeStyle = `rgba(200,215,235,${0.25 + 0.15 * m.energy})`; g.lineWidth = k
+    for (let i = 0; i < 70 + 50 * m.energy; i++) {
+      const x0 = hsh(i * 9.7) * W * 1.2, sp = 0.8 + hsh(i * 0.618), y0 = fr(m.time * sp * 1.4 + hsh(i * 0.137)) * H
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 - 8 * k, y0 + 26 * k); g.stroke()
+    }
+    onBeats(c, 4, (x, b) => lighthouseBuoy(g, x, c.ground, H * 0.03, m, 1, '255,90,80', b))
+  },
 }
 
 // rain, falling one drop length per ~half beat
@@ -1206,6 +1754,16 @@ const ROAD = {
   celtic: { prop: 'menhir', every: 4, rgb: '140,230,170', span: 'trilithon', spanEvery: 16 },
   java: { prop: 'diya', every: 4, rgb: '255,190,90', out: 1.8, span: 'torana', spanEvery: 16 },
   india: { prop: 'diya', every: 2, rgb: '255,170,70', out: 1.6, span: 'torana', spanEvery: 16 },
+  factory: { prop: 'crate', every: 4, rgb: '255,170,70' },
+  jungle: { prop: 'mushroom', every: 2, out: 1.8 },
+  cathedral: { prop: 'organpipe', every: 4, rgb: '255,220,150', span: 'lancet', spanEvery: 16 },
+  arena: { prop: 'floodlight', every: 8 },
+  snow: { prop: 'pine', every: 2, out: 2.6, rgb: '200,255,230' },
+  xp: { prop: 'monitor', every: 4 },
+  keygen: { prop: 'pixelCandle', every: 2 },
+  mystery: { prop: 'qblock', every: 4 },
+  favela: { prop: 'speaker', every: 4 },
+  storm: { prop: 'lighthouseBuoy', every: 4, rgb: '255,90,80' },
 }
 
 // 2D: behind the curves. geo = { X (beat → screen x), from, to (beats on screen), px (pixels per beat), ground }

@@ -444,7 +444,7 @@ export default {
   key: 'C',
   mode: 'mixolydian', // Миксолидийский: 0 2 4 5 7 9 10
   length: END,
-  theme: 'chip',
+  theme: 'factory',
   style: 'factory',
   generator: {"style":"factory","seed":1,"seeds":{"arrangement":1,"melody":7936,"instruments":104732},"length":"normal","mode":"mixolydian"},
   sections: SECTIONS,

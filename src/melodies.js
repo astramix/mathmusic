@@ -496,6 +496,87 @@ export const MELODIES = [
     notes: [[0, 0, 1], [1, 3, 1], [2, 5, 1], [3, 1, 1], [4, 0, 1], [5, 3, 1], [6, 8, 1], [7, 5, 1],
       [8, 8, 1.5], [9.5, 5, 0.5], [10, 11, 1], [11, 7, 1], [12, 7, 1], [13, 3, 1], [14, -1, 1], [15, 2, 1]],
   },
+  // Montagem: our own riddles over the tamborzão — short hooks that circle, a chord tone on every strong beat
+  {
+    id: 'mont-riddle', from: 'montagem', title: 'The Riddle (загадка)', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'montagem',
+    moods: ['dark', 'game'], chords: ['i', 'i', 'VI', 'V'],
+    notes: [[0, 7, 0.5], [0.5, 3, 0.5], [1, 0, 0.5], [1.5, 3, 0.5], [2, 7, 0.75], [2.75, 8, 0.25], [3, 7, 0.5], [3.5, 3, 0.5],
+      [4, 12, 0.5], [4.5, 10, 0.5], [5, 7, 0.5], [5.5, 3, 0.5], [6, 0, 1], [7, 2, 1],
+      [8, 8, 0.5], [8.5, 7, 0.5], [9, 3, 0.5], [9.5, 0, 0.5], [10, 3, 0.75], [10.75, 5, 0.25], [11, 3, 0.5], [11.5, 0, 0.5],
+      [12, 11, 0.5], [12.5, 7, 0.5], [13, 2, 0.5], [13.5, -1, 0.5], [14, -5, 1], [15, -1, 1]],
+  },
+  {
+    id: 'mont-shadow', from: 'montagem', title: 'Shadow Game (игра теней)', key: 'Dm', base: 'D4', feel: 'straight', per: 2, modal: false, only: 'montagem',
+    moods: ['dark', 'game'], chords: ['i', 'bII', 'i', 'bII', 'VI', 'VII', 'i', 'V'],
+    notes: [[0, 12, 0.75], [0.75, 10, 0.25], [1, 7, 0.5], [1.5, 8, 0.5], [2, 13, 0.75], [2.75, 12, 0.25], [3, 8, 0.5], [3.5, 5, 0.5],
+      [4, 7, 1], [5, 3, 1], [6, 5, 0.75], [6.75, 3, 0.25], [7, 1, 1],
+      [8, 10, 0.75], [8.75, 12, 0.25], [9, 15, 0.5], [9.5, 12, 0.5], [10, 14, 0.75], [10.75, 12, 0.25], [11, 10, 1],
+      [12, 12, 0.5], [12.5, 7, 0.5], [13, 3, 0.5], [13.5, 7, 0.5], [14, 11, 1], [15, 7, 1]],
+  },
+  // VELORA: cowbell riffs of our own in sixteenths, syncopated, a chord tone on every strong beat
+  {
+    id: 'velora-rush', from: 'velora', title: 'Night Rush (ночной рывок)', key: 'F#m', base: 'F#4', feel: 'straight', per: 4, modal: false, only: 'velora',
+    moods: ['dark'], chords: ['i', 'VI', 'III', 'VII'],
+    notes: [[0, 12, 0.5], [0.75, 10, 0.25], [1, 7, 0.5], [1.5, 7, 0.25], [1.75, 10, 0.25], [2, 12, 0.5], [2.5, 15, 0.5], [3, 14, 0.5], [3.5, 12, 0.5],
+      [4, 15, 0.5], [4.75, 14, 0.25], [5, 12, 0.5], [5.5, 12, 0.25], [5.75, 14, 0.25], [6, 15, 0.5], [6.5, 8, 0.5], [7, 10, 0.5], [7.5, 12, 0.5],
+      [8, 15, 0.5], [8.75, 14, 0.25], [9, 10, 0.5], [9.5, 10, 0.25], [9.75, 12, 0.25], [10, 15, 0.5], [10.5, 7, 0.5], [11, 10, 0.5], [11.5, 12, 0.5],
+      [12, 14, 0.5], [12.75, 12, 0.25], [13, 10, 0.5], [13.5, 10, 0.25], [13.75, 12, 0.25], [14, 14, 0.75], [14.75, 12, 0.25], [15, 10, 1]],
+  },
+  {
+    id: 'velora-drift', from: 'velora', title: 'Velvet Drift (бархатный дрифт)', key: 'Gm', base: 'G4', feel: 'straight', per: 2, modal: false, only: 'velora',
+    moods: ['dark'], chords: ['i', 'iv', 'VI', 'V', 'i', 'iv', 'III', 'V'],
+    notes: [[0, 7, 0.5], [0.5, 3, 0.25], [0.75, 5, 0.25], [1, 7, 0.5], [1.5, 10, 0.5], [2, 12, 0.5], [2.5, 8, 0.5], [3, 5, 0.5], [3.5, 8, 0.5],
+      [4, 15, 0.5], [4.5, 12, 0.25], [4.75, 10, 0.25], [5, 8, 1], [6, 11, 0.5], [6.5, 7, 0.5], [7, 14, 1],
+      [8, 15, 0.5], [8.5, 14, 0.5], [9, 10, 0.5], [9.5, 7, 0.5], [10, 8, 0.5], [10.5, 12, 0.5], [11, 15, 0.5], [11.5, 12, 0.5],
+      [12, 10, 0.5], [12.5, 7, 0.5], [13, 3, 1], [14, 7, 1], [15, 11, 1]],
+  },
+  // Error XP: bright 2000s hooks of our own, made for a chime
+  {
+    id: 'xp-bliss', from: 'xperror', title: 'Green Hill Desktop (рабочий стол)', key: 'C', base: 'C5', feel: 'straight', per: 4, modal: true, only: 'xperror',
+    moods: ['bright', 'pop'], chords: ['I', 'V', 'vi', 'IV'],
+    notes: [[0, 12, 0.5], [0.5, 7, 0.5], [1, 4, 0.5], [1.5, 7, 0.5], [2, 12, 1], [3, 14, 1],
+      [4, 11, 0.5], [4.5, 7, 0.5], [5, 2, 0.5], [5.5, 7, 0.5], [6, 14, 1], [7, 12, 1],
+      [8, 9, 0.5], [8.5, 12, 0.5], [9, 16, 0.5], [9.5, 12, 0.5], [10, 9, 1], [11, 7, 1],
+      [12, 5, 0.5], [12.5, 9, 0.5], [13, 12, 0.5], [13.5, 9, 0.5], [14, 5, 1.5], [15.5, 7, 0.5]],
+  },
+  {
+    id: 'xp-startup', from: 'xperror', title: 'Startup Sky (небо загрузки)', key: 'F', base: 'F4', feel: 'straight', per: 4, modal: true, only: 'xperror',
+    moods: ['bright', 'pop'], chords: ['IV', 'V', 'iii', 'vi'],
+    notes: [[0, 12, 1], [1, 9, 0.5], [1.5, 7, 0.5], [2, 5, 1], [3, 7, 1],
+      [4, 11, 1.5], [5.5, 12, 0.5], [6, 14, 1], [7, 16, 1],
+      [8, 16, 1], [9, 14, 0.5], [9.5, 12, 0.5], [10, 11, 1], [11, 7, 1],
+      [12, 9, 1.5], [13.5, 7, 0.5], [14, 4, 1], [15, 0, 1]],
+  },
+  // KeyGen Church: arpeggiated tracker hooks and a requiem of our own
+  {
+    id: 'kg-cathedral', from: 'keygen', title: 'Pixel Cathedral (пиксельный собор)', key: 'Dm', base: 'D5', feel: 'straight', per: 4, modal: false, only: 'keygen',
+    moods: ['dark', 'epic', 'game'], chords: ['i', 'VI', 'III', 'VII'],
+    notes: [[0, 0, 0.25], [0.25, 3, 0.25], [0.5, 7, 0.25], [0.75, 12, 0.25], [1, 7, 0.5], [1.5, 3, 0.5], [2, 7, 0.5], [2.5, 5, 0.25], [2.75, 3, 0.25], [3, 2, 0.5], [3.5, 3, 0.5],
+      [4, -4, 0.25], [4.25, 0, 0.25], [4.5, 3, 0.25], [4.75, 8, 0.25], [5, 3, 0.5], [5.5, 0, 0.5], [6, 3, 0.5], [6.5, 5, 0.25], [6.75, 7, 0.25], [7, 8, 1],
+      [8, 3, 0.25], [8.25, 7, 0.25], [8.5, 10, 0.25], [8.75, 15, 0.25], [9, 10, 0.5], [9.5, 7, 0.5], [10, 10, 0.5], [10.5, 8, 0.25], [10.75, 7, 0.25], [11, 5, 0.5], [11.5, 7, 0.5],
+      [12, -2, 0.25], [12.25, 2, 0.25], [12.5, 5, 0.25], [12.75, 10, 0.25], [13, 9, 0.5], [13.5, 7, 0.5], [14, 5, 0.5], [14.5, 2, 0.5], [15, 2, 1]],
+  },
+  {
+    id: 'kg-requiem', from: 'keygen', title: 'Silicon Requiem (кремниевый реквием)', key: 'Am', base: 'A4', feel: 'straight', per: 4, modal: false, only: 'keygen',
+    moods: ['dark', 'epic'], chords: ['i', 'iv', 'V', 'i'],
+    notes: [[0, 12, 1], [1, 10, 0.5], [1.5, 7, 0.5], [2, 3, 1.5], [3.5, 2, 0.5],
+      [4, 5, 0.5], [4.5, 8, 0.5], [5, 12, 0.5], [5.5, 15, 0.5], [6, 12, 1], [7, 10, 1],
+      [8, 11, 1.5], [9.5, 12, 0.5], [10, 14, 1], [11, 11, 0.5], [11.5, 7, 0.5],
+      [12, 12, 2], [14, 7, 1], [15, 3, 1]],
+  },
+  // Nightstorm: the intro's own melody (the user's: C5 – G4 – D5 – F4, long, over ii – vi – iii – I) and a storm line of
+  // our own in its idiom (I – ♭VII – IV – I)
+  {
+    id: 'ns-calm', from: 'nightstorm', title: 'Before the Storm (перед бурей)', key: 'Bb', base: 'Bb4', feel: 'straight', per: 4, modal: false, only: 'nightstorm',
+    moods: ['calm', 'epic'], chords: ['ii', 'vi', 'vi', 'vi', 'iii', 'I', 'I', 'I'],
+    notes: [[0, 2, 6], [6, -3, 10], [16, 4, 6], [22, -5, 10]],
+  },
+  {
+    id: 'ns-storm', from: 'nightstorm', title: 'Night Storm (ночная буря)', key: 'Bb', base: 'Bb4', feel: 'straight', per: 4, modal: false, only: 'nightstorm',
+    moods: ['epic', 'dark'], chords: ['I', 'bVII', 'IV', 'I'],
+    notes: [[0, 7, 1.5], [1.5, 5, 0.5], [2, 4, 1], [3, 2, 1], [4, 5, 1.5], [5.5, 2, 0.5], [6, -2, 2],
+      [8, 9, 1], [9, 7, 0.5], [9.5, 5, 0.5], [10, 0, 1.5], [11.5, 2, 0.5], [12, 4, 1], [13, 2, 1], [14, 0, 2]],
+  },
   // Brinstar Depths: our own slow minor themes in the idiom of a deep-jungle score — long notes with leaps, the chords
   // sinking under a held tone, a chord tone on every strong beat
   // "Deep Moss": i – VI – iv – V7, B and G falling to E over the sixth degree

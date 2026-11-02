@@ -527,7 +527,7 @@ export default {
   bpm: 130,
   key: 'Em',
   length: END,
-  theme: 'gothic',
+  theme: 'arena',
   style: 'fight',
   generator: {"style":"fight","seed":4,"seeds":{"arrangement":4,"melody":31693,"instruments":418919},"length":"normal"},
   sections: SECTIONS,

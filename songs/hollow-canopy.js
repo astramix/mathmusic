@@ -419,7 +419,7 @@ export default {
   key: 'Bm',
   mode: 'dorian', // Дорийский: 0 2 3 5 7 9 10
   length: END,
-  theme: 'void',
+  theme: 'jungle',
   style: 'brinstar',
   generator: {"style":"brinstar","seed":9,"seeds":{"arrangement":9,"melody":71288,"instruments":942564},"length":"normal","mode":"dorian"},
   sections: SECTIONS,

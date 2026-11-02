@@ -417,7 +417,7 @@ export default {
   bpm: 76,
   key: 'F♯m',
   length: END,
-  theme: 'void',
+  theme: 'jungle',
   style: 'brinstar',
   generator: {"style":"brinstar","seed":3,"seeds":{"arrangement":3,"melody":23774,"instruments":314190},"length":"normal"},
   sections: SECTIONS,

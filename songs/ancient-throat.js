@@ -387,7 +387,7 @@ export default {
   key: 'Em',
   mode: 'aeolian', // Эолийский: 0 2 3 5 7 8 10
   length: END,
-  theme: 'celtic',
+  theme: 'snow',
   style: 'nordic',
   generator: {"style":"nordic","seed":1,"seeds":{"arrangement":1,"melody":7936,"instruments":104732},"length":"normal","mode":"aeolian"},
   sections: SECTIONS,

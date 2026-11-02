@@ -449,7 +449,7 @@ export default {
   bpm: 65,
   key: 'Cm',
   length: END,
-  theme: 'gothic',
+  theme: 'cathedral',
   style: 'organ',
   generator: {"style":"organ","seed":1,"seeds":{"arrangement":1,"melody":7936,"instruments":104732},"length":"normal"},
   keys: [[0,"Cm"],[112,"Gm"],[120,"Cm"],[132,"E♭"],[148,"Fm"],[164,"Cm"]], // the key of each entry and episode — for the note names

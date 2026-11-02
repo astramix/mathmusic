@@ -20,6 +20,16 @@ export const THEMES = {
   celtic: { label: 'Зелёные холмы', hue: 150, sat: 30, light: 6, star: '230,255,240', accent: '#8fe0a8', accent2: '#ffd08a', deco: 'grain' },
   java: { label: 'Ява', hue: 165, sat: 35, light: 6, star: '220,255,240', accent: '#e8c27a', accent2: '#7fe0c0', deco: 'stars' },
   india: { label: 'Ночь у храма', hue: 280, sat: 40, light: 6, star: '255,230,200', accent: '#ff9a3c', accent2: '#5fd8c8', deco: 'stars' },
+  factory: { label: 'Завод', hue: 25, sat: 45, light: 6, star: '255,210,160', accent: '#ffa040', accent2: '#7fd0ff', deco: 'grain' },
+  jungle: { label: 'Глубины джунглей', hue: 165, sat: 50, light: 5, star: '180,255,220', accent: '#5affc0', accent2: '#ff78dc', deco: 'stars' },
+  cathedral: { label: 'Собор и орган', hue: 35, sat: 30, light: 5, star: '255,236,200', accent: '#e8c27a', accent2: '#ffe9b0', deco: 'gold' },
+  arena: { label: 'Арена', hue: 230, sat: 45, light: 6, star: '220,230,255', accent: '#6fa8ff', accent2: '#ff5f6f', deco: 'stars' },
+  snow: { label: 'Северное сияние', hue: 210, sat: 40, light: 6, star: '230,245,255', accent: '#7fffc8', accent2: '#a890ff', deco: 'stars' },
+  xp: { label: 'Рабочий стол', hue: 215, sat: 60, light: 10, star: '255,255,255', accent: '#3d7bff', accent2: '#7ccf3c', deco: 'grain' },
+  keygen: { label: 'Демосцена', hue: 270, sat: 40, light: 3, star: '200,230,255', accent: '#59ffa0', accent2: '#ff50dc', deco: 'scan' },
+  mystery: { label: 'Тайная игра', hue: 275, sat: 60, light: 5, star: '230,200,255', accent: '#b07cff', accent2: '#ffbe3c', deco: 'scan' },
+  favela: { label: 'Фавела ночью', hue: 300, sat: 60, light: 6, star: '255,200,240', accent: '#ff50c8', accent2: '#78ffc8', deco: 'grain' },
+  storm: { label: 'Ночная буря', hue: 215, sat: 30, light: 5, star: '210,225,255', accent: '#8fb8ff', accent2: '#ffd27a', deco: 'rain' },
   jazz: { label: 'Джаз-клуб', hue: 220, sat: 40, light: 6, star: '200,220,255', accent: '#7fb0ff', accent2: '#ffc56b', deco: 'grain' },
 }
 const BY_NAME = {
