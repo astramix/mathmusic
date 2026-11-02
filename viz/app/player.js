@@ -66,13 +66,14 @@ export class Player extends EventTarget {
     if (this.actx) return
     this.actx = new AudioContext({ sampleRate: SR, latencyHint: 'playback' })
     // a data: URL — worklets refuse blob: URLs on pages opened from disk (origin null); the master bus and the meter
-    // (src/master.js, its exports made plain declarations) go in front of the output stage
-    const master = (MM.APP['master.js'] ?? '').replace(/^export /gm, '')
+    // (src/master.js and src/spatial.js, their exports made plain declarations) go in front of the output stage
+    const master = (MM.APP['master.js'] ?? '').replace(/^export /gm, '') + '\n' + (MM.APP['spatial.js'] ?? '').replace(/^export /gm, '')
     await this.actx.audioWorklet.addModule('data:text/javascript;charset=utf-8,' + encodeURIComponent(master + '\n' + MM.APP['worklet.js']))
     this.node = new AudioWorkletNode(this.actx, 'mathmusic-out', { numberOfInputs: 0, outputChannelCount: [2] })
     this.master = this.actx.createGain()
     this.master.gain.value = this.volume
     this.node.connect(this.master).connect(this.actx.destination)
+    if (this.spatialMode && this.spatialMode !== 'off') this.node.port.postMessage({ type: 'spatial', mode: this.spatialMode })
     this.node.port.onmessage = e => {
       const d = e.data
       if (d.type === 'pos') this.rep = { pos: d.pos, t: d.t, stalled: d.stalled }
@@ -143,6 +144,11 @@ export class Player extends EventTarget {
   setMaster(params, { reset = false } = {}) {
     this.masterParams = params
     this.node?.port.postMessage({ type: 'master', params, reset })
+  }
+  // space / 8D in the output stage (src/spatial.js), 'off' for none
+  setSpatial(mode) {
+    this.spatialMode = mode
+    this.node?.port.postMessage({ type: 'spatial', mode })
   }
   setTrim(t) { this.trim = t; this.sendGain() }
   // keep this version's audio for later (A/B), the oldest goes past KEEP

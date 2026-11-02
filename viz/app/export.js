@@ -27,6 +27,7 @@ export async function getMix(t) {
 // the mix mastered when the bus is on («🎛 Мастеринг»): the whole song through the chain and onto its loudness target,
 // in a worker (src/master.js + src/loudness.js) so the page stays alive → the render with L, R and mastered: { lufs, tp }
 export async function masterIfOn(r, t) {
+  r = await spatialIfOn(r, t)
   const m = app.master
   if (!m?.on) return r
   t?.set('мастеринг: компрессор, лимитер, громкость…', 0.6)
@@ -45,6 +46,22 @@ self.onmessage = e => {
     w.postMessage({ L, R, params: chainParams(m), target }, [L.buffer, R.buffer])
   }).finally(() => w.terminate())
   return { ...r, L: o.L, R: o.R, mastered: { lufs: o.lufs, tp: o.tp, gainDb: o.gainDb } }
+}
+// space / 8D when on (Вид → «Звук вокруг»): the whole mix through src/spatial.js in a worker, before the master bus
+async function spatialIfOn(r, t) {
+  const mode = app.spatial
+  if (!mode || mode === 'off') return r
+  t?.set(mode === '8d' ? '8D: звук вокруг головы…' : 'пространство…', 0.58)
+  const code = MM.APP['spatial.js'].replace(/^export /gm, '') + `
+self.onmessage = e => { const [L, R] = spatialOffline(e.data.L, e.data.R, e.data.mode, e.data.sr); self.postMessage({ L, R }, [L.buffer, R.buffer]) }`
+  const w = new Worker(MM.blob(code))
+  const L = r.L.slice(), R = r.R.slice()
+  const o = await new Promise((resolve, reject) => {
+    w.onmessage = e => resolve(e.data)
+    w.onerror = e => reject(new Error(e.message || 'пространство'))
+    w.postMessage({ L, R, mode, sr: r.sr ?? 44100 }, [L.buffer, R.buffer])
+  }).finally(() => w.terminate())
+  return { ...r, L: o.L, R: o.R, spatial: mode }
 }
 // a finished export → exports/<kind>/ of the project (lib.exportFolder: the server, or a folder handle), else downloaded.
 // folder: asked for beforehand (a long render outlives the click that may open the folder dialog) → where it went

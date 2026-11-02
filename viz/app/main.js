@@ -46,6 +46,23 @@ const resize = () => {
   cv.height = Math.max(1, H * d)
   g.setTransform(d, 0, 0, d, 0, 0)
 }
+// space / 8D (src/spatial.js) on the player's output and the exports: asked once each time it is switched on
+app.spatial = (() => { try { return localStorage.getItem('mm.spatial') || 'off' } catch { return 'off' } })()
+app.player.spatialMode = app.spatial
+const SPATIAL_TEXT = {
+  space: ['🎧 Пространство (3D)', 'Музыка зазвучит в зале вокруг вас: шире стерео, ранние отражения между ушами, хвост реверберации. Действует и на экспорт (MP3, WAV, OGG, видео; стемы остаются сухими).'],
+  '8d': ['🌀 8D-звук', 'Музыка начнёт кружить вокруг головы — круг за 8 секунд: задержка и тень головы на дальнем ухе, глуше сзади, зал вокруг. Лучше всего в наушниках. Действует и на экспорт (MP3, WAV, OGG, видео; стемы остаются сухими).'],
+}
+async function setSpatial(mode) {
+  if (mode !== 'off') {
+    const [title, text] = SPATIAL_TEXT[mode]
+    if ((await ask(title, text, [{ label: 'Отмена', value: false }, { label: 'Включить', value: true, primary: true }])) !== true) return
+  }
+  app.spatial = mode
+  try { localStorage.setItem('mm.spatial', mode) } catch {}
+  app.player?.setSpatial(mode)
+  toast(mode === 'off' ? 'звук вокруг выключен — обычное стерео' : `${SPATIAL_TEXT[mode][0]} включено`, { ms: 2500 })
+}
 function setQuality(id) {
   V.quality = id
   if (id === 'auto') V.autoQuality = 0
@@ -745,6 +762,9 @@ menubar($('menus'), [
       '-',
       { icon: '🖼', label: 'Сетка всех песен', kbd: 'G', action: openGallery },
       { icon: '🎞', label: 'Кино — спрятать панели', kbd: 'C', action: toggleCinema },
+      { header: 'Звук вокруг' },
+      { label: '🎧 Пространство (3D) — зал вокруг', checked: () => app.spatial === 'space', action: () => setSpatial(app.spatial === 'space' ? 'off' : 'space'), note: 'шире стерео, ранние отражения между ушами, хвост зала' },
+      { label: '🌀 8D-звук — музыка кружит вокруг головы', checked: () => app.spatial === '8d', action: () => setSpatial(app.spatial === '8d' ? 'off' : '8d'), note: 'круг за 8 секунд; слушайте в наушниках' },
       { icon: '🎛', label: 'Мастеринг и громкость (LUFS)', kbd: 'K', action: () => lazy('masterui.js').then(m => m.openMaster()), note: 'мастер-шина в плеере, цель стриминга −14 LUFS, истинный пик, измеритель' },
       '-',
       { header: 'Окно' },

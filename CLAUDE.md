@@ -21,7 +21,7 @@ Open a source file only to change it or when something here is unclear.
   projects (test/project.test.js: every instrument plays, the block round-trips, a song becomes a project, notes back from
   midi(), arrangements under a melody), jazz (test/jazz.test.js: the walking bass's roots and chromatic approaches, rootless voicings, trading fours),
   celtic (test/celtic.test.js: its own modes and meters, cuts and rolls, the drone), ambient (test/ambient.test.js: the loops' LCM, the
-  harmonic series' cents), audio styles (test/audiostyle.test.js: a synthetic band's tempo, key, chords and backbeat; a bar's
+  harmonic series' cents), space and 8D (test/spatial.test.js), audio styles (test/audiostyle.test.js: a synthetic band's tempo, key, chords and backbeat; a bar's
   partials, decays and a flute's vibrato measured back; resynthesis as loud as computed; a style's songs render, their
   formulas parse, a song made again from its generator field is byte for byte the same), harmonize (test/harmonize.test.js: key, chord tones, cadence; a song on your melody keeps it as written), retune (every song in two modes), theory, MIDI export, the song
   library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
@@ -225,6 +225,16 @@ wide), `TARGETS` (peak −1 dBFS, stream −14, apple −16, ebu −23, club −
 of worklet.js (exports stripped); masterui.js («🎛 Мастеринг», K; `app.master` in localStorage `mm.master`): live bus +
 meter, the drive estimated from the rendered audio and corrected once by the meter after 25 s; export.js `masterIfOn`
 (MP3/WAV/OGG, video; stems stay raw) masters the whole song in a worker.
+
+## spatial.js (space and 8D on the output — the worklet, the exports, tests)
+`spatialChain(mode, sr, { period })` → { process(l, r) }: 'space' — the side ×1.35, six early reflections 7–29 ms crossing
+between the ears (Haas), a 4-line FDN tail after 12 ms; '8d' — the mix (mid + ¼ of its side) as one source round the head
+every 8 s: the far ear up to 0.66 ms later (fractional delay), a low-pass falling to 1.4 kHz with the angle and −6 dB (the
+head's shadow), duller behind (pinna), the distance breathing, the same room. `spatialOffline(L, R, mode)` keeps the peak.
+In the app: Вид → «Звук вокруг» (🎧 Пространство / 🌀 8D, each asked to confirm; `app.spatial`, localStorage `mm.spatial`):
+player.js puts spatial.js beside master.js in front of worklet.js ({type: 'spatial', mode}, before the master bus, 0.85
+headroom); export.js `spatialIfOn` runs the whole mix through it in a worker before mastering (stems stay dry).
+test/spatial.test.js: noise goes right at ¼ turn, left at ¾, centred behind; a mono mix gets width.
 
 ## counterpoint.js, fugue.js (the fugue style, tests — not imported by songs)
 `counterVoice({ contexts: [{ voices: [{ notes, above }], shift | map }], rhythm, key, lo, hi, r, pins: [[beat, pcs]], chordAt,

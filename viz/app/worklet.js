@@ -27,6 +27,7 @@ class MathMusicOut extends AudioWorkletProcessor {
     this.fadeOut = 0
     this.tick = 0
     this.master = null
+    this.spatial = null // src/spatial.js: 'space' or '8d' (in front of the master bus)
     this.meter = typeof loudnessMeter === 'function' ? loudnessMeter(sampleRate) : null
     this.meterTick = 0
     this.port.onmessage = e => this.message(e.data)
@@ -64,6 +65,7 @@ class MathMusicOut extends AudioWorkletProcessor {
       if (!d.on && this.running) this.fadeOut = FADE
       this.running = !!d.on
     } else if (d.type === 'gain') this.gain = d.value
+    else if (d.type === 'spatial') this.spatial = d.mode && d.mode !== 'off' && typeof spatialChain === 'function' ? spatialChain(d.mode, sampleRate) : null
     else if (d.type === 'master') {
       if (!d.params) this.master = null
       else if (this.master) this.master.set(d.params)
@@ -122,6 +124,7 @@ class MathMusicOut extends AudioWorkletProcessor {
         l *= a
         r *= a
       }
+      if (this.spatial) [l, r] = this.spatial.process(0.85 * l, 0.85 * r) // (the room adds energy: a little headroom)
       if (this.master) [l, r] = this.master.process(l, r)
       l = l > 1 ? 1 : l < -1 ? -1 : l
       r = r > 1 ? 1 : r < -1 ? -1 : r
