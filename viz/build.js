@@ -36,6 +36,21 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
   // app modules; the shared pure modules of src/ (theory, generator, melodies, midi, modes) are importable as './x.js'
   const APP = Object.fromEntries(jsIn('viz/app').map(f => [f, text(`viz/app/${f}`)]))
   for (const f of ['theory.js', 'generate.js', 'melodies.js', 'midi.js', 'modes.js', 'retune.js', 'tuning.js', 'score.js', 'musicxml.js', 'loudness.js', 'master.js', 'counterpoint.js', 'fugue.js', 'maqam.js', 'raga.js', 'gamelan.js', 'ambient.js', 'harmonize.js', 'project.js', 'analyze.js', 'timbre.js', 'audiostyle.js', 'spatial.js']) if (fs.existsSync(path.join(ROOT, 'src', f))) APP[f] = text(`src/${f}`)
+  // the generator's parts (src/gen/*.js): the page's modules are flat ('./x.js'), so gen/x.js is there as gen-x.js and the
+  // imports between src/ and src/gen/ are rewritten to match — only those that name a module of the page (the generator's
+  // own text carries the imports of the songs it writes: '../src/engine.js' stays)
+  const genFiles = fs.existsSync(path.join(ROOT, 'src/gen')) ? jsIn('src/gen') : []
+  const flatName = to => (to.startsWith('src/gen/') ? 'gen-' + to.slice(8) : to.startsWith('src/') ? to.slice(4) : null)
+  const known = new Set([...Object.keys(APP), ...genFiles.map(g => 'gen-' + g)])
+  const flat = (code, dir) => code.replace(/(\bfrom\s*|\bimport\s*)(['"])(\.\.?\/[\w./-]+\.js)\2/g, (m, kw, q, p) => {
+    const name = flatName(path.posix.normalize(path.posix.join(dir, p)))
+    return name && known.has(name) ? kw + "'./" + name + "'" : m
+  })
+  if (APP['generate.js']) APP['generate.js'] = flat(APP['generate.js'], 'src')
+  for (const g of genFiles) {
+    if (APP['gen-' + g]) throw new Error('two modules named gen-' + g)
+    APP['gen-' + g] = flat(text('src/gen/' + g), 'src/gen')
+  }
   APP['acorn.js'] = read('viz/vendor/acorn.min.mjs')
   APP['lame.js'] = read('viz/vendor/lame.min.js') // raw text: the MP3 encoder runs in a worker
   const safe = s => s.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--')

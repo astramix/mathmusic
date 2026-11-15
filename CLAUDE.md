@@ -448,7 +448,18 @@ reports 63.5); `target.temperament` adds `__RT.tm` (cents per section offset —
 __T in __R; the copy gets a `tuning` field. The prelude ends with `// ---- end of the retune prelude`, so retuning a copy
 replaces the whole prelude.
 
-## The generator (src/generate.js, src/melodies.js)
+## The generator (src/generate.js, src/gen/*.js, src/melodies.js)
+**Where things are** (generate.js was one 584 KB file; now the plan and the writer stay there — generate(), emit(), partInstrument… — and
+the rest is in src/gen/, each part importing only parts above it — no cycles: the page loads them as flat blob modules gen-<name>.js,
+viz/build.js rewrites the paths): util (rng, pick, fmtNotes, lane) · styles (STYLES, STYLE_FAMILIES) · melody (adaptTheme, compose,
+ornaments) · names · micro (modeMapper, microMelody, temperData) · meter (METERS, toMeter, grooveFor; `MT`) · modulate · recipes (the
+tables LEADS CHORDS PADS BASSES ARPS KITS TEXTURES COUNTER_VOICE FX, the first styles' recipes, compHit / bassData / arpData / drumData)
+· recipes by family: boss, orchestra (+ jazz, celtic), japan, stage (stageData, clubKickTrack, edm disco epic factory), dark, retro,
+underground, world, audio (TIMBRE, withField), internet, storm, beyond, magma · the styles that write whole songs: fugue-song, maqam-song,
+raga-song, gamelan-song, ambient-song. A recipe is found with `grep -n "^\(LEADS\|CHORDS\|BASSES\|ARPS\|KITS\|TEXTURES\|PADS\)\.name =" src/gen/*.js`.
+A `let` another part must set has a setter (setMT, setUT, setNOTE_HITS, setKIT_MAP: imports are read-only). generate.js imports every
+part in the order they were written — each registers its recipes as it loads, later ones may build on earlier ones (LEADS.hellhorns
+on hornsection). The split changed no song: 1599 outputs (every style × 8 seeds + 12 option variants × 2 seeds) byte for byte.
 `generate({ style, seed, key?, mode?, bpm?, length?, melody?, arrangement?, instruments?, sources?, theme?, micro?, temperament?, userTheme? })` → { source, meta }.
 `userTheme: { notes: [[beat, MIDI, length]], title? }` — a melody of your own: harmonized (harmonize.js), theme A as written (no
 ornament, no recomposing, the celtic graces skipped), the song in its key unless asked; the song's `generator` keeps it.

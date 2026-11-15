@@ -1,6 +1,6 @@
 ---
 name: style
-description: Add a new style to the song generator, e.g. "/style шугейз" or "/style чиптюн в духе Mega Man". Analyses the music, writes the style with its recipes, instruments and themes in src/generate.js, balances it with tools/style-check.mjs, makes two example songs, updates CLAUDE.md, runs the tests and commits.
+description: Add a new style to the song generator, e.g. "/style шугейз" or "/style чиптюн в духе Mega Man". Analyses the music, writes the style with its recipes, instruments and themes in src/gen/, balances it with tools/style-check.mjs, makes two example songs, updates CLAUDE.md, runs the tests and commits.
 ---
 
 # /style — a new generator style
@@ -10,8 +10,8 @@ exact tuning, notes spelt for the key, chord tones on strong beats, real voice l
 
 ## 0. Read little
 
-- CLAUDE.md: "The generator", "The stage" and the paragraph of the closest existing style. Do not read all of src/generate.js
-  (6000+ lines). List the recipes: `grep -n "^\(LEADS\|CHORDS\|BASSES\|ARPS\|KITS\|TEXTURES\|PADS\)\.\w* =" src/generate.js`,
+- CLAUDE.md: "The generator", "The stage" and the paragraph of the closest existing style. Do not read all of the generator
+  (src/generate.js + src/gen/*.js, 600 KB; CLAUDE.md says what is where). List the recipes: `grep -n "^\(LEADS\|CHORDS\|BASSES\|ARPS\|KITS\|TEXTURES\|PADS\)\.\w* =" src/gen/*.js`,
   then read the 2–3 closest recipes and the closest style entry in `STYLES`.
 - Put helper scripts (Python edits, probes) in the scratchpad with the Write tool. Quoted heredocs inside one long bash command
   have broken on a stray quote before.
@@ -84,7 +84,7 @@ energy curve: intro 0–1, themes 2, drops 3, a break 1) · production (reverb, 
 ## 6. Check, balance, repeat
 
 ```
-node --check src/generate.js && node tools/style-check.mjs <id> --seeds 1-12 --levels 1,2
+node tools/style-check.mjs <id> --seeds 1-12 --levels 1,2
 ```
 
 - Fix every FAIL: a theme's strong beats, a borrowed theme, a mode or micro combination (pelog with ⅛ tones fell off the chords:

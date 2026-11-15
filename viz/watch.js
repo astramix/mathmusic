@@ -22,7 +22,7 @@ const rebuild = why => {
     busy = false
   }, 250)
 }
-for (const dir of ['songs', 'src', 'viz/app', 'viz']) {
+for (const dir of ['songs', 'src', 'src/gen', 'viz/app', 'viz']) {
   fs.watch(path.join(ROOT, dir), (ev, file) => {
     if (!file || !/\.(js|css|html)$/.test(file)) return
     rebuild(`${dir}/${file}`)
