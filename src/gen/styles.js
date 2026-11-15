@@ -815,6 +815,6 @@ export const STYLE_FAMILIES = [
 export const familyOf = id => STYLE_FAMILIES.find(f => f.styles.includes(id)) ?? STYLE_FAMILIES[STYLE_FAMILIES.length - 1]
 // every style in the order of its family; each with its family's id
 export const STYLE_LIST = [...STYLE_FAMILIES.flatMap(f => f.styles), ...Object.keys(STYLES).filter(id => !STYLE_FAMILIES.some(f => f.styles.includes(id)))]
-  .map(id => ({ id, label: STYLES[id].label, emoji: STYLES[id].emoji, family: familyOf(id).id }))
+  .map(id => ({ id, label: STYLES[id].label, emoji: STYLES[id].emoji, family: familyOf(id).id, ...(STYLES[id].of ? { of: STYLES[id].of } : {}) }))
 // the families with their styles (only those `keep` lets through; empty families left out) — for menus and <optgroup>s
 export const styleGroups = (keep = () => true) => STYLE_FAMILIES.map(f => ({ ...f, list: STYLE_LIST.filter(s => s.family === f.id && keep(s)) })).filter(f => f.list.length)

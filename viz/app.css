@@ -15,7 +15,7 @@ button:hover, select:hover { border-color: var(--accent); }
 button.on { background: color-mix(in srgb, var(--accent) 35%, var(--btn)); border-color: var(--accent); }
 button:disabled { opacity: .45; cursor: default; }
 input[type=range] { accent-color: var(--accent); }
-input[type=text], input[type=number], textarea { background: var(--code-bg); border: 1px solid #ffffff26; border-radius: 7px; padding: 5px 8px; }
+input[type=text], input[type=number], input[type=search], textarea { background: var(--code-bg); border: 1px solid #ffffff26; border-radius: 7px; padding: 5px 8px; }
 kbd { font: 11px ui-monospace, monospace; color: var(--dim); }
 
 /* ---- top bar ---------------------------------------------------------------------------------- */
@@ -281,3 +281,24 @@ li.CodeMirror-hint-active { background: color-mix(in srgb, var(--accent) 40%, tr
 .versions .vrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: 6px; background: #ffffff0d }
 .versions .vrow.on { outline: 1px solid var(--accent) }
 .versions .vl small { opacity: 0.65 }
+
+/* the style picker (🎲 → «Выбрать стиль…»): every family a block, the blocks in columns */
+.modal.wide { width: min(1180px, calc(100% - 32px)); }
+.stylepick .q { width: 100%; margin-bottom: 12px; padding: 7px 11px; border-radius: 9px; }
+.stylepick .fams { columns: 4 230px; column-gap: 18px; }
+.stylepick .fam { break-inside: avoid; margin-bottom: 12px; }
+.stylepick .fh { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.stylepick .st { display: flex; gap: 3px; margin: 2px 0; }
+.stylepick .chip { border-radius: 8px; padding: 3px 9px; font-size: 13px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-color: transparent; background: transparent; }
+.stylepick .chip:hover { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.stylepick .chip.on { border-color: var(--accent); color: var(--accent); }
+.stylepick .chip.ver { padding: 3px 8px; font-size: 11px; font-weight: 700; border-color: #ffffff30; }
+.stylepick [hidden] { display: none !important; }
+.stylepick .info { min-height: 34px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+
+/* the gallery's search, order and the chosen family's styles */
+.gallery .tools { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; max-width: 760px; }
+.gallery .tools .q { flex: 1; padding: 7px 11px; border-radius: 9px; }
+.gallery .tools .n { color: var(--dim); font-size: 12px; white-space: nowrap; }
+.gallery .chips.sub2 { margin: 6px 0 0 14px; }
+.gallery .chips.sub2 .chip { font-size: 12px; padding: 2px 9px; }

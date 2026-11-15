@@ -131,10 +131,15 @@ function toggleRadio(style) {
 export function menuItems() {
   const g = genOf()
   return [
-    { header: 'Новая песня в стиле…' },
-    // a submenu per family, the most finished first
-    ...styleGroups().map(f => ({ icon: f.emoji, label: f.label, note: f.about, items: () => f.list.map(s => ({ icon: s.emoji, label: s.label, checked: s.id === last.style, action: () => { last.style = s.id; remember(); create({ style: s.id }) } })) })),
+    { header: 'Новая песня' },
+    // every style on one screen (the picker below); the families as submenus are still here, one level down
+    { icon: '🎲', label: 'Выбрать стиль…', action: stylePicker },
+    ...(STYLES[last.style] ? [{ icon: STYLES[last.style].emoji, label: `Ещё «${STYLES[last.style].label}»`, action: () => create({ style: last.style }) }] : []),
     { icon: '🎲', label: 'Случайный стиль', action: () => create({ style: STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id }) },
+    { icon: '🗂', label: 'Стили по семействам', items: () => styleGroups().map(f => ({ icon: f.emoji, label: f.label, items: () => [
+      ...f.list.map(s => ({ icon: s.emoji, label: s.label, checked: s.id === last.style, action: () => { last.style = s.id; remember(); create({ style: s.id }) } })),
+      { html: esc(f.about) },
+    ] })) },
     // styles made from audio files (src/audiostyle.js): kept in this browser, each song carries its own
     { icon: '🎧', label: 'Стили из аудио', note: 'стиль по вашему аудиофайлу: темп, свинг, тональность, гармония, форма, ритм, звуки ударных, тембры', items: () => [
       { icon: '📂', label: 'Новый стиль из аудиофайла…', action: () => audioStyleDialog(create) },
@@ -156,6 +161,57 @@ export function menuItems() {
     { icon: '⚙', label: 'Параметры генерации…', action: dialog },
     { html: 'Мелодии берутся из песен проекта вместе с их гармонией, переносятся в новую тональность и лад, варьируются или сочиняются заново по правилам голосоведения.' },
   ]
+}
+
+// ---- the style picker: every style on one screen, family by family; typing filters; a later version of a style sits
+// beside the first as a small «2» ----------------------------------------------------------------------------------------
+const aboutStyle = id => {
+  const S = STYLES[id], F = familyOf(id)
+  return `${F.emoji} ${F.label} · ${S.emoji} ${S.label} — ${S.bpm[0]}–${S.bpm[1]} BPM` + (S.about ? ` · ${S.about}` : ` · лид: ${S.lead.join(' / ')} · аккорды: ${S.chords.join(' / ')} · бас: ${S.bass.join(' / ')}`)
+}
+export function stylePicker() {
+  const q = h('input', { type: 'search', class: 'q', placeholder: 'поиск: стиль, семейство, слово из описания…' })
+  const hint = 'наведите на стиль — здесь его описание · Enter — первый найденный'
+  const info = h('div', { class: 'info dim' }, hint)
+  const fams = h('div', { class: 'fams' })
+  const chips = []
+  const choose = id => { m.close(); last.style = id; remember(); create({ style: id }) }
+  for (const f of styleGroups()) {
+    const block = h('div', { class: 'fam', title: f.about }, h('div', { class: 'fh' }, `${f.emoji} ${f.label}`))
+    for (const s of f.list.filter(s => !s.of || !STYLES[s.of])) {
+      const row = h('div', { class: 'st' })
+      for (const v of [s, ...STYLE_LIST.filter(o => o.of === s.id)]) {
+        const b = h('button', {
+          class: 'chip' + (v === s ? '' : ' ver') + (v.id === last.style ? ' on' : ''), title: v === s ? '' : v.label,
+          onmouseenter: () => (info.textContent = aboutStyle(v.id)), onmouseleave: () => (info.textContent = hint), onclick: () => choose(v.id),
+        }, v === s ? `${v.emoji} ${v.label}` : String(STYLES[v.id].ver ?? 2))
+        chips.push({ b, row, block, text: `${v.label} ${STYLES[v.id].about ?? ''} ${f.label} ${f.about}`.toLowerCase() })
+        row.append(b)
+      }
+      block.append(row)
+    }
+    fams.append(block)
+  }
+  const refilter = () => {
+    const words = q.value.toLowerCase().split(/\s+/).filter(Boolean)
+    for (const c of chips) c.b.hidden = !words.every(w => c.text.includes(w))
+    for (const c of chips) c.row.hidden = ![...c.row.children].some(b => !b.hidden)
+    for (const c of chips) c.block.hidden = ![...c.block.querySelectorAll('.st')].some(r => !r.hidden)
+  }
+  q.oninput = refilter
+  q.onkeydown = e => {
+    if (e.key !== 'Enter') return
+    const first = chips.find(c => !c.b.hidden)
+    if (first) first.b.click()
+  }
+  const m = modal('🎲 Новая песня — стиль', h('div', { class: 'stylepick' }, q, fams, info), [
+    { label: '🎲 Случайный стиль', action: () => { create({ style: STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id }) } },
+    { label: '🎧 Стиль из аудиофайла…', action: () => { audioStyleDialog(create) } },
+    { label: '⚙ Параметры…', action: () => { dialog() } },
+    { label: 'Закрыть' },
+  ])
+  m.box.classList.add('wide')
+  setTimeout(() => q.focus(), 0)
 }
 
 // ---- the dialog ---------------------------------------------------------------------------------------

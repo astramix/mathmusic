@@ -9,7 +9,7 @@ import { songKey, keyLabel, tonicName } from './theory.js'
 import { MODES } from './modes.js'
 import { trackList } from './runtime.js'
 import { styleIn, shelfOf } from './library.js'
-import { STYLE_LIST } from './generate.js'
+import { STYLE_LIST, STYLE_FAMILIES, familyOf } from './generate.js'
 
 let el = null, alive = false, raf = 0, unwatch = null
 const covers = []
@@ -17,19 +17,48 @@ const covers = []
 // the generator's styles, then the ones only the original songs have
 const STYLE_INFO = Object.fromEntries([
   ...STYLE_LIST.map(s => [s.id, s]),
-  ...[['project', 'Проекты', '🎛'], ['dnb', 'Драм-н-бейс', '🥁'], ['hardstyle', 'Хардстайл', '🔨'], ['phonk', 'Фонк', '🚗'], ['gothic', 'Готика', '🦇'], ['minimal', 'Минимал', '✏️']].map(([id, label, emoji]) => [id, { id, label, emoji }]),
+  ...[['project', 'Проекты', '🎛'], ['dnb', 'Драм-н-бейс', '🥁'], ['hardstyle', 'Хардстайл', '🔨'], ['phonk', 'Фонк', '🚗'], ['gothic', 'Готика', '🦇'], ['minimal', 'Минимал', '✏️']].filter(([id]) => !STYLE_LIST.some(s => s.id === id)).map(([id, label, emoji]) => [id, { id, label, emoji }]),
   ['other', { id: 'other', label: 'Без стиля', emoji: '·' }],
 ])
 const styleOf = e => (STYLE_INFO[styleIn(e.source)] ? styleIn(e.source) : 'other')
-let filter = 'all'
-try { filter = localStorage.getItem('mm.galleryStyle') || 'all' } catch {}
+// the families of the generator's styles, then the songs that have none of them — each a chip; a family opens its styles
+const OWN = { project: ['project', 'Проекты', '🎛'], first: ['first', 'Первые песни', '✏️'], other: ['other', 'Без стиля', '·'] }
+const famOf = style => (style === 'project' || style === 'other' ? style : STYLE_LIST.some(s => s.id === style) ? familyOf(style).id : 'first')
+const FAMS = [...STYLE_FAMILIES.map(f => [f.id, f.label, f.emoji]), ...Object.values(OWN)]
+const SORTS = [
+  ['', 'как есть'], ['az', 'по алфавиту: А → Я'], ['za', 'по алфавиту: Я → А'], ['style', 'по стилю'], ['new', 'сначала новые'],
+  ['slow', 'темп: от медленных'], ['fast', 'темп: от быстрых'], ['short', 'длина: от коротких'], ['long', 'длина: от длинных'],
+]
+const num = (c, k) => +c.dataset[k] || 0
+const ORDER = {
+  '': (a, b) => num(a, 'i') - num(b, 'i'),
+  az: (a, b) => a.dataset.name.localeCompare(b.dataset.name, ['ru', 'en'], { numeric: true }),
+  za: (a, b) => b.dataset.name.localeCompare(a.dataset.name, ['ru', 'en'], { numeric: true }),
+  style: (a, b) => num(a, 'rank') - num(b, 'rank') || a.dataset.name.localeCompare(b.dataset.name, ['ru', 'en'], { numeric: true }),
+  new: (a, b) => num(b, 'date') - num(a, 'date'),
+  slow: (a, b) => num(a, 'bpm') - num(b, 'bpm'), fast: (a, b) => num(b, 'bpm') - num(a, 'bpm'),
+  short: (a, b) => num(a, 'secs') - num(b, 'secs'), long: (a, b) => num(b, 'secs') - num(a, 'secs'),
+}
+// what shows: a family (or 'all'), one of its styles (or none), the words typed, the order — remembered
+let filter = 'all', sub = '', query = '', sort = '', serial = 0
+try {
+  const saved = JSON.parse(localStorage.getItem('mm.gallery') || '{}')
+  filter = FAMS.some(f => f[0] === saved.filter) ? saved.filter : 'all'
+  sub = saved.sub ?? ''
+  sort = ORDER[saved.sort] ? saved.sort : ''
+} catch {}
+const remember = () => { try { localStorage.setItem('mm.gallery', JSON.stringify({ filter, sub, sort })) } catch {} }
 
 export function openGallery() {
   if (el) return closeGallery()
   alive = false
   el = h('div', { class: 'gallery' })
   const animate = h('button', { onclick: () => { alive = !alive; animate.classList.toggle('on', alive); animate.textContent = alive ? '⏸ остановить' : '▶ оживить все' } }, '▶ оживить все')
-  const chips = h('div', { class: 'chips' })
+  const chips = h('div', { class: 'chips' }), subchips = h('div', { class: 'chips sub2' })
+  const search = h('input', { type: 'search', class: 'q', placeholder: 'поиск: название, стиль, тональность, темп…', value: query, oninput: () => { query = search.value; refilter() } })
+  const order = h('select', { title: 'порядок песен', onchange: () => { sort = order.value; remember(); refilter() } }, ...SORTS.map(([v, label]) => new Option(label, v)))
+  order.value = sort
+  const found = h('span', { class: 'n' })
   const builtGrid = h('div', { class: 'grid' }), mineGrid = h('div', { class: 'grid' }), genGrid = h('div', { class: 'grid' })
   const builtHead = h('h3', {}, 'Встроенные — songs/'), mineHead = h('h3', {}, 'Мои — my_songs/'), genHead = h('h3', {}, 'Сгенерированные — generated/')
   const empty = h('div', { class: 'sub empty' }, 'в этом стиле песен нет')
@@ -37,30 +66,47 @@ export function openGallery() {
     h('button', { class: 'close', onclick: closeGallery, title: 'закрыть (Esc, G)' }, '✕'),
     h('h2', {}, 'Все песни'),
     h('div', { class: 'sub' }, 'клик — открыть и играть · правый клик — дублировать, переименовать, удалить · ', animate),
-    chips, builtHead, builtGrid, mineHead, mineGrid, genHead, genGrid, empty,
+    h('div', { class: 'tools' }, search, order, found),
+    chips, subchips, builtHead, builtGrid, mineHead, mineGrid, genHead, genGrid, empty,
   )
   // built-in, then yours (my_songs/), then the 🎲 songs nobody saved yet (generated/, the last 20)
   const gridOf = e => (e.kind === 'builtin' ? builtGrid : shelfOf(e) === 'gen' ? genGrid : mineGrid)
   const cards = () => [...builtGrid.children, ...mineGrid.children, ...genGrid.children]
   // the style chips (with how many songs each has) and which cards show
   const refilter = () => {
-    const list = app.lib.list(), count = { all: list.length }
-    for (const e of list) count[styleOf(e)] = (count[styleOf(e)] ?? 0) + 1
-    if (!count[filter]) filter = 'all'
-    chips.replaceChildren(...['all', ...Object.keys(STYLE_INFO)].filter(id => count[id]).map(id => {
-      const s = STYLE_INFO[id]
-      return h('button', {
-        class: 'chip' + (id === filter ? ' on' : ''),
-        onclick: () => { filter = id; try { localStorage.setItem('mm.galleryStyle', id) } catch {} refilter() },
-      }, id === 'all' ? 'Все' : `${s.emoji} ${s.label}`, h('span', { class: 'n' }, String(count[id])))
-    }))
-    for (const c of cards()) c.hidden = filter !== 'all' && c.dataset.style !== filter
+    const list = app.lib.list(), count = { all: list.length }, byStyle = {}
+    for (const e of list) {
+      const st = styleOf(e), fam = famOf(st)
+      count[fam] = (count[fam] ?? 0) + 1
+      byStyle[st] = (byStyle[st] ?? 0) + 1
+    }
+    if (!count[filter]) (filter = 'all'), (sub = '')
+    const chip = (on, label, n, pick) => h('button', { class: 'chip' + (on ? ' on' : ''), onclick: () => { pick(); remember(); refilter() } }, label, h('span', { class: 'n' }, String(n)))
+    chips.replaceChildren(chip(filter === 'all', 'Все', count.all, () => { filter = 'all'; sub = '' }),
+      ...FAMS.filter(f => count[f[0]]).map(([id, label, emoji]) => chip(filter === id, `${emoji} ${label}`, count[id], () => { filter = id; sub = '' })))
+    // the chosen family's styles (when it has more than one with songs)
+    const inFam = Object.keys(STYLE_INFO).filter(st => byStyle[st] && famOf(st) === filter)
+    if (!inFam.includes(sub)) sub = ''
+    subchips.replaceChildren(...(filter !== 'all' && inFam.length > 1 ? inFam.map(st => chip(sub === st, `${STYLE_INFO[st].emoji} ${STYLE_INFO[st].label}`, byStyle[st], () => { sub = sub === st ? '' : st })) : []))
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+    let n = 0
+    for (const c of cards()) {
+      c.hidden = (filter !== 'all' && c.dataset.fam !== filter) || (sub && c.dataset.style !== sub) || !words.every(w => (c.dataset.text ?? '').includes(w))
+      if (!c.hidden) n++
+    }
+    found.textContent = words.length || filter !== 'all' ? `найдено: ${n}` : ''
+    // the order, in each folder's own row (appending a node moves it; only when something is out of place)
+    for (const g of [builtGrid, mineGrid, genGrid]) {
+      const now = [...g.children], want = [...now].sort(ORDER[sort])
+      if (want.some((c, i) => c !== now[i])) g.append(...want)
+    }
     const shown = g => [...g.children].some(c => !c.hidden)
     builtHead.hidden = !shown(builtGrid)
     mineHead.hidden = !shown(mineGrid) && !(filter === 'all' && !mineGrid.children.length)
     mineHead.textContent = mineGrid.children.length ? 'Мои — my_songs/' : 'Мои — my_songs/ (пока пусто: Ctrl+S положит песню сюда)'
     genHead.hidden = !shown(genGrid)
     genHead.textContent = 'Сгенерированные — generated/ (последние 20; Ctrl+S переносит в «Мои»)'
+    empty.textContent = words.length ? 'ничего не найдено' : 'в этом стиле песен нет'
     empty.hidden = shown(builtGrid) || shown(mineGrid) || shown(genGrid) || cards().length < list.length
   }
   // the library changes (here or in another tab): the card goes, gets its new look, or a new one comes
@@ -114,6 +160,12 @@ function card(entry) {
   const c = h('div', { class: 'card', title: entry.name }, cv, meta)
   c.dataset.id = entry.id
   c.dataset.style = styleOf(entry)
+  c.dataset.fam = famOf(c.dataset.style)
+  c.dataset.i = serial++
+  c.dataset.rank = Object.keys(STYLE_INFO).indexOf(c.dataset.style)
+  c.dataset.name = entry.name
+  c.dataset.date = entry.updated ?? entry.created ?? 0
+  c.dataset.text = entry.name.toLowerCase()
   c.onclick = async () => {
     closeGallery()
     await app.open(entry.id ?? entry)
@@ -137,6 +189,11 @@ function card(entry) {
   }
   const key = songKey(song), th = themeFor(song), secs = (song.length * 60) / song.bpm
   const st = STYLE_INFO[c.dataset.style]
+  const keyText = song.mode && MODES[song.mode] ? `${tonicName(key)} ${MODES[song.mode].name}` : keyLabel(key)
+  c.dataset.name = song.name ?? entry.name
+  c.dataset.bpm = song.bpm
+  c.dataset.secs = Math.round(secs)
+  c.dataset.text = `${song.name} ${entry.name} ${st.label} ${FAMS.find(f => f[0] === c.dataset.fam)?.[1] ?? ''} ${keyText} ${song.bpm} bpm`.toLowerCase()
   const tag = [entry.kind === 'generated' ? '🎲' : entry.kind === 'user' ? 'моя' : '', entry.where === 'pending' ? '⏳ не в папке' : '', st.id !== 'other' ? st.emoji : ''].filter(Boolean).join(' ')
   meta.innerHTML = `<b>${esc(song.name)}</b>${tag ? `<span class="tag">${tag}</span>` : ''}<div class="d">${song.mode && MODES[song.mode] ? `${tonicName(key)} ${MODES[song.mode].name.replace(/^Натуральный /, '').toLowerCase()}` : keyLabel(key)}${song.tuning?.name ? ` · ${song.tuning.name}` : ''} · ${song.bpm} BPM · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')} · ${trackList(song).length} дорожек</div>`
   // sample every curve once
