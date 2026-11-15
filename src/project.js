@@ -496,6 +496,7 @@ ${inst.join('\n')}
     return {
       color: t.color ?? def.color,
       program: def.program,
+      ...(t.vst ? { vst: t.vst } : {}), // the user's plugin on this track (⋯ → Плагин VST), kept with the track: a new instrument or name keeps it
       project: true,
       graph: x => { const a = at(x).filter(e => !drums || x - e[0] < 0.25); return a.length ? a.map(e => (drums ? y0 + (y1 - y0) * clamp((e[1] - 35) / 46, 0, 1) * (1 - 0.3 * (x - e[0]) / 0.25) : y0 + ((e[1] - lo) / (hi - lo)) * (y1 - y0))) : null },
       midi: x => at(x).filter(e => x < e[0] + (drums ? Math.min(0.1, e[2]) : e[2] - Math.min(0.03, 0.06 * e[2]))).map(e => e[1]),

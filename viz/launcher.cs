@@ -378,13 +378,139 @@ static class Vst {
                  .Append(",\"set\":").Append(Js.Serialize(pr.ContainsKey("set") ? pr["set"] : null)).Append(",\"track\":").Append(Js.Serialize(pr.ContainsKey("track") ? pr["track"] : null)).Append('}');
             } catch { }
         }
-        App.Res r = new App.Res(200, j.Append("]}").ToString());
+        App.Res r = new App.Res(200, j.Append("],\"kits\":").Append(KitsJson()).Append("}").ToString());
         r.Type = "application/json";
+        return r;
+    }
+
+    // ---- sample kits (tools/als.mjs kit → %USERPROFILE%\.mathmusic\kits\*.json): each pad a sample on this computer, its transpose,
+    // volume and slice; played as src/vst.js renderKit does — resampled, × velocity, then the kit's measured curve and a soft clip
+    static readonly string Kits = Path.Combine(Home, "kits");
+    static string KitsJson() {
+        StringBuilder j = new StringBuilder("[");
+        bool first = true;
+        if (Directory.Exists(Kits)) foreach (string f in Directory.GetFiles(Kits, "*.json")) {
+            try {
+                Dictionary<string, object> k = Js.Deserialize<Dictionary<string, object>>(File.ReadAllText(f, Encoding.UTF8));
+                Dictionary<string, object> pads = (Dictionary<string, object>)k["pads"];
+                if (!first) j.Append(',');
+                first = false;
+                j.Append("{\"name\":").Append(Js.Serialize(k["name"])).Append(",\"pads\":[");
+                bool f2 = true;
+                foreach (KeyValuePair<string, object> p in pads) {
+                    if (!f2) j.Append(',');
+                    f2 = false;
+                    j.Append("{\"note\":").Append(p.Key).Append(",\"name\":").Append(Js.Serialize(((Dictionary<string, object>)p.Value)["name"])).Append('}');
+                }
+                j.Append("]}");
+            } catch { }
+        }
+        return j.Append(']').ToString();
+    }
+    class Audio { public int Sr; public float[][] Ch; }
+    static readonly Dictionary<string, Audio> Decoded = new Dictionary<string, Audio>();
+    static Audio Decode(string file) {
+        lock (Decoded) {
+            Audio have;
+            if (Decoded.TryGetValue(file, out have)) return have;
+            byte[] b = File.ReadAllBytes(file);
+            string id = Encoding.ASCII.GetString(b, 0, 4);
+            int ch = 0, bits = 16, sr = 44100, data = -1, frames = 0, fmt = 1;
+            bool big = id == "FORM", little = !big;
+            Func<int, int> u32 = o => big ? (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3] : BitConverter.ToInt32(b, o);
+            Func<int, int> u16 = o => big ? (b[o] << 8) | b[o + 1] : BitConverter.ToUInt16(b, o);
+            for (int o = 12; o + 8 <= b.Length; ) {
+                string c = Encoding.ASCII.GetString(b, o, 4);
+                int size = u32(o + 4);
+                if (big && c == "COMM") {
+                    ch = (short)u16(o + 8); frames = u32(o + 10); bits = (short)u16(o + 14);
+                    int e = u16(o + 16) & 0x7fff; long hi = (uint)u32(o + 18), lo = (uint)u32(o + 22);
+                    sr = (int)Math.Round((hi * 4294967296.0 + lo) * Math.Pow(2, e - 16383 - 63));
+                    if (Encoding.ASCII.GetString(b, 8, 4) == "AIFC" && size >= 22) { string comp = Encoding.ASCII.GetString(b, o + 26, 4); if (comp == "sowt") little = true; if (comp == "fl32" || comp == "FL32") fmt = 3; }
+                }
+                if (big && c == "SSND") data = o + 16 + u32(o + 8);
+                if (!big && c == "fmt ") { fmt = BitConverter.ToUInt16(b, o + 8); ch = BitConverter.ToUInt16(b, o + 10); sr = BitConverter.ToInt32(b, o + 12); bits = BitConverter.ToUInt16(b, o + 22); if (fmt == 0xfffe) fmt = bits >= 32 ? 3 : 1; }
+                if (!big && c == "data") { data = o + 8; frames = Math.Min(size, b.Length - data) / (bits / 8 * Math.Max(1, ch)); }
+                o += 8 + size + (size & 1);
+            }
+            if (ch == 0 || data < 0) throw new Exception(file + ": not a WAV / AIFF file");
+            int bps = bits / 8;
+            frames = Math.Min(frames, (b.Length - data) / (bps * ch));
+            float[][] outc = new float[ch][];
+            for (int c = 0; c < ch; c++) outc[c] = new float[frames];
+            for (int i = 0; i < frames; i++) for (int c = 0; c < ch; c++) {
+                int o = data + (i * ch + c) * bps;
+                float v;
+                if (fmt == 3) { byte[] t = new byte[4]; Array.Copy(b, o, t, 0, 4); if (!little) Array.Reverse(t); v = BitConverter.ToSingle(t, 0); }
+                else if (bits == 8) v = big ? (sbyte)b[o] / 128f : (b[o] - 128) / 128f;
+                else if (bits == 16) v = (short)(little ? b[o] | (b[o + 1] << 8) : (b[o] << 8) | b[o + 1]) / 32768f;
+                else if (bits == 24) v = (((little ? b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) : (b[o] << 16) | (b[o + 1] << 8) | b[o + 2]) << 8) >> 8) / 8388608f;
+                else v = (little ? BitConverter.ToInt32(b, o) : (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) / 2147483648f;
+                outc[c][i] = v;
+            }
+            Audio a = new Audio { Sr = sr, Ch = outc };
+            Decoded[file] = a;
+            return a;
+        }
+    }
+    static double D(object o, double d) { return o == null ? d : Convert.ToDouble(o, CultureInfo.InvariantCulture); }
+    static App.Res RenderKit(Dictionary<string, object> q) {
+        string name = (string)q["kit"], file = Path.Combine(Kits, Safe(name) + ".json");
+        if (!File.Exists(file)) return new App.Res(404, "кит «" + name + "» не найден");
+        Dictionary<string, object> k = Js.Deserialize<Dictionary<string, object>>(File.ReadAllText(file, Encoding.UTF8));
+        Dictionary<string, object> pads = (Dictionary<string, object>)k["pads"];
+        double seconds = D(q["seconds"], 1);
+        int sr = q.ContainsKey("sr") && q["sr"] != null ? Convert.ToInt32(q["sr"], CultureInfo.InvariantCulture) : 44100, n = (int)Math.Ceiling(seconds * sr);
+        float[] L = new float[n], R = new float[n];
+        foreach (object o in (System.Collections.ArrayList)q["notes"]) {
+            System.Collections.ArrayList e = (System.Collections.ArrayList)o;
+            string note = ((int)Math.Round(D(e[2], 36))).ToString(CultureInfo.InvariantCulture);
+            if (!pads.ContainsKey(note)) continue;
+            Dictionary<string, object> p = (Dictionary<string, object>)pads[note];
+            Audio w;
+            try { w = Decode((string)p["file"]); } catch { continue; }
+            float[] a = w.Ch[0], bb = w.Ch.Length > 1 ? w.Ch[1] : a;
+            int from = Math.Min(a.Length, Math.Max(0, (int)Math.Round(D(p.ContainsKey("start") ? p["start"] : null, 0))));
+            double endv = D(p.ContainsKey("end") ? p["end"] : null, 0);
+            int to = endv > from ? Math.Min(a.Length, (int)Math.Round(endv)) : a.Length;
+            double step = (double)w.Sr / sr * Math.Pow(2, D(p.ContainsKey("transpose") ? p["transpose"] : null, 0) / 12);
+            double g = Math.Pow(10, D(p.ContainsKey("volume") ? p["volume"] : null, 0) / 20) * (e.Count > 3 && e[3] != null ? D(e[3], 0.8) : 0.8);
+            int i0 = (int)Math.Round(D(e[0], 0) * sr), len = (int)Math.Floor((to - from) / step);
+            for (int i = 0; i < len && i0 + i < n; i++) {
+                double pos = from + i * step; int j = (int)pos; double f = pos - j, fade = i > len - 64 ? (len - i) / 64.0 : 1;
+                if (j + 1 >= to) break;
+                L[i0 + i] += (float)(g * fade * (a[j] + f * (a[j + 1] - a[j])));
+                R[i0 + i] += (float)(g * fade * (bb[j] + f * (bb[j + 1] - bb[j])));
+            }
+        }
+        if (k.ContainsKey("match") && k["match"] != null) {
+            Dictionary<string, object> m = (Dictionary<string, object>)k["match"];
+            System.Collections.ArrayList bands = (System.Collections.ArrayList)m["bands"];
+            double gain = Math.Pow(10, D(m.ContainsKey("gain") ? m["gain"] : null, 0) / 20);
+            foreach (float[] c in new[] { L, R }) {
+                for (int bi = 0; bi < bands.Count; bi++) {
+                    double dB = D(bands[bi], 0);
+                    if (Math.Abs(dB) < 0.2) continue;
+                    double f0 = 100 * Math.Pow(2, bi / 3.0) * Math.Pow(2, 1 / 6.0), A = Math.Pow(10, dB / 40), w0 = 2 * Math.PI * f0 / sr, al = Math.Sin(w0) / (2 * 4.3);
+                    double b0 = 1 + al * A, b1 = -2 * Math.Cos(w0), b2 = 1 - al * A, a0 = 1 + al / A, a1 = b1, a2 = 1 - al / A, x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+                    for (int j = 0; j < c.Length; j++) { double x = c[j], y = (b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x; y2 = y1; y1 = y; c[j] = (float)y; }
+                }
+                for (int j = 0; j < c.Length; j++) c[j] = (float)(0.966 * Math.Tanh(gain * c[j] / 0.966));
+            }
+        }
+        byte[] outb = new byte[n * 8];
+        Buffer.BlockCopy(L, 0, outb, 0, n * 4);
+        Buffer.BlockCopy(R, 0, outb, n * 4, n * 4);
+        App.Res r = new App.Res(200, null);
+        r.Type = "application/octet-stream";
+        r.Body = outb;
+        r.Samples = n.ToString(CultureInfo.InvariantCulture);
         return r;
     }
 
     public static App.Res Render(byte[] body) {
         Dictionary<string, object> q = Js.Deserialize<Dictionary<string, object>>(Encoding.UTF8.GetString(body));
+        if (q.ContainsKey("kit") && q["kit"] != null) return RenderKit(q);
         string name = (string)q["plugin"];
         Plugin p = Scan().Find(delegate (Plugin x) { return string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase); });
         if (p == null) return new App.Res(404, "плагин «" + name + "» не найден");

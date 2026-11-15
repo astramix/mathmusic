@@ -396,14 +396,25 @@ export function newProjectDialog() {
   ])
 }
 
-// ---- the user's VST plugins on a track (⋯ → «Плагин VST…»): PROJECT.vst = { trackKey: { plugin, preset | program, octaves, gain } | null } —
-// __project puts it on the track, the server (MathMusic.exe, Visualizer.bat) plays its notes through that plugin. Where no plugin is
-// found (the APK, a page opened as a file, a computer without them) the button is grey
-let vstNow = null // what /api/vst said: { plugins, presets } | null (asked once)
+// ---- the user's VST plugins and sample kits on a track (⋯ → «Плагин VST…»): { plugin, preset | program, octaves, gain } or { kit, gain } —
+// a project track keeps it in itself (t.vst: a new instrument or name keeps it; the instrument is then only the sound where the plugin
+// can't play), a code track in PROJECT.vst = { trackKey: … | null } (null = none, even when its code names one); __project puts it on
+// the track, the server (MathMusic.exe, Visualizer.bat) plays its notes through it. Where nothing is found (the APK, a page opened as a
+// file, a computer without them) the button is grey
+let vstNow = null // what /api/vst said: { plugins, presets, kits } | null (asked once)
 const vstPlugins = () => (vstNow?.plugins ?? []).filter(p => p.hosted)
+const vstKits = () => vstNow?.kits ?? []
 const trackVst = key => app.current?.song?.tracks?.[key]?.vst ?? null
+const vstLabel = v => (v.kit ? `🥁 ${v.kit}` : `🔌 ${v.plugin}`)
 export function setTrackVst(key, v) {
-  const p = projectOf()
+  const p = projectOf(), own = trackInfo().project.find(x => x.key === key)
+  if (own) {
+    const t = p.tracks.find(x => x.id === own.t.id)
+    if (v) t.vst = v
+    else delete t.vst
+    if (p.vst) delete p.vst[key] // (a choice kept by name before tracks kept their own)
+    return setProject(p)
+  }
   const fromCode = !!app.current?.song?.tracks?.[key]?.vst && !(p.vst && key in p.vst)
   p.vst = { ...(p.vst ?? {}) }
   if (v) p.vst[key] = v
@@ -412,16 +423,22 @@ export function setTrackVst(key, v) {
   setProject(p)
 }
 function vstItem(key) {
-  const cur = trackVst(key), list = vstPlugins()
-  if (!list.length) return { icon: '🔌', label: 'Плагин VST…', disabled: true, note: vstNow ? 'плагины не найдены в папках VST' : 'плагинов нету — они работают в MathMusic.exe и Visualizer.bat на Windows' }
-  return { icon: '🔌', label: cur ? `Плагин VST: ${cur.plugin}…` : 'Плагин VST…', checked: !!cur, action: () => vstDialog(key, cur), note: cur ? (cur.preset ?? (cur.program != null ? 'программа ' + cur.program : '')) : 'звук настоящего плагина, ваши пресеты из сетов Ableton' }
+  const cur = trackVst(key), list = vstPlugins(), kits = vstKits()
+  if (!list.length && !kits.length) return { icon: '🔌', label: 'Плагин VST…', disabled: true, note: vstNow ? 'плагины не найдены в папках VST' : 'плагинов нету — они работают в MathMusic.exe и Visualizer.bat на Windows' }
+  return { icon: '🔌', label: cur ? `Плагин VST: ${cur.kit ?? cur.plugin}…` : 'Плагин VST…', checked: !!cur, action: () => vstDialog(key, cur), note: cur ? (cur.kit ? 'кит из ваших сэмплов' : cur.preset ?? (cur.program != null ? 'программа ' + cur.program : '')) : 'звук настоящего плагина или вашего кита, пресеты из сетов Ableton' }
 }
 function vstDialog(key, cur) {
-  const list = vstPlugins(), presets = vstNow?.presets ?? []
-  const plug = h('select', {}, ...list.map(p => new Option(`${p.name}${p.bits === 32 ? ' · 32 бит' : ''}`, p.name)))
-  plug.value = list.some(p => p.name === cur?.plugin) ? cur.plugin : list[0].name
+  const list = vstPlugins(), presets = vstNow?.presets ?? [], kits = vstKits()
+  const plug = h('select', {},
+    ...(list.length ? [h('optgroup', { label: 'Плагины VST' }, ...list.map(p => new Option(`${p.name}${p.bits === 32 ? ' · 32 бит' : ''}`, p.name)))] : []),
+    ...(kits.length ? [h('optgroup', { label: 'Киты из ваших сэмплов' }, ...kits.map(k => new Option(`🥁 ${k.name} · ${k.pads.length} пэдов`, 'kit:' + k.name)))] : []))
+  plug.value = cur?.kit && kits.some(k => k.name === cur.kit) ? 'kit:' + cur.kit : list.some(p => p.name === cur?.plugin) ? cur.plugin : plug.options[0].value
   const sound = h('select', { style: 'max-width:100%' })
+  let soundRow = null, octRow = null
   const fill = () => {
+    const kit = plug.value.startsWith('kit:')
+    if (soundRow) soundRow.style.display = octRow.style.display = kit ? 'none' : ''
+    if (kit) return
     const p = list.find(x => x.name === plug.value), mine = presets.filter(x => x.plugin.toLowerCase() === p.name.toLowerCase()).sort((a, b) => a.name.localeCompare(b.name))
     sound.innerHTML = ''
     if (mine.length) sound.append(h('optgroup', { label: 'Ваши пресеты из сетов' }, ...mine.map(x => new Option(x.name, 'preset:' + x.name))))
@@ -438,16 +455,23 @@ function vstDialog(key, cur) {
   gain.oninput = showGain
   showGain()
   const row = (l, ...c) => h('div', { class: 'row' }, h('span', { style: 'width:110px' }, l), ...c)
+  soundRow = row('Звук', sound)
+  octRow = row('Октавой ниже', h('label', {}, oct, ' дублировать партию'))
+  fill()
   const body = h('div', {},
-    h('p', { style: 'margin-top:0;opacity:.8' }, `Дорожка «${key}» зазвучит через настоящий плагин: её ноты сыграет он. Без плагинов (APK, файл страницы) — как раньше.`),
-    row('Плагин', plug), row('Звук', sound), row('Октавой ниже', h('label', {}, oct, ' дублировать партию')), row('Громкость', gain, gv))
+    h('p', { style: 'margin-top:0;opacity:.8' }, `Дорожка «${key}» зазвучит через настоящий плагин или ваш кит: её ноты сыграет он. Инструмент дорожки остаётся запасным звуком — для APK и файла страницы.`),
+    row('Плагин', plug), soundRow, octRow, row('Громкость', gain, gv))
   const apply = () => {
-    const [kind, v] = sound.value.split(/:(.*)/s)
-    const out = { plugin: plug.value, ...(kind === 'preset' ? { preset: v } : { program: +v }) }
-    if (oct.checked) out.octaves = [0, -12]
+    let out
+    if (plug.value.startsWith('kit:')) out = { kit: plug.value.slice(4) }
+    else {
+      const [kind, v] = sound.value.split(/:(.*)/s)
+      out = { plugin: plug.value, ...(kind === 'preset' ? { preset: v } : { program: +v }) }
+      if (oct.checked) out.octaves = [0, -12]
+    }
     if (Math.abs(+gain.value - 1) > 0.01) out.gain = +(+gain.value).toFixed(2)
     setTrackVst(key, out)
-    toast(`🔌 «${key}» → ${out.plugin}${out.preset ? ` («${out.preset}»)` : ''} — звук появится через несколько секунд`, { ms: 5000 })
+    toast(`${vstLabel(out)}: «${key}»${out.preset ? ` («${out.preset}»)` : ''} — звук появится через несколько секунд`, { ms: 5000 })
   }
   modal('🔌 Плагин VST — ' + key, body, [
     ...(cur ? [{ label: 'Без плагина', action: () => { setTrackVst(key, null); toast(`«${key}» — снова свой звук`, { ms: 3000 }) } }] : []),
@@ -506,7 +530,7 @@ export function createTrackList(root, pr) {
       const d = INSTRUMENT[t.inst] ?? INSTRUMENT.piano, on = sel?.kind === 'project' && sel.id === t.id
       const r = h('div', { class: 'tl-row' + (on ? ' sel' : ''), title: `${t.name} — ${d.label} · ${t.notes.length} нот${t.gen ? ` · ${styleLabel(t.gen.style)}` : ''} · ПКМ — меню` },
         h('span', { class: 'dot', style: `background:${t.color ?? d.color}` }),
-        h('span', { class: 'nm' }, t.name, h('small', {}, (trackVst(key) ? `🔌 ${trackVst(key).plugin}` : d.label) + (t.notes.length ? ` · ${t.notes.length}` : ' · пусто'))),
+        h('span', { class: 'nm' }, t.name, h('small', {}, (trackVst(key) ? vstLabel(trackVst(key)) : d.label) + (t.notes.length ? ` · ${t.notes.length}` : ' · пусто'))),
         ms(key), h('button', { class: 'more', title: 'меню дорожки', onclick: e => menuAt(e, projectMenu(t, key)) }, '⋯'))
       r.onclick = () => pr.want('p:' + t.id)
       r.oncontextmenu = e => menuAt(e, projectMenu(t, key))
@@ -514,6 +538,7 @@ export function createTrackList(root, pr) {
       list.append(r)
       if (on) {
         const inst = instSelect(t.inst)
+        if (trackVst(key)) inst.title = `звучит ${vstLabel(trackVst(key))} — этот инструмент только запасной звук (APK, страница из файла); плагин сменить — ⋯ → Плагин VST`
         inst.onchange = () => updateTrack(t.id, x => { if (x.name === INSTRUMENT[x.inst]?.label) x.name = nameFor(projectOf(), INSTRUMENT[inst.value].label); x.inst = inst.value })
         const vol = h('input', { type: 'range', min: 0, max: 2, step: 0.05, value: t.vol ?? 1, title: 'громкость' })
         const pan = h('input', { type: 'range', min: -1, max: 1, step: 0.05, value: t.pan ?? 0, title: 'панорама: влево — вправо' })
@@ -537,7 +562,7 @@ export function createTrackList(root, pr) {
         vstItem(key),
       ]
       const r = h('div', { class: 'tl-row code' + (on ? ' sel' : ''), title: `${key} — написана формулами в коде · клик — посмотреть ноты · ПКМ — меню` },
-        h('span', { class: 'dot', style: `background:${color}` }), h('span', { class: 'nm' }, key, h('small', {}, trackVst(key) ? `🔌 ${trackVst(key).plugin}` : 'ƒ код')), ms(key),
+        h('span', { class: 'dot', style: `background:${color}` }), h('span', { class: 'nm' }, key, h('small', {}, trackVst(key) ? vstLabel(trackVst(key)) : 'ƒ код')), ms(key),
         h('button', { class: 'more', title: '❄ в ноты · 🗑 удалить · 🔌 плагин', onclick: e => menuAt(e, menu) }, '⋯'))
       r.onclick = () => pr.want('v:' + key)
       r.oncontextmenu = e => menuAt(e, menu)

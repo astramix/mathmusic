@@ -15,19 +15,19 @@ let readNotes = null
 async function notesOf(t, song) {
   readNotes ??= (await import(MM.url('project.js'))).readTrackNotes
   const sec = 60 / song.bpm, oct = t.vst.octaves ?? [0]
-  return readNotes(t.midi, song.length, { rate: 48, drums: !!t.vst.drums }).flatMap(([b, n, d, v]) => oct.map(o => [b * sec, d * sec, n + o, v ?? 0.8]))
+  return readNotes(t.midi, song.length, { rate: 48, drums: !!(t.vst.drums || t.vst.kit) }).flatMap(([b, n, d, v]) => oct.map(o => [b * sec, d * sec, n + o, v ?? 0.8]))
 }
 // the song's tracks whose plugin is here → [[key, track]]
 export async function vstTracks(song, trackList) {
   const st = await vstState()
   if (!st) return []
-  const have = new Set(st.plugins.filter(p => p.hosted).map(p => p.name.toLowerCase()))
-  return trackList(song).filter(([, t]) => t?.vst && typeof t.midi === 'function' && have.has(String(t.vst.plugin).toLowerCase()))
+  const have = new Set(st.plugins.filter(p => p.hosted).map(p => p.name.toLowerCase())), kits = new Set((st.kits ?? []).map(k => k.name))
+  return trackList(song).filter(([, t]) => t?.vst && typeof t.midi === 'function' && (t.vst.kit ? kits.has(t.vst.kit) : have.has(String(t.vst.plugin).toLowerCase())))
 }
 // one track through its plugin → { L, R } at sr (the same request is asked once; the server caches renders on disk too)
 const asked = new Map()
 export async function vstAudio(song, t, { sr, seconds }) {
-  const body = JSON.stringify({ plugin: t.vst.plugin, preset: t.vst.preset ?? null, program: t.vst.program ?? null, notes: await notesOf(t, song), seconds, sr })
+  const body = JSON.stringify(t.vst.kit ? { kit: t.vst.kit, notes: await notesOf(t, song), seconds, sr } : { plugin: t.vst.plugin, preset: t.vst.preset ?? null, program: t.vst.program ?? null, notes: await notesOf(t, song), seconds, sr })
   if (!asked.has(body)) {
     asked.set(body, fetch('/api/vst/render', { method: 'POST', headers: { ...H, 'content-type': 'application/json' }, body }).then(async r => {
       if (!r.ok) throw new Error(await r.text())

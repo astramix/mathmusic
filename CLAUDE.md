@@ -263,7 +263,17 @@ same. Not working yet: BellsEbuth (64-bit) crashes inside its own VSTPluginMain 
 Styles may name plugins per recipe: `S.vst = { recipe: { plugin, preset, octaves, gain } }` (generate.js adds the field to those tracks with
 `withField`; nothing changes for styles without it). Magma Depths: DSK Strings (theme in octaves, low strings), DSK ChoirZ (the call, the
 pad), DSK Virtuoso, Church Organ, DSK World StringZ — each with its preset from «Magma depths», gains measured.
-test/vst.test.js: a set read, a stub followed, PE bits, given stems, octaves; a real ChoirZ render where it is installed.
+**Sample kits** (the user's drum racks): `node tools/als.mjs kit <set.als> <drum track> [--freeze <wav>]` → ~/.mathmusic/kits/<set> — <track>.json:
+each pad's sample found on this computer (the set's path; the same path under any installed Live's Core Library — Live 10's Samples/Drums/… is
+Samples/One Shots/Drums/… later; the set's project; a file of that name in the user's other projects), pointed at, never copied, with its
+transpose, volume and slice. --freeze: Ableton's own render of that track → `matchKit`: the track's effects (Travenge's kit: AutoFilter as an
+envelope filter, Saturator 17.7 dB, compressors, EQ Three, ping-pong Delay, Limiter) as a measured 1/3-octave curve + gain (± 12 dB) and a soft
+clip at −0.3 dBFS — not each device emulated (the delay's echoes and the compressors' motion are not in it). Travenge — 9-Metroid Kit: 9 pads
+(Core Library toms, kick, tube hit, tambourine, ride; three synth hits from Mtro Project), against its Freeze: spectrum r 0.89, level 1.1 dB.
+A track plays one with `vst: { kit, gain }` (`renderKit` in Node, the same in the exe; tools/wav.mjs `readAiff` / `readAudio`). The 🔌 dialog lists
+kits beside the plugins. A project track keeps its plugin or kit in itself (t.vst) — a new instrument or name keeps it (the instrument is then
+the sound only where the plugin can't play); code tracks in PROJECT.vst by key.
+test/vst.test.js: a set read, a stub followed, PE bits, given stems, octaves; a real ChoirZ render where it is installed. Kits: AIFF / WAV read, pads transposed, volume × velocity.
 
 ## master.js (the master bus — the worklet, export, render.js --master, tests)
 `masterChain(params, sr)` → process(l, r) (delayed by `latency`): side signal high-passed below `monoBelow` (LR4), × `width`;

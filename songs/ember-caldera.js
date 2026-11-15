@@ -415,17 +415,24 @@ const track7 = (() => {
   formula: ["D = \\Rev\\big[0.6K_{50} + 0.42T_{73} + 0.3T_{56} + 0.2T_{80} + 0.33T_{61} + 0.07\\,\\text{Ride} + 0.22\\,H(f)\\big]","H(f, t) = \\sum_{i=1}^{28} a_i\\,d_i(t)\\sin 2\\pi\\,\\tfrac{f}{164}F_i t\\quad\\text{— синт-удар кита, пересинтез по сэмплу: пара }164 / 173.6\\text{ Гц и облако }1.25\\text{–}6.7\\text{ кГц}"],
   audio({ bpm }) {
     const sec = 60 / bpm, kick = kickDrum({ f0: 50, f1: 120, sweep: 26, decay: 8, drive: 1.15 }), kick2 = kickDrum({ f0: 52, f1: 110, sweep: 24, decay: 9, drive: 1.05 })
-    const tom1 = taikoDrum({ pitch: 73, decay: 0.9, bend: 2.5, crack: 0.4, boom: 0.35, seed: 41 }), tom2 = taikoDrum({ pitch: 56, decay: 1.1, bend: 2.5, crack: 0.35, boom: 0.4, seed: 42 })
-    const tom3 = taikoDrum({ pitch: 80, decay: 0.7, bend: 2, crack: 0.55, boom: 0.25, seed: 43 }), tom4 = taikoDrum({ pitch: 61, decay: 1, bend: 2.5, crack: 0.38, boom: 0.38, seed: 44 })
+    // 16-inch toms hit hard with a stick: a strong crack and the shell ringing above the body, not a soft thud (on small speakers
+    // the body alone, 56–80 Hz, vanishes under the strings and the choir)
+    const tom1 = taikoDrum({ pitch: 73, decay: 0.9, bend: 2.5, crack: 0.8, boom: 0.25, drive: 1.8, seed: 41 }), tom2 = taikoDrum({ pitch: 56, decay: 1.1, bend: 2.5, crack: 0.75, boom: 0.3, drive: 1.8, seed: 42 })
+    const tom3 = taikoDrum({ pitch: 80, decay: 0.7, bend: 2, crack: 0.9, boom: 0.2, drive: 1.8, seed: 43 }), tom4 = taikoDrum({ pitch: 61, decay: 1, bend: 2.5, crack: 0.78, boom: 0.28, drive: 1.8, seed: 44 })
     const ride = hatDrum({ decay: 2.5, cutoff: 5000, ring: 0.85 }), hits = poly(magmaHitTone, { release: 0.12, life: 1.2, max: 6 }), fh = trigger(), fl = trigger(), fx = trigger()
-    const verb = reverb({ room: 0.9, damp: 0.38, wet: 0.36 })
+    const η = noise(73), stick = filter('bp'), shell = filter('bp'), verb = reverb({ room: 0.9, damp: 0.38, wet: 0.36 })
+    // the stick on the head: the newest tom hit → a 12 ms burst at 2.6 kHz, and the shell's ring an octave and a fifth over the tom
+    const lastTom = x => { let best = null; for (const [d, f] of [['tom1', 73], ['tom2', 56], ['tom3', 80], ['tom4', 61]]) { const h = x < END ? lastHit(x, d) : null; if (h && (!best || h.τ < best.τ)) best = { ...h, f } } return best }
     const at = (d, f, x, s = sec) => { const h = x < END ? lastHit(x, d) : null; return h ? h.vel * f(h.τ * s, true) : f(1, false) }
     return x => {
       const q = d => (x < END ? lastHit(x, d) : null), h1 = q('hit'), h2 = q('hitlo'), h3 = q('hithi')
       if (h1 && fh(x - h1.τ)) hits.hit(164, h1.vel, 0.7)
       if (h2 && fl(x - h2.τ)) hits.hit(164 * 2 ** (-8 / 12), h2.vel, 0.7)
       if (h3 && fx(x - h3.τ)) hits.hit(164 * 2 ** (2 / 12), h3.vel, 0.7)
-      const y = 0.7 * (0.6 * at('kick', kick, x, 1) + 0.5 * at('kick2', kick2, x, 1) + 0.42 * at('tom1', tom1, x) + 0.3 * at('tom2', tom2, x) + 0.2 * at('tom3', tom3, x) + 0.33 * at('tom4', tom4, x))
+      const lt = lastTom(x), ts = lt ? lt.τ * sec : 9, n = η()
+      const crack = lt && ts < 0.08 ? lt.vel * exp(-ts / 0.012) * stick(n, 2600, 1.2) : stick(0, 2600, 1.2)
+      const ring = lt && ts < 0.6 ? lt.vel * exp(-ts / 0.16) * shell(n, lt.f * 3, 9) : shell(0, 200, 9)
+      const y = 1.3 * (0.6 * at('kick', kick, x, 1) + 0.5 * at('kick2', kick2, x, 1) + 0.42 * at('tom1', tom1, x) + 0.3 * at('tom2', tom2, x) + 0.2 * at('tom3', tom3, x) + 0.33 * at('tom4', tom4, x)) + 0.5 * crack + 0.9 * ring
       const hh = 0.07 * at('ride', ride, x) + 0.22 * hits()
       const [l, r] = verb(y + 0.8 * hh, y + 0.8 * hh)
       return [l + 0.15 * hh, r - 0.05 * hh]

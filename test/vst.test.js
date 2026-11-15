@@ -77,3 +77,31 @@ test('a real render through an installed plugin (skipped where there is none)', 
   assert.ok(L.length >= 88200)
   assert.ok(peak > 0.01, 'the plugin sang (peak ' + peak + ')')
 })
+
+test('a sample kit: AIFF and WAV read, each hit its pad’s sample, transposed, at its volume × velocity', async () => {
+  const { readAudio } = await import('../tools/wav.mjs')
+  const { renderKit } = await import('../src/vst.js')
+  const dir = tmp(), n = 4410, aif = path.join(dir, 'tom.aif'), wav = path.join(dir, 'hit.wav')
+  // a 16-bit mono AIFF at 44.1 kHz: a 441 Hz sine (exactly 10 periods)
+  const ssnd = Buffer.alloc(16 + 2 * n), comm = Buffer.alloc(26)
+  for (let i = 0; i < n; i++) ssnd.writeInt16BE(Math.round(16000 * Math.sin((2 * Math.PI * 441 * i) / 44100)), 16 + 2 * i)
+  ssnd.write('SSND', 0, 'latin1'); ssnd.writeUInt32BE(8 + 2 * n, 4)
+  comm.write('COMM', 0, 'latin1'); comm.writeUInt32BE(18, 4); comm.writeInt16BE(1, 8); comm.writeUInt32BE(n, 10); comm.writeInt16BE(16, 14)
+  comm.writeUInt16BE(16398, 16); comm.writeUInt32BE(0xac440000, 18) // 44100 as an 80-bit extended
+  const form = Buffer.alloc(12); form.write('FORM', 0, 'latin1'); form.writeUInt32BE(4 + comm.length + ssnd.length, 4); form.write('AIFF', 8, 'latin1')
+  fs.writeFileSync(aif, Buffer.concat([form, comm, ssnd]))
+  const a = readAudio(aif)
+  assert.equal(a.sr, 44100)
+  assert.ok(Math.abs(a.channels[0][25] - Math.sin((2 * Math.PI * 441 * 25) / 44100) * 16000 / 32768) < 1e-4)
+  // a 16-bit mono WAV: a constant 0.5
+  const w = Buffer.alloc(44 + 2 * n)
+  w.write('RIFF', 0, 'latin1'); w.writeUInt32LE(36 + 2 * n, 4); w.write('WAVEfmt ', 8, 'latin1'); w.writeUInt32LE(16, 16); w.writeUInt16LE(1, 20); w.writeUInt16LE(1, 22)
+  w.writeUInt32LE(44100, 24); w.writeUInt32LE(88200, 28); w.writeUInt16LE(2, 32); w.writeUInt16LE(16, 34); w.write('data', 36, 'latin1'); w.writeUInt32LE(2 * n, 40)
+  for (let i = 0; i < n; i++) w.writeInt16LE(16384, 44 + 2 * i)
+  fs.writeFileSync(wav, w)
+  const kit = { name: 'k', pads: { 36: { name: 'tom', file: aif, transpose: 12, volume: 0 }, 40: { name: 'hit', file: wav, transpose: 0, volume: -6.0206 } } }
+  const { L } = renderKit({ kit, notes: [[0, 0.1, 36, 1], [0.5, 0.1, 40, 0.5], [0.8, 0.1, 99, 1]], seconds: 1, sr: 44100 })
+  assert.ok(L.slice(n / 2 + 100).subarray(0, 100).every(v => v === 0)) // an octave up: the tom lasts half as long
+  assert.ok(Math.abs(L[22050 + 100] - 0.5 * 0.5 * 0.5) < 1e-3) // 0.5 × −6 dB × velocity 0.5
+  assert.equal(L[Math.round(0.85 * 44100)], 0) // a note with no pad: silence
+})

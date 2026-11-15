@@ -30,3 +30,45 @@ export function readWav(path) {
   for (const c of channels) for (let i = 0; i < frames; i++) mono[i] += c[i] / ch
   return { sr, channels, mono }
 }
+
+// Reading an AIFF / AIFF-C file (PCM 8/16/24/32 bit big-endian, 'sowt' little-endian, 'fl32' float) → { sr, channels, mono }
+// — Ableton's Core Library keeps many of its one-shots as .aif (src/vst.js plays the user's sample kits with it)
+export function readAiff(path) {
+  const buf = readFileSync(path), dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
+  const tag = o => String.fromCharCode(buf[o], buf[o + 1], buf[o + 2], buf[o + 3])
+  if (tag(0) !== 'FORM' || !['AIFF', 'AIFC'].includes(tag(8))) throw new Error(`${path}: not an AIFF file`)
+  let ch = 0, frames = 0, bits = 16, sr = 44100, comp = 'NONE', data = -1
+  for (let o = 12; o + 8 <= buf.length;) {
+    const id = tag(o), size = dv.getUint32(o + 4)
+    if (id === 'COMM') {
+      ch = dv.getInt16(o + 8); frames = dv.getUint32(o + 10); bits = dv.getInt16(o + 14)
+      const e = dv.getUint16(o + 16) & 0x7fff, hi = dv.getUint32(o + 18), lo = dv.getUint32(o + 22) // 80-bit extended
+      sr = Math.round((hi * 2 ** 32 + lo) * 2 ** (e - 16383 - 63))
+      if (tag(8) === 'AIFC' && size >= 22) comp = tag(o + 26)
+    }
+    if (id === 'SSND') data = o + 16 + dv.getUint32(o + 8)
+    o += 8 + size + (size & 1)
+  }
+  if (!ch || data < 0) throw new Error(`${path}: no COMM/SSND chunk`)
+  const bps = bits / 8, little = comp === 'sowt', float = comp === 'fl32' || comp === 'FL32'
+  frames = Math.min(frames, Math.floor((buf.length - data) / (bps * ch)))
+  const channels = Array.from({ length: ch }, () => new Float32Array(frames))
+  for (let i = 0; i < frames; i++) for (let c = 0; c < ch; c++) {
+    const o = data + (i * ch + c) * bps
+    let v
+    if (float) v = dv.getFloat32(o, little)
+    else if (bits === 8) v = dv.getInt8(o) / 128
+    else if (bits === 16) v = dv.getInt16(o, little) / 32768
+    else if (bits === 24) v = (((little ? buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) : (buf[o] << 16) | (buf[o + 1] << 8) | buf[o + 2]) << 8) >> 8) / 8388608
+    else v = dv.getInt32(o, little) / 2147483648
+    channels[c][i] = v
+  }
+  const mono = new Float32Array(frames)
+  for (const c of channels) for (let i = 0; i < frames; i++) mono[i] += c[i] / ch
+  return { sr, channels, mono }
+}
+// WAV or AIFF by the file's header
+export function readAudio(path) {
+  const head = readFileSync(path).subarray(0, 4).toString('latin1')
+  return head === 'FORM' ? readAiff(path) : readWav(path)
+}

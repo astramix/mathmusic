@@ -45,13 +45,14 @@ export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: tr
             if (p.hosted) try { info = await vst.pluginInfo(p) } catch {}
             plugins.push({ name: p.name, kind: p.kind, bits: p.bits, hosted: p.hosted && !!info, programs: info?.programs ?? [], synth: info?.synth ?? null })
           }
-          return send(200, JSON.stringify({ host: process.platform === 'win32', plugins, presets: vst.listPresets() }), 'application/json')
+          return send(200, JSON.stringify({ host: process.platform === 'win32', plugins, presets: vst.listPresets(), kits: vst.listKits() }), 'application/json')
         }
         if (url.pathname === '/api/vst/render' && req.method === 'POST') {
           const chunks = []
           for await (const c of req) chunks.push(c)
           const q = JSON.parse(Buffer.concat(chunks).toString('utf8'))
-          const { L, R } = await vst.renderPart({ plugin: q.plugin, preset: q.preset ?? null, program: q.program ?? null, notes: q.notes ?? [], seconds: +q.seconds, sr: +q.sr || 44100 })
+          const { L, R } = q.kit ? vst.renderKit({ kit: q.kit, notes: q.notes ?? [], seconds: +q.seconds, sr: +q.sr || 44100 })
+            : await vst.renderPart({ plugin: q.plugin, preset: q.preset ?? null, program: q.program ?? null, notes: q.notes ?? [], seconds: +q.seconds, sr: +q.sr || 44100 })
           const n = Math.min(L.length, Math.ceil(+q.seconds * (+q.sr || 44100))), out = new Float32Array(2 * n)
           out.set(L.subarray(0, n), 0)
           out.set(R.subarray(0, n), n)
