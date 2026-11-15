@@ -39,7 +39,7 @@ energy curve: intro 0–1, themes 2, drops 3, a break 1) · production (reverb, 
 ## 3. The style entry and its neighbours
 
 - `STYLES.<id>`: label, emoji, `theme` (an existing id of viz/app/themes.js: void lofi chip bossa kawaii classical gothic synth
-  dnb phonk meow ink romantic desert celtic java india jazz), bpm, swing, themes (weights; own themes first), keys (one mode
+  dnb phonk meow ink romantic desert celtic java india jazz heaven hell …), bpm, swing, themes (weights; own themes first), keys (one mode
   family unless the themes are `modal`), moods, voicing, chordRange, bassRange, lead / lead2 (a name twice = a weight), counter,
   chords, bass, pad (`null` allowed), arp, texture, kit, forms (1–2; roles intro theme themeB bridge solo break build final
   outro trade; energy 0–3; `{ keyUp }`, `{ canon }`), drums, comp, bassline (`'octaves'`, `'eighths'`, `'walking'` or

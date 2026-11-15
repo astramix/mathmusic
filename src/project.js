@@ -74,6 +74,15 @@ export const INSTRUMENTS = [
   I('timpani', 'Литавры', MALLETS, 'poly', 'bass', [38, 60], 'hall', '#9c6644', 47,
     ['Ti = v\\sum_k a_k e^{-t/T_k}\\sin 2\\pi\\,r_k f t,\\quad r = (1, 1.5, 1.98, 2.44, 2.94, 1.65)\\ \\text{— моды котла, удар войлоком}'],
     STRUCK('timpaniTone', { release: 0.6, life: 4, gain: 0.6, max: 12 })),
+  I('glint', 'Блик света', MALLETS, 'poly', 'keys', [60, 108], 'hall', '#fffbe0', 9,
+    ['Gl = v\\big(e^{-t/0.5}\\sin 2\\pi ft + 0.28e^{-t/0.2}\\sin 2\\pi\\,2.01ft\\big)'],
+    STRUCK('glintTone', { release: 1.2, life: 5, gain: 0.45 })),
+  I('halobell', 'Колокол света', MALLETS, 'poly', 'keys', [48, 96], 'hall', '#ffe9a8', 14,
+    ['Hb = 0.3v\\sum_{k=1}^{8} a_k e^{-t/T_k}\\big(\\sin 2\\pi\\,0.9996\\,r_k ft + 0.7\\sin 2\\pi\\,1.0004\\,r_k ft\\big),\\quad r = (\\tfrac12, 1, 2^{4/12}, 2^{7/12}, 2, \\ldots)'],
+    STRUCK('haloBellTone', { release: 1.6, life: 8, gain: 0.8, max: 12 })),
+  I('hellbell', 'Колокол преисподней', MALLETS, 'poly', 'keys', [28, 72], 'hall', '#d08040', 14,
+    ['Bl = 0.28v\\sum_{k=1}^{8} a_k e^{-t/T_k}\\big(\\sin 2\\pi\\,0.9991\\,r_k ft + 0.8\\sin 2\\pi\\,1.0009\\,r_k ft\\big),\\quad r = (\\tfrac12, 1, 2^{3/12}, 2^{6/12}, 2, \\ldots)'],
+    STRUCK('hellBellTone', { release: 2, life: 9, gain: 0.6, max: 8 })),
   I('templebell', 'Храмовый колокол', MALLETS, 'poly', 'keys', [36, 84], 'hall', '#ffe8a0', 14,
     ['Bo = \\sum_k a_k e^{-t/T_k}\\big(\\sin 2\\pi r_k f t + \\sin 2\\pi\\,1.00075\\,r_k f t\\big),\\quad r = (\\tfrac12, 1, 1.2, 1.5, 2, \\ldots)'],
     STRUCK('templeBellTone', { release: 2, life: 12, gain: 0.3, max: 8 })),
@@ -180,6 +189,12 @@ export const INSTRUMENTS = [
   I('malechoir', 'Мужской хор «о» (аккорды)', VOICES, 'chord', 'pad', [36, 69], 'hall', '#b8a6f0', 52,
     ['Ch = \\sum_j \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\,\\BP_{0.9F_i}\\tanh\\!\\big(1.35\\saw(f_j)\\big),\\quad F:\\ \\text{«о»} \\leftrightarrow \\text{«у»} \\text{ — низкие мужские голоса}'],
     CHORD('const c = choir({ voices: 4, size: 0.9, rough: 0.35, breath: 0.04, gain: 0.3 })', 'c(fs, blend(VOWELS.o, VOWELS.u, 0.5 + 0.5 * sin(TAU * x / 12)))')),
+  I('angelchoir', 'Хор ангелов', VOICES, 'chord', 'pad', [45, 88], 'hall', '#ffe9c4', 52,
+    ['Ch = \\sum_{j}\\sum_{\\pm}\\sum_{i=1}^{3}\\tfrac{G_i}{Q_i}\\BP_{F^{(j)}_i}\\saw\\!\\big(f_j(1 \\pm 0.0035)(1 + 0.008\\sin 2\\pi r_{j\\pm}T)\\big),\\quad Q = (7, 11, 11),\\ F^{(j)}: \\text{«о», «о», «а», «а», «у»}'],
+    CHORD('const c = angelChoir({ voices: 5, attack: 500, release: 900, gain: 0.5 }), V = [DREAM_VOWELS.o, DREAM_VOWELS.o, DREAM_VOWELS.a, DREAM_VOWELS.a, DREAM_VOWELS.u]', 'c(fs, V)')),
+  I('seraph', 'Голос ангела', VOICES, 'mono', 'lead', [52, 88], 'echo', '#fff3d0', 53,
+    ['A = \\sum_{i=1}^{3}\\tfrac{G_i}{Q_i}\\BP_{F_i}\\big(\\saw(g^-) + \\saw(g^+)\\big) + \\tfrac12\\sum_i\\tfrac{G_i}{Q_i}\\BP_{F^o_i}\\saw(g/2),\\quad g = f\\cdot 2^{-0.33e^{-t/35\\text{мс}}/12}'],
+    MONO('const s = seraph()', 's(f, on, blend(DREAM_VOWELS.a, DREAM_VOWELS.o, 0.5 + 0.5 * sin(TAU * x / 8)))', 1.4)),
   I('voice', 'Голос «а–о»', VOICES, 'mono', 'lead', [48, 84], 'echo', '#e0c8ff', 53,
     ['Vo = \\sum_{i=1}^{3} \\tfrac{G_i}{Q_i}\\,\\BP_{F_i}\\big(\\saw(g) + 0.06\\eta\\big),\\quad g = f\\cdot 2^{0.15\\sin(2\\pi\\cdot5T)/12}'],
     MONO('const vo = voice({ size: 1, breath: 0.06 }), gl = smooth(50)', 'vo(gl(f) * 2 ** (0.15 * sin(TAU * 5 * x * sec) / 12), blend(VOWELS.a, VOWELS.o, 0.5 + 0.5 * sin(TAU * x / 8)), on ? 1 : 0)', 0.55)),
@@ -306,7 +321,7 @@ function recipeMake(m) {
   return `(sec, o, N) => { const HITS = hitsOf(N, ${JSON.stringify(q.map)}), t = ${q.code}, f = t.audio({ bpm: 60 / sec }); return { out: x => f(x) } }`
 }
 // the kits' own drums, for the piano roll's rows
-const DRUM_RU = { kick: 'бочка', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
+const DRUM_RU = { kick: 'бочка', chime: 'перезвон', ting: 'треугольник', drum: 'большой барабан', anvil: 'наковальня', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
   toms: 'томы', rim: 'римшот', shaker: 'шейкер', tamb: 'бубен', china: 'китайская', taiko: 'тайко', boom: 'бум', far: 'далёкий барабан', heart: 'сердце',
   clank: 'сталь', chain: 'цепь', low: 'большой барабан', frame: 'рамочный', tick: 'тик', swell: 'свелл', spoons: 'ложки', hands: 'ладоши',
   tum: 'тум (тамборзао)', roll: 'дробь литавр', bell: 'колокол', tomL: 'том низкий', tomM: 'том средний', tomH: 'том высокий', bongo: 'бонго', bd: 'бочка', sd: 'малый', hh: 'хэт', top: 'тарелка', perc: 'перкуссия' }
@@ -388,7 +403,7 @@ const INSTRUMENT_NAMES = ['poly', 'pan', 'pianoTone', 'epianoTone', 'vibesTone',
   'shakerDrum', 'shamisen', 'koto', 'biwa', 'shakuhachi', 'shinobue', 'taikoDrum', 'woodClack', 'kaneDrum', 'templeBellTone', 'oud', 'qanun', 'ney',
   'darbukaDrum', 'riqDrum', 'sitar', 'tablaDrum', 'saronTone', 'bonangTone', 'kenongTone', 'gongTone', 'timpaniTone', 'harpTone', 'celestaTone', 'organ',
   'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal', 'metalGuitar', 'leadGuitar',
-  'cowbellTone', 'steelpanTone', 'accordion', 'opn', 'panpipe']
+  'cowbellTone', 'steelpanTone', 'accordion', 'opn', 'panpipe', 'angelChoir', 'seraph', 'DREAM_VOWELS', 'glintTone', 'dewTone', 'haloBellTone', 'haloPad', 'hellBellTone', 'heartBeat']
 const LANES = { lead: [1, 3], keys: [-1, 0.9], pad: [-1.7, -0.5], bass: [-3, -2], drums: [2.2, 4.5] }
 
 const r4 = v => +(+v).toFixed(4)
@@ -659,6 +674,7 @@ export function readTrackNotes(midi, length, { rate = 96, drums = false } = {}) 
 // which instrument plays a part of another song, by the part's name (the generator names a track by its instrument)
 const BY_NAME = [
   [/kick|snare|drum|kit|perc|hat|clap|kendhang/i, 'drums'], [/taiko/i, 'taiko'], [/tabla/i, 'tabla'], [/darbuka|riq/i, 'darbuka'],
+  [/seraph/i, 'seraph'], [/angelchoir|abyss/i, 'angelchoir'], [/damned/i, 'malechoir'], [/hellbell/i, 'hellbell'], [/halobell/i, 'halobell'], [/glint|\bdew\b|embers/i, 'glint'],
   [/growl/i, 'growl'], [/fretless/i, 'fretless'], [/panpipe/i, 'panpipe'], [/slap|zunbass|snesbass/i, 'slapbass'], [/reese|acid|hardbass|fmbass/i, 'synthbass'], [/metalbass/i, 'metalbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
   [/cello|cellolead/i, 'cello'], [/bassoon/i, 'bassoon'], [/timp/i, 'timpani'], [/drone|pedal/i, 'organ'],
   [/rhodes|epiano/i, 'epiano'], [/harpsichord|continuo|alberti|prelude/i, 'harpsichord'], [/organ/i, 'organ'], [/nocturne|piano/i, 'piano'],
@@ -675,7 +691,7 @@ const BY_NAME = [
 // (a part named just "bass": a double bass in the acoustic styles, a synth bass in the electronic ones, the NES triangle in chiptune,
 // the style's own bass where it has one)
 const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass', ishope: 'metalbass', prime: 'seqbass', darkecho: 'cello', nordic: 'cello',
-  artifact: 'seqbass', brinstar: 'fretless', zunpet: 'slapbass', oldzun: 'synthbass', fight: 'synthbass', babushka: 'synthbass', podskazka: 'slapbass', hardstyle: 'sub808', phonk: 'sub808', breakcore: 'synthbass' }
+  artifact: 'seqbass', brinstar: 'fretless',heaven: 'sub808', hell: 'synthbass',  zunpet: 'slapbass', oldzun: 'synthbass', fight: 'synthbass', babushka: 'synthbass', podskazka: 'slapbass', hardstyle: 'sub808', phonk: 'sub808', breakcore: 'synthbass' }
 const ELECTRONIC = /^(synthwave|boss|hardstyle|dnb|phonk|space|kawaii|jbattle|gothic|minimal|meow|fight|babushka|breakcore|oldzun)$/
 // fallback: what a name nothing matches gets (null: "don't know")
 export function instrumentFor(name, style = null, fallback = 'piano') {

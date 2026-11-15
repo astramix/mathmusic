@@ -30,6 +30,8 @@ export const THEMES = {
   mystery: { label: 'Тайная игра', hue: 275, sat: 60, light: 5, star: '230,200,255', accent: '#b07cff', accent2: '#ffbe3c', deco: 'scan' },
   favela: { label: 'Фавела ночью', hue: 300, sat: 60, light: 6, star: '255,200,240', accent: '#ff50c8', accent2: '#78ffc8', deco: 'grain' },
   storm: { label: 'Ночная буря', hue: 215, sat: 30, light: 5, star: '210,225,255', accent: '#8fb8ff', accent2: '#ffd27a', deco: 'rain' },
+  heaven: { label: 'Райский сад', hue: 40, sat: 38, light: 8, star: '255,244,214', accent: '#ffd98a', accent2: '#a8d8ff', deco: 'gold' },
+  hell: { label: 'Преисподняя', hue: 8, sat: 60, light: 5, star: '255,170,120', accent: '#ff5a2a', accent2: '#ffc04a', deco: 'grain' },
   jazz: { label: 'Джаз-клуб', hue: 220, sat: 40, light: 6, star: '200,220,255', accent: '#7fb0ff', accent2: '#ffc56b', deco: 'grain' },
 }
 const BY_NAME = {

@@ -1575,3 +1575,113 @@ export function resynthTone(M) {
   }
   return tone
 }
+
+// ---- the other side: the angel's dream (the white garden of Blue Hour) and its dark twin -----------------------------
+// The dream's vowels (the formants its choir sings through)
+export const DREAM_VOWELS = { a: [800, 1150, 2900], o: [450, 800, 2830], u: [325, 700, 2530], e: [400, 1700, 2600], i: [290, 2250, 3000] }
+// The angel choir: c(freqs, F | [F per part], level) → [l, r]. Each part is two singers `detune` apart (±0.35 % = ±6 ¢),
+// each with a vibrato of its own (4.4 – 5.6 Hz), a saw through three narrow band-passes (Q 7, 11, 11; 1 : 0.42 : 0.18),
+// the upper parts with their formants 8 % higher (smaller singers); the breath swells over `attack` ms and dies over
+// `release`. shift < 1 and rough > 0: the same choir far below — big, hoarse voices.
+export function angelChoir({ voices = 5, detune = 0.0035, vib = 0.008, attack = 1800, release = 2200, shift = 1, rough = 0, breath = 0.015, gain = 0.3, seed = 3 } = {}) {
+  const Q = [7, 11, 11], G = [1, 0.42, 0.18], air = noise(977 + seed)
+  const parts = Array.from({ length: voices }, (_, j) => ({
+    a: osc('saw', hash(j, seed)), b: osc('saw', hash(j, seed + 1)), bp: Q.map(() => filter('bp')), env: ar(attack, release), glide: smooth(50), f: 0,
+    p: voices > 1 ? 0.8 * ((2 * ((j * 3) % voices)) / (voices - 1) - 1) : 0, r1: 4.4 + 1.2 * hash(j, seed + 2), r2: 4.4 + 1.2 * hash(j, seed + 3), fs: shift * (j > 2 ? 1.08 : 1),
+  }))
+  let t = 0
+  return (freqs, F = DREAM_VOWELS.a, level = 1) => {
+    t += 1 / SR
+    let l = 0, r = 0
+    const n = air()
+    for (let j = 0; j < voices; j++) {
+      const v = parts[j], on = j < freqs.length
+      if (on) { if (!v.f) for (let i = 0; i < 400; i++) v.glide(freqs[j]); v.f = freqs[j] }
+      const e = v.env(on ? level : 0), g = v.glide(v.f || 220)
+      let src = v.a(g * (1 - detune) * (1 + vib * sin(TAU * v.r1 * t + j))) + v.b(g * (1 + detune) * (1 + vib * sin(TAU * v.r2 * t + 2.3 * j))) + breath * n
+      if (rough) src = tanh((1 + rough) * src)
+      const Fj = typeof F[0] === 'number' ? F : F[j % F.length]
+      let y = 0
+      for (let i = 0; i < 3; i++) y += (G[i] / Q[i]) * v.bp[i](src, Fj[i] * v.fs, Q[i])
+      y *= e
+      l += y * Math.sqrt((1 - v.p) / 2)
+      r += y * Math.sqrt((1 + v.p) / 2)
+    }
+    return [gain * l, gain * r]
+  }
+}
+// The angel speaking: s(f, on, F) → sample. Wordless sung syllables — two singers ±4 ¢ through the vowel F, a quick breath
+// in (60 ms), a scoop of a third of a semitone into the note, a vibrato that comes after 0.3 s, and under it a second
+// voice an octave down on «о», half as loud, a little later (90 ms).
+export function seraph({ low = 0.5, vib = 0.007, shift = 1, seed = 5 } = {}) {
+  const a = osc('saw', 0.1), b = osc('saw', 0.6), c = osc('saw', 0.35), Q = [7, 11, 11], G = [1, 0.42, 0.18]
+  const bp = Q.map(() => filter('bp')), bpo = Q.map(() => filter('bp')), env = ar(60, 260), envLow = ar(90, 340), glide = smooth(6), air = noise(991 + seed)
+  let t = 0, held = 0, first = true
+  return (f, on, F = DREAM_VOWELS.a) => {
+    t += 1 / SR
+    held = on ? held + 1 / SR : 0
+    if (first && on) { for (let i = 0; i < 300; i++) glide(f); first = false }
+    const g = glide(f) * 2 ** ((-0.33 * exp(-held / 0.035)) / 12) * (1 + vib * Math.min(1, held / 0.3) * sin(TAU * 5.1 * t))
+    const src = a(g * 0.9977) + b(g * 1.0023) + 0.02 * air(), lo = c(g / 2)
+    let y = 0, z = 0
+    for (let i = 0; i < 3; i++) {
+      y += (G[i] / Q[i]) * bp[i](src, F[i] * shift, Q[i])
+      z += (G[i] / Q[i]) * bpo[i](lo, DREAM_VOWELS.o[i] * shift, Q[i])
+    }
+    return env(on ? 1 : 0) * y + low * envLow(on ? 1 : 0) * z
+  }
+}
+// A glint of light: a pure sine and a little of its (slightly wide) octave that dies sooner — for poly()
+export const glintTone = (f, t, vel = 0.7) =>
+  vel * Math.min(1, t / 0.006) * (exp(-t / 0.5) * sin(TAU * f * t) + 0.28 * exp(-t / 0.2) * sin(TAU * 2.01 * f * t))
+// A drop of dew: the score's soft pluck — a sine, its octave, and the same note again 0.42 s later, a third as loud
+export const dewTone = (f, t, vel = 0.7) =>
+  vel * (Math.min(1, t / 0.005) * (exp(-t / 0.62) * sin(TAU * f * t) + 0.24 * exp(-t / 0.27) * sin(TAU * 2 * f * t)) + (t > 0.42 ? 0.36 * Math.min(1, (t - 0.42) / 0.005) * exp(-(t - 0.42) / 0.42) * sin(TAU * f * (t - 0.42)) : 0))
+// The halo bell: a bell cast with a major third (hum ½, prime 1, tierce 2^{4/12}, quint 2^{7/12}, nominal 2, …), every
+// partial a pair a hair apart, so it shimmers — it rings in consonance over a major chord
+export function haloBellTone(f, t, vel = 0.8) {
+  const R = [0.5, 1, 1.2599, 1.4983, 2, 2.52, 3.01, 4.1], A = [0.5, 1, 0.5, 0.35, 0.45, 0.25, 0.2, 0.1], T = [1.5, 1.25, 0.95, 0.8, 0.65, 0.48, 0.36, 0.24]
+  let y = 0
+  for (let k = 0; k < 8; k++) {
+    const e = exp(-t / T[k])
+    if (e < 1e-4) continue
+    y += A[k] * e * (sin(TAU * R[k] * f * 0.9996 * t) + 0.7 * sin(TAU * R[k] * f * 1.0004 * t + k))
+  }
+  return 0.3 * vel * Math.min(1, t / 0.004) * y
+}
+// The halo pad: p(freqs) → [l, r]. The score's pad — every note two oscillators −5 and +6 cents apart, one to each ear
+// (sines for the two lowest, triangles above), each through its own low-pass 520 + 160 j Hz, swelling in over `attack` ms
+export function haloPad({ voices = 6, attack = 2400, release = 3200, gain = 0.2 } = {}) {
+  const parts = Array.from({ length: voices }, (_, j) => ({ pl: 0.13 * j, pr: 0.31 + 0.17 * j, lpl: filter('lp'), lpr: filter('lp'), env: ar(attack, release), glide: smooth(40), f: 0 }))
+  const dl = 2 ** (-5 / 1200), dr = 2 ** (6 / 1200), wave = (p, tri) => (tri ? 4 * Math.abs(p - 0.5) - 1 : sin(TAU * p))
+  return freqs => {
+    let l = 0, r = 0
+    for (let j = 0; j < voices; j++) {
+      const v = parts[j], on = j < freqs.length
+      if (on) { if (!v.f) for (let i = 0; i < 300; i++) v.glide(freqs[j]); v.f = freqs[j] }
+      const g = v.glide(v.f || 220), e = v.env(on ? 1 : 0), fc = 520 + 160 * j, k = j < 2 ? 1 : 0.5
+      v.pl += (g * dl) / SR; v.pl -= floor(v.pl)
+      v.pr += (g * dr) / SR; v.pr -= floor(v.pr)
+      l += k * e * v.lpl(wave(v.pl, j >= 2), fc, 0.5)
+      r += k * e * v.lpr(wave(v.pr, j >= 2), fc, 0.5)
+    }
+    return [gain * (0.8 * l + 0.2 * r), gain * (0.8 * r + 0.2 * l)]
+  }
+}
+// The bell of the pit: a great cracked bell — a minor third and a tritone among its partials (1 : 2^{3/12} : 2^{6/12}),
+// every partial a pair beating slowly, the hum an octave below ringing longest, the hammer's clang
+export function hellBellTone(f, t, vel = 0.8) {
+  const R = [0.5, 1, 1.1892, 1.4142, 2, 2.52, 2.8284, 4.1], A = [0.8, 1, 0.6, 0.4, 0.45, 0.22, 0.18, 0.1], T = [3.2, 2.4, 1.8, 1.4, 1.1, 0.7, 0.5, 0.3]
+  let y = 0
+  for (let k = 0; k < 8; k++) {
+    const e = exp(-t / T[k])
+    if (e < 1e-4) continue
+    y += A[k] * e * (sin(TAU * R[k] * f * 0.9991 * t) + 0.8 * sin(TAU * R[k] * f * 1.0009 * t + 1.7 * k))
+  }
+  return 0.28 * vel * Math.min(1, t / 0.003) * (y + 0.5 * exp(-t / 0.012) * sin(TAU * 5.3 * f * t))
+}
+// A heart in the dark (the crimson dream's): two thumps 0.2 s apart, sines falling 52 → 38 Hz and 48 → 34 Hz. h(t s) → sample
+export function heartBeat(t, vel = 1) {
+  const thump = (u, f0, f1, d) => (u < 0 || u > 2 * d ? 0 : Math.min(1, u / 0.008) * exp((-5 * u) / d) * sin((TAU * f0 * d * ((f1 / f0) ** (u / d) - 1)) / Math.log(f1 / f0)))
+  return vel * (thump(t, 52, 38, 0.32) + 0.62 * thump(t - 0.2, 48, 34, 0.3))
+}

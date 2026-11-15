@@ -564,6 +564,53 @@ export const MELODIES = [
       [8, 11, 1.5], [9.5, 12, 0.5], [10, 14, 1], [11, 11, 0.5], [11.5, 7, 0.5],
       [12, 12, 2], [14, 7, 1], [15, 3, 1]],
   },
+  // Heaven: slow major themes of our own for the angel's dream — long notes, open leaps, a chord tone on every strong beat
+  // "White Garden": the dream's own chords — D, Bm, Em, A, then the ♭VII (C) opening like a window, G, D
+  {
+    id: 'heaven-garden', from: 'heaven', title: 'White Garden (белый сад)', key: 'D', base: 'D4', feel: 'straight', per: 4, modal: false, only: 'heaven',
+    moods: ['calm', 'bright'], chords: ['I', 'vi', 'ii', 'V', 'bVII', 'IV', 'I', 'I'],
+    notes: [[0, 4, 2], [2, 7, 1.5], [3.5, 9, 0.5], [4, 12, 3], [7, 9, 1], [8, 9, 2], [10, 5, 1], [11, 7, 1], [12, 7, 1.5], [13.5, 11, 0.5], [14, 14, 2],
+      [16, 17, 2], [18, 14, 1], [19, 12, 1], [20, 12, 2], [22, 9, 1.5], [23.5, 7, 0.5], [24, 16, 1.5], [25.5, 14, 0.5], [26, 12, 1], [27, 9, 1], [28, 7, 1], [29, 4, 1], [30, 0, 2]],
+  },
+  // "Feather Light": Lydian light — the major chord on the second degree (G – A – C – G), the ♯4 held in the melody
+  {
+    id: 'heaven-feather', from: 'heaven', title: 'Feather Light (лёгкое перо)', key: 'G', base: 'G4', feel: 'straight', per: 4, modal: false, only: 'heaven',
+    moods: ['calm', 'bright'], chords: ['I', 'II', 'IV', 'I', 'vi', 'II', 'IV', 'V'],
+    notes: [[0, 7, 3], [3, 11, 1], [4, 9, 2], [6, 6, 2], [8, 12, 1.5], [9.5, 9, 0.5], [10, 5, 2], [12, 4, 2], [14, 7, 2],
+      [16, 16, 3], [19, 14, 1], [20, 14, 2], [22, 9, 1], [23, 11, 1], [24, 12, 2], [26, 9, 1.5], [27.5, 7, 0.5], [28, 11, 2], [30, 14, 2]],
+  },
+  // "Gloria": a chorale — F, C, Dm, Am, B♭, F and the plagal «amen» B♭ – F
+  {
+    id: 'heaven-gloria', from: 'heaven', title: 'Gloria (хорал)', key: 'F', base: 'F4', feel: 'straight', per: 4, modal: true, only: 'heaven',
+    moods: ['calm', 'bright'], chords: ['I', 'V', 'vi', 'iii', 'IV', 'I', 'IV', 'I'],
+    notes: [[0, 12, 2], [2, 7, 1], [3, 9, 1], [4, 11, 2], [6, 7, 2], [8, 9, 2], [10, 12, 1], [11, 14, 1], [12, 16, 3], [15, 14, 1],
+      [16, 17, 2], [18, 12, 1], [19, 14, 1], [20, 16, 2], [22, 12, 1.5], [23.5, 9, 0.5], [24, 9, 2], [26, 5, 2], [28, 4, 1], [29, 2, 1], [30, 0, 2]],
+  },
+  // Hell: the medieval sequence itself and two laments of our own
+  // "Dies irae" (13th century, public domain): its first two phrases as the chant has them — F E F D, E C D D, F F G F,
+  // E D C E, F E D D —, a chord every half bar under them, then our own close over iv and V7
+  {
+    id: 'hell-diesirae', from: 'hell', title: 'Dies Irae (день гнева, секвенция XIII века)', key: 'Dm', base: 'D4', feel: 'straight', per: 2, modal: false, only: 'hell',
+    moods: ['dark', 'epic'], chords: ['i', 'i', 'VII', 'i', 'VI', 'iv', 'VII', 'VII', 'i', 'i', 'i', 'iv', 'V7', 'V7', 'i', 'i'],
+    notes: [[0, 3, 1], [1, 2, 1], [2, 3, 1], [3, 0, 1], [4, 2, 1], [5, -2, 1], [6, 0, 2], [8, 3, 1], [9, 3, 1], [10, 5, 1], [11, 3, 1], [12, 2, 1], [13, 0, 1], [14, -2, 1], [15, 2, 1],
+      [16, 3, 1], [17, 2, 1], [18, 0, 2], [20, 7, 2], [22, 5, 1], [23, 3, 1], [24, 2, 1], [25, 3, 1], [26, 2, 1], [27, -1, 1], [28, 0, 4]],
+  },
+  // "Ninth Circle": Em with the Neapolitan F — a fifth up to the octave, down the ♭II's chord, the leading tone falling a
+  // tritone to the dominant's seventh
+  {
+    id: 'hell-ninth', from: 'hell', title: 'Ninth Circle (девятый круг)', key: 'Em', base: 'E4', feel: 'straight', per: 4, modal: false, only: 'hell',
+    moods: ['dark', 'epic'], chords: ['i', 'bII', 'i', 'V7', 'iv', 'bII', 'V7', 'i'],
+    notes: [[0, 7, 2], [2, 12, 1.5], [3.5, 10, 0.5], [4, 8, 2], [6, 5, 1], [7, 1, 1], [8, 0, 1], [9, 3, 1], [10, 7, 2], [12, 11, 2], [14, 5, 1], [15, 2, 1],
+      [16, 12, 1.5], [17.5, 10, 0.5], [18, 8, 2], [20, 13, 2], [22, 8, 1], [23, 5, 1], [24, 7, 1], [25, 11, 1], [26, 14, 1.5], [27.5, 11, 0.5], [28, 12, 4]],
+  },
+  // "Lake of Fire": a march of the damned in dotted rhythm down the Andalusian steps (Cm – B♭ – A♭ – G7), then Fm, Cm, the
+  // Neapolitan D♭ and the dominant left open
+  {
+    id: 'hell-lake', from: 'hell', title: 'Lake of Fire (огненное озеро)', key: 'Cm', base: 'C4', feel: 'straight', per: 4, modal: false, only: 'hell',
+    moods: ['dark', 'epic'], chords: ['i', 'VII', 'VI', 'V7', 'iv', 'i', 'bII', 'V7'],
+    notes: [[0, 12, 1.5], [1.5, 12, 0.5], [2, 15, 1], [3, 14, 1], [4, 14, 1.5], [5.5, 14, 0.5], [6, 10, 2], [8, 12, 1.5], [9.5, 12, 0.5], [10, 8, 1], [11, 10, 1], [12, 11, 2], [14, 7, 2],
+      [16, 8, 1.5], [17.5, 8, 0.5], [18, 12, 1], [19, 10, 1], [20, 7, 1.5], [21.5, 7, 0.5], [22, 3, 2], [24, 5, 1], [25, 8, 1], [26, 13, 2], [28, 11, 1.5], [29.5, 14, 0.5], [30, 7, 2]],
+  },
   // Nightstorm: the intro's own melody (the user's: C5 – G4 – D5 – F4, long, over ii – vi – iii – I) and a storm line of
   // our own in its idiom (I – ♭VII – IV – I)
   {

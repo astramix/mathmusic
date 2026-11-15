@@ -2,7 +2,7 @@
 // a night in space, a rainy city, 8-bit hills, a sunset sea, sakura, a baroque hall, a cathedral,
 // outrun, a neon tunnel, a drift road, cats on roofs, ink mountains, a moonlit lake, a jazz club, a factory at dusk,
 // Brinstar's glowing jungle, a cathedral's organ, a stadium, northern lights, an old desktop, a demoscene cathedral, a
-// haunted arcade, a favela at night.
+// haunted arcade, a favela at night, a night storm, heaven above the clouds, hell's lake of fire.
 // It moves with the music, not the clock: x is the beat, so the sun's stripes, the floor grid, the
 // tunnel frames, road dashes and waves step exactly once per beat, the rose window's light goes round
 // once per bar, windows switch on every two bars, fireflies flash on beats; the nearest layer scrolls
@@ -463,7 +463,26 @@ function lighthouseBuoy(g, x, y, s, m, side, rgb, b = 0) {
   g.restore()
   halo(g, x, y - 3 * s, 1.8 * s, rgb, 0.15 + 0.6 * m.down)
 }
-const PROPS = { lighthouseBuoy, lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir, crate, mushroom, organpipe, floodlight, pine, monitor, pixelCandle, qblock, speaker }
+// a lamp of the garden: a slim white stem, a globe of light breathing with the bar, two small wings (heaven)
+function halolamp(g, x, y, s, m, side, rgb, b = 0) {
+  g.fillStyle = 'rgba(250,244,228,0.9)'; g.beginPath(); g.rect(x - 0.08 * s, y - 3.6 * s, 0.16 * s, 3.6 * s); g.rect(x - 0.5 * s, y - 0.18 * s, s, 0.18 * s); g.fill()
+  const a = 0.45 + 0.4 * Math.exp(-3 * fr((m.x - b) / 4))
+  g.strokeStyle = `rgba(255,250,232,${0.5 + 0.4 * a})`; g.lineWidth = Math.max(1, 0.12 * s)
+  for (const d of [-1, 1]) { g.beginPath(); g.moveTo(x, y - 3.5 * s); g.quadraticCurveTo(x + d * 0.9 * s, y - 4.6 * s, x + d * 1.3 * s, y - 3.7 * s); g.stroke() }
+  g.fillStyle = 'rgba(255,252,238,0.95)'; g.beginPath(); g.arc(x, y - 3.9 * s, 0.34 * s, 0, TAU); g.fill()
+  halo(g, x, y - 3.9 * s, 2.4 * s, rgb, 0.18 + 0.4 * a)
+}
+// a brazier: an iron bowl on three legs, the flame a new tongue every sixteenth, flaring on the kick (hell)
+function brazier(g, x, y, s, m, side, rgb, b = 0) {
+  g.strokeStyle = 'rgba(16,8,8,0.97)'; g.lineWidth = Math.max(1, 0.16 * s)
+  g.beginPath(); g.moveTo(x - 0.7 * s, y); g.lineTo(x - 0.25 * s, y - 2 * s); g.moveTo(x + 0.7 * s, y); g.lineTo(x + 0.25 * s, y - 2 * s); g.moveTo(x, y); g.lineTo(x, y - 2 * s); g.stroke()
+  g.fillStyle = 'rgba(16,8,8,0.97)'; g.beginPath(); g.moveTo(x - 0.9 * s, y - 2.5 * s); g.lineTo(x + 0.9 * s, y - 2.5 * s); g.lineTo(x + 0.5 * s, y - 1.9 * s); g.lineTo(x - 0.5 * s, y - 1.9 * s); g.closePath(); g.fill()
+  const q = Math.floor(m.x * 4) + b * 7, fh = (1.3 + 0.9 * hsh(q) + 1.2 * m.kick) * s, lean = (hsh(q * 1.7) - 0.5) * 0.6 * s
+  g.fillStyle = 'rgba(255,110,30,0.92)'; g.beginPath(); g.moveTo(x - 0.65 * s, y - 2.5 * s); g.quadraticCurveTo(x - 0.5 * s + lean, y - 2.5 * s - fh * 0.6, x + lean, y - 2.5 * s - fh); g.quadraticCurveTo(x + 0.5 * s + lean, y - 2.5 * s - fh * 0.5, x + 0.65 * s, y - 2.5 * s); g.closePath(); g.fill()
+  g.fillStyle = 'rgba(255,220,110,0.95)'; g.beginPath(); g.moveTo(x - 0.3 * s, y - 2.5 * s); g.quadraticCurveTo(x + lean * 0.5, y - 2.5 * s - fh * 0.75, x + 0.3 * s, y - 2.5 * s); g.closePath(); g.fill()
+  halo(g, x, y - 3 * s, 2.6 * s, rgb, 0.2 + 0.4 * m.kick)
+}
+const PROPS = { lighthouseBuoy, halolamp, brazier, lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir, crate, mushroom, organpipe, floodlight, pine, monitor, pixelCandle, qblock, speaker }
 
 function torii(g, cx, y, s, half, rgb, a) {
   g.fillStyle = rgba(rgb, a)
@@ -1592,6 +1611,158 @@ const SKIES = {
     onBeats(c, 4, (x, b) => speaker(g, x, c.ground, H * 0.03, m, 1, m.A, b))
   },
 
+  // ---- heaven (the white garden of the dream): dawn above a sea of clouds — the light behind a gate dissolving in the
+  // haze, its rays turning a step a bar, an angel made of light whose wings open with every phrase, feathers falling,
+  // glints flashing on their beats, the clouds rolling toward us
+  heaven(g, c, m) {
+    const { W, H, k, hy } = c, cx = W * 0.5, sy = hy * 0.94
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(228, 48, 11)); sky.addColorStop(0.5, hsla(262, 36, 21)); sky.addColorStop(0.86, hsla(22, 58, 38)); sky.addColorStop(1, hsla(42, 80, 54 + 6 * m.energy))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    g.globalCompositeOperation = 'lighter'
+    halo(g, cx, sy, W * 0.5, '255,222,160', 0.3 + 0.12 * m.energy + 0.2 * m.flash)
+    // the rays: twelve wedges of light, the fan turning one ray's width a bar
+    const turn = fr(m.x / 4), L = Math.hypot(W, H)
+    for (let i = -1; i < 12; i++) {
+      const a = Math.PI + (Math.PI * (i + turn)) / 12, w = 0.03 + 0.025 * hsh(i * 3.1 + 5)
+      g.fillStyle = `rgba(255,236,186,${(0.035 + 0.04 * hsh(i * 1.7 + 2)) * (0.7 + 0.5 * m.energy) + 0.03 * m.down})`
+      g.beginPath(); g.moveTo(cx, sy); g.lineTo(cx + Math.cos(a - w) * L, sy + Math.sin(a - w) * L); g.lineTo(cx + Math.cos(a + w) * L, sy + Math.sin(a + w) * L); g.closePath(); g.fill()
+    }
+    // glints: small crosses of light, each flashing on the beat it owns
+    for (let lit = 0; lit < 2; lit++) { // two paths: the glints flashing now, and the ones at rest
+      g.fillStyle = lit ? 'rgba(255,250,225,0.85)' : 'rgba(255,250,225,0.28)'; g.beginPath()
+      for (let i = 0; i < 26; i++) {
+        const a = Math.exp(-3.5 * fr(m.x / 2 + hsh(i * 5.3)))
+        if (a > 0.35 !== !!lit) continue
+        const x = W * hsh(i * 2.9 + 1), y = hy * (0.06 + 0.7 * hsh(i * 7.1 + 3)), s = (1.5 + 4 * a) * k
+        g.rect(x - s, y - 0.4 * k, 2 * s, 0.8 * k); g.rect(x - 0.4 * k, y - s, 0.8 * k, 2 * s)
+      }
+      g.fill()
+    }
+    g.globalCompositeOperation = 'source-over'
+    // far clouds, then the gate: two towers and a pointed arch, pale, half gone in the haze
+    ridge(g, c, { par: 0.012, y: hy * 0.86, amp: hy * 0.16, scale: 150, seed: 301, oct: 4, fill: 'rgba(255,205,180,0.22)', to: hy })
+    const gw = Math.min(W * 0.11, hy * 0.42), gh = hy * 0.46
+    g.fillStyle = 'rgba(255,240,214,0.42)'
+    for (const d of [-1, 1]) {
+      g.beginPath(); g.moveTo(cx + d * gw * 0.62, sy); g.lineTo(cx + d * gw * 0.62, sy - gh * 0.7); g.lineTo(cx + d * gw * 0.81, sy - gh); g.lineTo(cx + d * gw, sy - gh * 0.7); g.lineTo(cx + d * gw, sy); g.closePath(); g.fill()
+    }
+    g.beginPath(); g.moveTo(cx - gw * 0.62, sy); g.lineTo(cx - gw * 0.62, sy - gh * 0.52); g.lineTo(cx, sy - gh * 0.8); g.lineTo(cx + gw * 0.62, sy - gh * 0.52); g.lineTo(cx + gw * 0.62, sy)
+    g.lineTo(cx + gw * 0.4, sy); g.lineTo(cx + gw * 0.4, sy - gh * 0.34); g.quadraticCurveTo(cx, sy - gh * 0.72, cx - gw * 0.4, sy - gh * 0.34); g.lineTo(cx - gw * 0.4, sy); g.closePath(); g.fill()
+    // the angel in the gate: a figure of light, the wings (five feathers a side) opening and closing once in two bars
+    const ah = gh * 0.3, ay = sy - ah * 0.1, open = 0.55 + 0.3 * Math.sin((m.x * TAU) / 8) + 0.15 * m.flash
+    g.globalCompositeOperation = 'lighter'
+    halo(g, cx, ay - ah * 0.6, ah * 1.6, '255,246,214', 0.35 + 0.25 * m.down)
+    g.strokeStyle = 'rgba(255,250,232,0.7)'; g.lineCap = 'round'
+    for (const d of [-1, 1]) for (let f = 0; f < 5; f++) {
+      const a = -0.25 - open * (0.25 + 0.21 * f), len = ah * (1.5 - 0.17 * f)
+      g.lineWidth = (2.6 - 0.35 * f) * k
+      g.beginPath(); g.moveTo(cx + d * ah * 0.1, ay - ah * 0.72)
+      g.quadraticCurveTo(cx + d * Math.cos(a) * len * 0.7, ay - ah * 0.72 + Math.sin(a) * len * 0.9 - ah * 0.2, cx + d * Math.cos(a) * len, ay - ah * 0.72 + Math.sin(a) * len)
+      g.stroke()
+    }
+    g.fillStyle = 'rgba(255,252,240,0.85)'
+    g.beginPath(); g.moveTo(cx, ay - ah * 0.86); g.quadraticCurveTo(cx + ah * 0.3, ay - ah * 0.3, cx + ah * 0.2, ay); g.lineTo(cx - ah * 0.2, ay); g.quadraticCurveTo(cx - ah * 0.3, ay - ah * 0.3, cx, ay - ah * 0.86); g.fill()
+    g.beginPath(); g.arc(cx, ay - ah * 0.98, ah * 0.12, 0, TAU); g.fill()
+    g.strokeStyle = 'rgba(255,228,150,0.9)'; g.lineWidth = 1.2 * k
+    g.beginPath(); g.ellipse(cx, ay - ah * 1.17, ah * 0.15, ah * 0.045, 0, 0, TAU); g.stroke()
+    g.globalCompositeOperation = 'source-over'
+    ridge(g, c, { par: 0.03, y: hy * 0.97, amp: hy * 0.1, scale: 110, seed: 302, oct: 4, fill: 'rgba(255,232,206,0.5)', to: hy })
+    // the sea of clouds: gold at the horizon, violet and night blue toward us, rows rolling at their own pace
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(40, 70, 58)); fl.addColorStop(0.3, hsla(300, 24, 30)); fl.addColorStop(1, hsla(232, 42, 10))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    for (let row = 0; row < 4; row++) {
+      const u = row / 3
+      ridge(g, c, { par: 0.05 + 0.05 * row, y: hy + (H - hy) * (0.16 + 0.25 * row), amp: (H - hy) * (0.1 + 0.03 * row), scale: 100 + 45 * row, seed: 310 + row, oct: 4, step: 8, fill: hsla((394 - 150 * u) % 360, 42 - 8 * u, 60 - 44 * u, 0.5), to: H })
+    }
+    petals(g, c, m, 12, ['255,255,255', '255,240,214', '236,240,255'], 77, 5)
+    onBeats(c, 4, (x, b) => halolamp(g, x, c.ground, H * 0.03, m, 1, '255,236,180', b))
+  },
+
+  // ---- hell: a lake of fire under a black sun — smoke rolling under the vault, jagged peaks, a volcano whose crater
+  // flares on the kick and throws sparks when a section opens, a citadel with red windows, chains swaying from above,
+  // waves of lava a bar long, embers rising
+  hell(g, c, m) {
+    const { W, H, k, hy } = c, heat = Math.max(m.flash, 0.6 * m.kick)
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(350, 60, 3)); sky.addColorStop(0.55, hsla(4, 72, 8 + 3 * heat)); sky.addColorStop(1, hsla(16, 90, 22 + 10 * heat))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    // the black sun: a corona, a black disc, a thin burning rim that turns once in four bars
+    const sx = W * 0.7, sy = hy * 0.34, sr = Math.min(W, H) * 0.075
+    g.globalCompositeOperation = 'lighter'
+    halo(g, sx, sy, sr * 4.5, '255,70,30', 0.3 + 0.2 * m.energy + 0.25 * m.flash)
+    g.globalCompositeOperation = 'source-over'
+    g.fillStyle = '#050102'; g.beginPath(); g.arc(sx, sy, sr, 0, TAU); g.fill()
+    g.strokeStyle = `rgba(255,150,60,${0.6 + 0.4 * m.pulse})`; g.lineWidth = 1.6 * k
+    const ra = (m.x * TAU) / 16
+    g.beginPath(); g.arc(sx, sy, sr * 1.03, ra, ra + 4.4); g.stroke()
+    // smoke under the vault
+    for (let layer = 0; layer < 2; layer++) ridge(g, c, { par: 0.02 + 0.03 * layer, y: hy * (0.1 + 0.1 * layer), amp: -hy * 0.13, scale: 80 + 40 * layer, seed: 330 + layer, oct: 5, fill: hsla(0, 40, 4 + 3 * layer + 8 * heat * (1 - layer / 2)), to: 0 })
+    // far peaks, the volcano and its crater
+    ridge(g, c, { par: 0.015, y: hy, amp: hy * 0.34, scale: 60, seed: 340, peaks: true, fill: hsla(355, 45, 6), to: hy })
+    const vx = W * 0.27, vw = W * 0.2, vh = hy * 0.46
+    g.globalCompositeOperation = 'lighter'
+    halo(g, vx, hy - vh, vw * 0.55, '255,110,30', 0.3 + 0.5 * heat)
+    g.globalCompositeOperation = 'source-over'
+    g.fillStyle = hsla(0, 40, 3.5)
+    g.beginPath(); g.moveTo(vx - vw, hy); g.lineTo(vx - vw * 0.13, hy - vh); g.lineTo(vx + vw * 0.13, hy - vh); g.lineTo(vx + vw, hy); g.closePath(); g.fill()
+    g.strokeStyle = `rgba(255,${120 + 80 * heat},40,${0.55 + 0.4 * heat})`; g.lineWidth = 2 * k
+    g.beginPath(); g.moveTo(vx - vw * 0.05, hy - vh); g.lineTo(vx - vw * 0.12, hy - vh * 0.7); g.lineTo(vx - vw * 0.04, hy - vh * 0.45); g.lineTo(vx - vw * 0.22, hy - vh * 0.12); g.lineTo(vx - vw * 0.18, hy)
+    g.moveTo(vx + vw * 0.06, hy - vh); g.lineTo(vx + vw * 0.16, hy - vh * 0.62); g.lineTo(vx + vw * 0.3, hy - vh * 0.3); g.stroke()
+    if (m.flash > 0.03) {
+      const u = 1 - m.flash // sparks thrown when the section opens, falling back
+      g.fillStyle = `rgba(255,190,80,${m.flash})`
+      for (let i = 0; i < 22; i++) { const a = -Math.PI / 2 + (hsh(i * 3.7 + m.sec) - 0.5) * 1.5, v = (0.5 + hsh(i * 1.9)) * vh * 1.3; g.fillRect(vx + Math.cos(a) * v * u, hy - vh + Math.sin(a) * v * u + vh * 1.1 * u * u, 2.2 * k, 2.2 * k) }
+    }
+    // the citadel: towers with battlements in one path, their burning windows (a few change every two bars) in another
+    g.fillStyle = hsla(350, 40, 2.5); g.beginPath()
+    slots(c, 0.035, 34, (x, i, st) => {
+      if (hsh(i * 2.7 + 9) < 0.45) return
+      const h = hy * (0.12 + 0.3 * hsh(i * 3.3 + 4)), w = st * (0.4 + 0.3 * hsh(i * 1.3))
+      g.rect(x, hy - h, w, h)
+      for (let j = 0; j < 3; j++) g.rect(x + (j * w) / 2.5 - w * 0.05, hy - h - w * 0.14, w * 0.25, w * 0.15)
+    })
+    g.fill()
+    g.fillStyle = 'rgba(255,120,30,0.85)'; g.beginPath()
+    slots(c, 0.035, 34, (x, i, st) => {
+      if (hsh(i * 2.7 + 9) < 0.45) return
+      const h = hy * (0.12 + 0.3 * hsh(i * 3.3 + 4)), w = st * (0.4 + 0.3 * hsh(i * 1.3))
+      for (let j = 0; j < 3; j++) if (hsh(i * 11 + j * 3.1 + Math.floor(m.x / 8) * (j === 1 ? 0.37 : 0)) < 0.5) g.rect(x + w * 0.42, hy - h * (0.8 - 0.25 * j), w * 0.16, h * 0.08)
+    })
+    g.fill()
+    // chains from the vault, swaying a bar each way
+    g.strokeStyle = 'rgba(12,6,6,0.95)'; g.lineWidth = 2.4 * k; g.setLineDash([5 * k, 3 * k])
+    for (let i = 0; i < 4; i++) {
+      const x0 = W * (0.08 + 0.26 * i + 0.05 * hsh(i * 4.1)), len = hy * (0.35 + 0.3 * hsh(i * 2.3)), sway = Math.sin((m.x * TAU) / 8 + i * 1.7) * 14 * k
+      g.beginPath(); g.moveTo(x0, 0); g.quadraticCurveTo(x0 + sway * 0.3, len * 0.5, x0 + sway, len); g.stroke()
+    }
+    g.setLineDash([])
+    // the lake of fire
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(22, 95, 30 + 12 * heat)); fl.addColorStop(0.25, hsla(8, 85, 13)); fl.addColorStop(1, hsla(352, 60, 3))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    for (let row = 0; row < 5; row++) {
+      const y = hy + (c.ground - hy) * (0.1 + 0.9 * (row / 5) ** 1.3), amp = (2.5 + 3.5 * row) * k
+      g.fillStyle = hsla(row % 2 ? 6 : 16, 85, (row % 2 ? 7 : 12) - row + 9 * heat * (1 - row / 5), 0.8)
+      g.beginPath(); g.moveTo(0, H)
+      for (let x = 0; x <= W + 12 * k; x += 12 * k) g.lineTo(x, y + amp * Math.sin(x / (70 * k) + (m.x * TAU) / 4 + row * 1.9))
+      g.lineTo(W, H); g.closePath(); g.fill()
+    }
+    // embers rising, the heat at the shore
+    g.globalCompositeOperation = 'lighter'
+    halo(g, W / 2, hy, W * 0.55, '255,80,20', 0.1 + 0.12 * heat)
+    for (let col = 0; col < 3; col++) { // three colours, each one path; an ember shrinks as it rises
+      g.fillStyle = ['rgba(255,120,40,0.7)', 'rgba(255,170,50,0.7)', 'rgba(255,215,90,0.65)'][col]; g.beginPath()
+      for (let i = col; i < 45; i += 3) {
+        const sp = 0.5 + hsh(i * 0.618), u = fr(m.time * sp * 0.07 + hsh(i * 0.137)), x = hsh(i * 9.7) * W + Math.sin(m.time * 0.9 * sp + i) * 12 * k, s = (1.2 + 2 * hsh(i * 2.1)) * k * (1 - 0.7 * u)
+        g.rect(x, H - u * H * 0.95, s, s)
+      }
+      g.fill()
+    }
+    g.globalCompositeOperation = 'source-over'
+    onBeats(c, 4, (x, b) => brazier(g, x, c.ground, H * 0.03, m, 1, '255,120,40', b))
+  },
   // ---- the storm: clouds rolling in layers, lightning forking on the section's flash and on the timpani, slant rain,
   // the sea heaving a swell a bar, a lighthouse on the cliff whose beam goes round once a bar
   storm(g, c, m) {
@@ -1764,6 +1935,8 @@ const ROAD = {
   mystery: { prop: 'qblock', every: 4 },
   favela: { prop: 'speaker', every: 4 },
   storm: { prop: 'lighthouseBuoy', every: 4, rgb: '255,90,80' },
+  heaven: { prop: 'halolamp', every: 4, rgb: '255,236,180' },
+  hell: { prop: 'brazier', every: 4, rgb: '255,120,40', span: 'lancet', spanEvery: 16 },
 }
 
 // 2D: behind the curves. geo = { X (beat → screen x), from, to (beats on screen), px (pixels per beat), ground }
