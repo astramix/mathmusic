@@ -659,7 +659,11 @@ the notes / the song's mode; «🎹 играть»: Web MIDI input — pitch ben
 keys A W S E D F T G Y H U J K O L P (Z/X octave, Shift +one pitch-grid step), a monitor tone; «⏺ запись»: notes on the song's
 beats while it plays (snapped to the grid), step input from a green cursor when paused (chords: keys together);
 «✨ песня» + a style: genui `fromMelody(notes, style)` → a whole song on the melody; drag on empty space = area selection
-(Ctrl adds), Ctrl+A, the selected notes drag together; a project track has a velocity lane (a selected stem moves all selected,
+(Ctrl adds), Ctrl+A, the selected notes drag together; keys of a DAW (by e.code): Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — undo / redo
+of every piano-roll and track-list edit (projectui `writeSource`: the one way they write the code, keeping the code before each edit per song,
+300 steps; also from the page when the roll is open), Ctrl+C / X / V (paste at the playhead, or the view's left edge; between tracks, as MIDI;
+copy works on a code track too), Ctrl+D (the selection again right after itself), Ctrl+Q (onto the grid), Ctrl+←/→ a bar, Ctrl/Shift+↑/↓ an octave,
+Shift+←/→ longer / shorter; a project track has a velocity lane (a selected stem moves all selected,
 else paint), Alt+↑↓ ±5 %, MIDI velocity recorded; drum tracks: whole-note rows only (a row is a drum); reloads wait for the mouse
 (`pendingLoad`), the selection kept by note, not index; on the left the track list of
 projectui.js: every song's tracks — the project's (edited here: absolute MIDI, the others faint behind, drum rows named), the

@@ -328,6 +328,10 @@ addEventListener('keyup', e => { if (e.code === 'Space' && e.target.closest?.('b
 addEventListener('keydown', e => {
   if ((e.altKey && e.code === 'Enter') || e.code === 'F11') { e.preventDefault(); return toggleFullscreen() }
   if (e.ctrlKey && e.code === 'KeyS') { e.preventDefault(); return saveCurrent() }
+  if (e.ctrlKey && (e.code === 'KeyZ' || e.code === 'KeyY') && !typing(e) && app.pianoroll?.undo && $('bottom').style.display !== 'none') {
+    e.preventDefault()
+    return e.code === 'KeyY' || e.shiftKey ? app.pianoroll.redo() : app.pianoroll.undo()
+  }
   if (e.ctrlKey && e.code === 'KeyE' && !typing(e)) { e.preventDefault(); return exportAudio('mp3') }
   if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay() }

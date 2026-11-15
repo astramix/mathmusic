@@ -20,18 +20,23 @@ const styleLabel = id => `${STYLES[id]?.emoji ?? ''} ${STYLES[id]?.label ?? id}`
 const src = () => (app.current ? app.sourceOf(app.current) : '')
 export const projectOf = () => readProject(src()) ?? { tracks: [] }
 let applyTimer = null
-// the song's code with the project written in: through the editor when it holds the song, else a draft applied at once
-export function setProject(p) {
+// ---- undo / redo: every edit of the piano roll and the track list (notes, tracks, instruments, volume…) keeps the song's
+// code from before it — Ctrl+Z goes back, Ctrl+Shift+Z / Ctrl+Y forward again; per song, KEEP_UNDO steps, for this session
+const HISTORY = new Map(), KEEP_UNDO = 300
+const historyOf = id => { let hs = HISTORY.get(id); if (!hs) HISTORY.set(id, (hs = { undo: [], redo: [] })); return hs }
+// the song's code, new: through the editor when it holds the song (a change it applies itself), else a draft applied after
+// `delay` ms; record: false for undo / redo themselves
+export function writeSource(next, { record = true, delay = 120 } = {}) {
   const cur = app.current
-  if (!cur) return
+  if (!cur) return false
   const old = src()
-  let next
-  try {
-    next = writeProject(old, p, { parse: acorn.parse })
-  } catch (e) {
-    return toast('не получилось: ' + e.message, { kind: 'err', ms: 7000 })
+  if (next === old) return false
+  if (record) {
+    const hs = historyOf(cur.id)
+    hs.undo.push(old)
+    if (hs.undo.length > KEEP_UNDO) hs.undo.shift()
+    hs.redo.length = 0
   }
-  if (next === old) return
   if (app.editor?.owner?.() === cur) {
     let a = 0, b = 0
     while (a < old.length && a < next.length && old[a] === next[a]) a++
@@ -40,8 +45,33 @@ export function setProject(p) {
   } else {
     app.setDraft(cur, next)
     clearTimeout(applyTimer)
-    applyTimer = setTimeout(() => app.apply(next, { of: cur }).then(r => { if (r?.ok) app.pianoroll?.load?.(cur) }), 120)
+    applyTimer = setTimeout(() => app.apply(next, { of: cur }).then(r => { if (r?.ok) app.pianoroll?.load?.(cur) }), delay)
   }
+  return true
+}
+function step(back) {
+  const cur = app.current
+  if (!cur) return
+  const hs = historyOf(cur.id), from = back ? hs.undo : hs.redo, to = back ? hs.redo : hs.undo
+  if (!from.length) return toast(back ? 'отменять нечего' : 'повторять нечего', { ms: 1200 })
+  to.push(src())
+  writeSource(from.pop(), { record: false, delay: 0 })
+  toast(back ? `↶ отменено · ещё ${hs.undo.length}` : `↷ повторено · ещё ${hs.redo.length}`, { ms: 1000 })
+}
+export const undo = () => step(true)
+export const redo = () => step(false)
+export const canUndo = () => !!app.current && historyOf(app.current.id).undo.length > 0
+// the song's code with the project written in
+export function setProject(p) {
+  if (!app.current) return
+  const old = src()
+  let next
+  try {
+    next = writeProject(old, p, { parse: acorn.parse })
+  } catch (e) {
+    return toast('не получилось: ' + e.message, { kind: 'err', ms: 7000 })
+  }
+  writeSource(next)
 }
 // the song's tracks: the project's (each with its key in song.tracks — __project adds them last, in order), the code's
 // own, the removed ones

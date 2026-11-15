@@ -26,7 +26,7 @@ import { spell, pc, freq, SCALES, parseKey } from './theory.js'
 import { MODES } from './modes.js'
 import { styleGroups } from './generate.js'
 import { fromMelody } from './genui.js'
-import { createTrackList, projectOf, setProject, codeNotes, trackInfo } from './projectui.js'
+import { createTrackList, projectOf, setProject, codeNotes, trackInfo, writeSource, undo, redo } from './projectui.js'
 import { INSTRUMENT } from './project.js'
 
 // General MIDI drum names for the rows of a drum track
@@ -104,14 +104,14 @@ export function createPianoRoll(root) {
   const songBtn = h('button', { title: 'сочинить целую песню на эту мелодию: тональность и гармония — по ней (гармонизатор), мелодия — тема A' }, '✨ песня')
   root.append(h('div', { class: 'pr-head' }, h('span', { class: 'title' }, '🎹 пианоролл'), sel, baseSel, gridSel, resSel, play,
     h('button', { title: 'новая мелодия в коде', onclick: () => newMelody() }, '＋ новая'), kbBtn, recBtn, styleSel, songBtn, info, h('span', { class: 'sp' }),
-    h('span', { class: 'dim' }, 'клик — нота · тяни по пустому — выделить область · тяни ноту — сдвиг/длина · ПКМ — удалить · ↑↓←→ · Alt+↑↓ — громкость'),
+    h('span', { class: 'dim' }, 'клик — нота · тяни по пустому — выделить · ПКМ — удалить · ↑↓←→ · Alt+↑↓ — громкость · Ctrl+Z/Y · C/X/V · D · Q · Ctrl+←→ — такт · Shift+←→ — длина'),
     h('button', { onclick: () => app.togglePianoRoll(false), title: 'закрыть (P)' }, '✕')))
   const body = h('div', { class: 'pr-body', tabindex: 0 }), cv = h('canvas'), side = h('div', { class: 'pr-tracks' })
   body.append(cv)
   root.append(h('div', { class: 'pr-main' }, side, body))
   const g = cv.getContext('2d')
   let W = 0, H = 0, mels = [], cur = null, notes = [], base = 69, px = 48, row = 14, scrollX = 0, top = 84, selIdx = new Set(), lastDur = 0.5, res = 1
-  let drag = null, hover = null, playing = null, ghosts = [], wanted = null, marquee = null, velDrag = null, lastVel = 0.8, pendingLoad = false
+  let drag = null, hover = null, playing = null, ghosts = [], wanted = null, marquee = null, velDrag = null, lastVel = 0.8, pendingLoad = false, clip = null
   const tl = createTrackList(side, { current: () => cur, want: v => want(v) })
   const drumsNow = () => cur?.kind === 'project' && INSTRUMENT[cur.inst]?.kind === 'drums'
   // a row's drum: the kit's own (a generator's kit names its drums), else General MIDI's
@@ -435,7 +435,6 @@ export function createPianoRoll(root) {
   }
 
   // ---- write back ----
-  let writeTimer = null
   function commit() {
     if (!cur || cur.kind === 'view') return
     if (cur.kind === 'project') {
@@ -451,13 +450,7 @@ export function createPianoRoll(root) {
     if (!now) return toast('мелодия пропала из кода — обнови', { kind: 'err' })
     const lineStart = src.lastIndexOf('\n', now.start) + 1, indent = src.slice(lineStart).match(/^\s*/)[0]
     const text = formatMelody(notes, indent)
-    if (app.editor?.owner?.() === app.current) app.editor.replaceIndex(now.start, now.end, text)
-    else {
-      const song = app.current, next = src.slice(0, now.start) + text + src.slice(now.end)
-      app.setDraft(song, next)
-      clearTimeout(writeTimer)
-      writeTimer = setTimeout(() => app.apply(next, { of: song }), 200)
-    }
+    writeSource(src.slice(0, now.start) + text + src.slice(now.end), { delay: 200 })
     cur = { ...now, kind: 'code', notes: notes.map(e => [...e]) }
     const o = [...sel.options].find(o => o.value === 'm:' + cur.name)
     if (o) o.text = `${cur.name} · ${notes.length} нот`
@@ -470,12 +463,7 @@ export function createPianoRoll(root) {
     const decl = `\n// [beat, n from ${spell(b, k)}, length] — drawn in the piano roll\nconst ${name} = [\n  [0, 0, 1], [1, ${k.mode === 'minor' ? 3 : 4}, 1], [2, 7, 2],\n]\n`
     const at = src.search(/\nexport default/)
     const pos = at < 0 ? src.length : at
-    if (app.editor?.owner?.() === app.current) app.editor.replaceIndex(pos, pos, decl)
-    else {
-      const song = app.current, next = src.slice(0, pos) + decl + src.slice(pos)
-      app.setDraft(song, next)
-      app.apply(next, { of: song })
-    }
+    writeSource(src.slice(0, pos) + decl + src.slice(pos), { delay: 0 })
     setTimeout(() => {
       load(app.current, false)
       want('m:' + name)
@@ -624,17 +612,64 @@ export function createPianoRoll(root) {
     else top = Math.max(24, Math.min(120, top + (e.deltaY > 0 ? -2 : 2) * res))
     draw()
   }, { passive: false })
+  // ---- the keys of a DAW (by e.code: the same keys in the Russian layout) ----
+  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — undo / redo (projectui's history: notes and tracks alike); Ctrl+A all; Ctrl+C / X / V —
+  // copy, cut, paste at the playhead (or at the left edge of the view when the playhead is off screen), between tracks too
+  // (pitches carried as MIDI); Ctrl+D — the selection again right after itself; Ctrl+Q — onto the grid; Ctrl+←/→ — a bar,
+  // Ctrl+↑/↓ or Shift+↑/↓ — an octave, Shift+←/→ — longer / shorter by a grid step; Delete; Esc
+  const pasteAt = () => {
+    const x = app.player?.x ?? 0, inView = x >= scrollX && x <= scrollX + (W - KEYS) / px
+    return Math.max(0, Math.round((inView ? x : scrollX) / grid()) * grid())
+  }
+  function putNotes(list) { // list: [[beat, MIDI, length, vel]] → into this track, selected
+    const start = notes.length
+    for (const [b, m, d, v] of list) notes.push(velOn() ? [+b.toFixed(4), m - base, d, v ?? lastVel] : [+b.toFixed(4), m - base, d])
+    selIdx = new Set(list.map((_, k) => start + k))
+  }
   body.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA' && cur && cur.kind !== 'view') {
+    const ctrl = e.ctrlKey || e.metaKey, code = e.code
+    if (ctrl && (code === 'KeyZ' || code === 'KeyY')) {
+      e.preventDefault(); e.stopPropagation()
+      return code === 'KeyY' || e.shiftKey ? redo() : undo()
+    }
+    if (ctrl && code === 'KeyA' && cur) {
       selIdx = new Set(notes.map((_, i) => i))
       e.preventDefault()
       e.stopPropagation()
       return draw()
     }
     if (e.key === 'Escape' && selIdx.size) { selIdx.clear(); e.stopPropagation(); return draw() }
+    if (ctrl && (code === 'KeyC' || code === 'KeyX') && selIdx.size) {
+      const sel0 = [...selIdx].map(i => notes[i]), b0 = Math.min(...sel0.map(n => n[0]))
+      clip = { notes: sel0.map(([b, n, d, v]) => [b - b0, n + base, d, v]), span: Math.max(...sel0.map(n => n[0] + n[2])) - b0 }
+      e.preventDefault(); e.stopPropagation()
+      if (code === 'KeyC') return toast(`⧉ скопировано: ${sel0.length} нот`, { ms: 1000 })
+      if (cur.kind === 'view') return toast('дорожка из кода — только копировать', { ms: 1500 })
+      notes = notes.filter((_, i) => !selIdx.has(i))
+      selIdx.clear()
+      commit()
+      return draw()
+    }
+    if (ctrl && code === 'KeyV') {
+      e.preventDefault(); e.stopPropagation()
+      if (!clip) return toast('буфер пуст: выдели ноты и Ctrl+C', { ms: 1500 })
+      if (!cur || cur.kind === 'view') return toast('сюда нельзя вставить: дорожка из кода — ⋯ → ❄ «в ноты»', { ms: 2000 })
+      const at = pasteAt()
+      putNotes(clip.notes.map(([b, m, d, v]) => [b + at, m, d, v]))
+      commit()
+      return draw()
+    }
     if (!selIdx.size) return
+    if (cur?.kind === 'view') return
     const sel = [...selIdx].map(i => notes[i])
-    if (e.altKey && velOn() && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { // louder / softer
+    if (ctrl && code === 'KeyD') { // the selection again, right after itself (Ctrl+D again: and again)
+      const b0 = Math.min(...sel.map(n => n[0])), span = Math.max(...sel.map(n => n[0] + n[2])) - b0, off = Math.max(grid(), Math.ceil(span / grid() - 1e-9) * grid())
+      putNotes(sel.map(([b, n, d, v]) => [b + off, n + base, d, v]))
+    } else if (ctrl && code === 'KeyQ') { // onto the grid: starts to the nearest step, ends too (at least a step long)
+      const q = grid()
+      sel.forEach(n => { const s = Math.round(n[0] / q) * q, en = Math.max(s + q, Math.round((n[0] + n[2]) / q) * q); n[0] = +s.toFixed(4); n[2] = +(en - s).toFixed(4) })
+      toast(`▦ по сетке: ${sel.length} нот`, { ms: 1000 })
+    } else if (e.altKey && velOn() && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { // louder / softer
       const d = e.key === 'ArrowUp' ? 0.05 : -0.05
       sel.forEach(n => (n[3] = Math.round(Math.max(0.05, Math.min(1, velOf(n) + d)) * 100) / 100))
       lastVel = sel[0][3]
@@ -644,11 +679,15 @@ export function createPianoRoll(root) {
       notes = notes.filter((_, i) => !selIdx.has(i))
       selIdx.clear()
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : res) // drums: res is 1, a row is the next drum
+      const d = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey || ctrl ? 12 : res) // drums: res is 1, a row is the next drum
       sel.forEach(n => (n[1] = Math.round((n[1] + d) * 4) / 4))
       beep(base + sel[0][1])
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.shiftKey) { // longer / shorter
       const d = (e.key === 'ArrowRight' ? 1 : -1) * grid()
+      sel.forEach(n => (n[2] = +Math.max(grid() / 4, n[2] + d).toFixed(4)))
+      lastDur = sel[0][2]
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      const d = (e.key === 'ArrowRight' ? 1 : -1) * (ctrl ? 4 : grid())
       sel.forEach(n => (n[0] = Math.max(0, +(n[0] + d).toFixed(4))))
     } else return
     e.preventDefault()
@@ -783,6 +822,7 @@ export function createPianoRoll(root) {
     visible: true,
     // a reload while the mouse is down (a drag, an area, the velocity lane) waits for its release: it would swap the notes under it
     load: c => { if (drag || velDrag || marquee) pendingLoad = true; else load(c, true) },
+    undo, redo,
     want,
     current: () => cur,
     resize,
