@@ -321,7 +321,7 @@ function recipeMake(m) {
   return `(sec, o, N) => { const HITS = hitsOf(N, ${JSON.stringify(q.map)}), t = ${q.code}, f = t.audio({ bpm: 60 / sec }); return { out: x => f(x) } }`
 }
 // the kits' own drums, for the piano roll's rows
-const DRUM_RU = { kick: 'бочка', chime: 'перезвон', ting: 'треугольник', drum: 'большой барабан', anvil: 'наковальня', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
+const DRUM_RU = { kick: 'бочка', kick2: 'бочка 2', tom1: 'том 1', tom2: 'том 2 (−4½)', tom3: 'том 3 (светлый)', tom4: 'том 4 (−3)', hit: 'синт-удар', hitlo: 'синт-удар низкий', hithi: 'синт-удар высокий', chime: 'перезвон', ting: 'треугольник', drum: 'большой барабан', anvil: 'наковальня', snare: 'малый', hat: 'хэт', open: 'откр. хэт', crash: 'тарелка', clap: 'хлопок', ride: 'райд', tom: 'том', tomlo: 'том низкий',
   toms: 'томы', rim: 'римшот', shaker: 'шейкер', tamb: 'бубен', china: 'китайская', taiko: 'тайко', boom: 'бум', far: 'далёкий барабан', heart: 'сердце',
   clank: 'сталь', chain: 'цепь', low: 'большой барабан', frame: 'рамочный', tick: 'тик', swell: 'свелл', spoons: 'ложки', hands: 'ладоши',
   tum: 'тум (тамборзао)', roll: 'дробь литавр', bell: 'колокол', tomL: 'том низкий', tomM: 'том средний', tomH: 'том высокий', bongo: 'бонго', bd: 'бочка', sd: 'малый', hh: 'хэт', top: 'тарелка', perc: 'перкуссия' }
@@ -403,7 +403,7 @@ const INSTRUMENT_NAMES = ['poly', 'pan', 'pianoTone', 'epianoTone', 'vibesTone',
   'shakerDrum', 'shamisen', 'koto', 'biwa', 'shakuhachi', 'shinobue', 'taikoDrum', 'woodClack', 'kaneDrum', 'templeBellTone', 'oud', 'qanun', 'ney',
   'darbukaDrum', 'riqDrum', 'sitar', 'tablaDrum', 'saronTone', 'bonangTone', 'kenongTone', 'gongTone', 'timpaniTone', 'harpTone', 'celestaTone', 'organ',
   'horn', 'brass', 'reed', 'sax', 'choir', 'chorus', 'tape', 'pluckTone', 'spiccatoTone', 'monoSynth', 'electricBass', 'funkGuitar', 'clubKick', 'crashCymbal', 'metalGuitar', 'leadGuitar',
-  'cowbellTone', 'steelpanTone', 'accordion', 'opn', 'panpipe', 'angelChoir', 'seraph', 'DREAM_VOWELS', 'glintTone', 'dewTone', 'haloBellTone', 'haloPad', 'hellBellTone', 'heartBeat']
+  'cowbellTone', 'steelpanTone', 'accordion', 'opn', 'panpipe', 'angelChoir', 'seraph', 'DREAM_VOWELS', 'glintTone', 'dewTone', 'haloBellTone', 'haloPad', 'hellBellTone', 'heartBeat', 'magmaHitTone']
 const LANES = { lead: [1, 3], keys: [-1, 0.9], pad: [-1.7, -0.5], bass: [-3, -2], drums: [2.2, 4.5] }
 
 const r4 = v => +(+v).toFixed(4)
@@ -674,7 +674,7 @@ export function readTrackNotes(midi, length, { rate = 96, drums = false } = {}) 
 // which instrument plays a part of another song, by the part's name (the generator names a track by its instrument)
 const BY_NAME = [
   [/kick|snare|drum|kit|perc|hat|clap|kendhang/i, 'drums'], [/taiko/i, 'taiko'], [/tabla/i, 'tabla'], [/darbuka|riq/i, 'darbuka'],
-  [/seraph/i, 'seraph'], [/angelchoir|abyss/i, 'angelchoir'], [/damned/i, 'malechoir'], [/hellbell/i, 'hellbell'], [/halobell/i, 'halobell'], [/glint|\bdew\b|embers/i, 'glint'],
+  [/magmaarp/i, 'kantele'], [/seraph/i, 'seraph'], [/angelchoir|abyss/i, 'angelchoir'], [/damned/i, 'malechoir'], [/hellbell/i, 'hellbell'], [/halobell/i, 'halobell'], [/glint|\bdew\b|embers/i, 'glint'],
   [/growl/i, 'growl'], [/fretless/i, 'fretless'], [/panpipe/i, 'panpipe'], [/slap|zunbass|snesbass/i, 'slapbass'], [/reese|acid|hardbass|fmbass/i, 'synthbass'], [/metalbass/i, 'metalbass'], [/clubbass/i, 'clubbass'], [/seqbass/i, 'seqbass'], [/rbass|808|sub/i, 'sub808'], [/chiptri|triangle/i, 'chiptri'], [/octbass|warmbass|synth ?bass/i, 'synthbass'], [/upright|walking|contrabass|violone/i, 'upright'],
   [/cello|cellolead/i, 'cello'], [/bassoon/i, 'bassoon'], [/timp/i, 'timpani'], [/drone|pedal/i, 'organ'],
   [/rhodes|epiano/i, 'epiano'], [/harpsichord|continuo|alberti|prelude/i, 'harpsichord'], [/organ/i, 'organ'], [/nocturne|piano/i, 'piano'],
@@ -691,7 +691,7 @@ const BY_NAME = [
 // (a part named just "bass": a double bass in the acoustic styles, a synth bass in the electronic ones, the NES triangle in chiptune,
 // the style's own bass where it has one)
 const STYLE_BASS = { chiptune: 'chiptri', edm: 'clubbass', disco: 'slapbass', factory: 'seqbass', factorycave: 'seqbass', factorydanger: 'seqbass', ishope: 'metalbass', prime: 'seqbass', darkecho: 'cello', nordic: 'cello',
-  artifact: 'seqbass', brinstar: 'fretless',heaven: 'sub808', hell: 'synthbass',  zunpet: 'slapbass', oldzun: 'synthbass', fight: 'synthbass', babushka: 'synthbass', podskazka: 'slapbass', hardstyle: 'sub808', phonk: 'sub808', breakcore: 'synthbass' }
+  artifact: 'seqbass', brinstar: 'fretless', heaven: 'sub808', hell: 'synthbass', magma: 'cello', zunpet: 'slapbass', oldzun: 'synthbass', fight: 'synthbass', babushka: 'synthbass', podskazka: 'slapbass', hardstyle: 'sub808', phonk: 'sub808', breakcore: 'synthbass' }
 const ELECTRONIC = /^(synthwave|boss|hardstyle|dnb|phonk|space|kawaii|jbattle|gothic|minimal|meow|fight|babushka|breakcore|oldzun)$/
 // fallback: what a name nothing matches gets (null: "don't know")
 export function instrumentFor(name, style = null, fallback = 'piano') {

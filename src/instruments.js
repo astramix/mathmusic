@@ -1685,3 +1685,24 @@ export function heartBeat(t, vel = 1) {
   const thump = (u, f0, f1, d) => (u < 0 || u > 2 * d ? 0 : Math.min(1, u / 0.008) * exp((-5 * u) / d) * sin((TAU * f0 * d * ((f1 / f0) ** (u / d) - 1)) / Math.log(f1 / f0)))
   return vel * (thump(t, 52, 38, 0.32) + 0.62 * thump(t - 0.2, 48, 34, 0.3))
 }
+
+// ---- Magma Depths (the user's own set, 2021): the synth hit of their drum kit, resynthesised -------------------------------
+// The kit's hit (pads 44 and 48, the second 8 semitones down): measured from the user's sample — a low pair 164 / 173.6 Hz beating
+// at 9.6 Hz under a cloud of inharmonic partials 1.25 – 6.7 kHz, each shimmering at its own slow rate (the sample's partials
+// rise and fall: 0.2 – 1.7 of their level 0.34 s later), a 2 ms attack, held. f: the pitch of its low partial (164 Hz as recorded)
+export const MAGMA_HIT = [[164, 0.478, 0.75], [173.6, 0.396, 0.5], [1249.5, 0.409, 0.42], [1339.8, 0.524, 0.19], [1405.5, 0.443, 0.92], [1424.6, 0.413, 1.71],
+  [1472.5, 0.498, 1.03], [1544.6, 0.396, 0.6], [1572.3, 0.476, 0.35], [1628.4, 0.402, 1.25], [1848.5, 0.43, 1.24], [1900.4, 0.452, 0.2], [1996.2, 0.449, 0.52],
+  [2150.9, 0.439, 0.83], [2179.2, 0.599, 0.72], [2476.8, 0.403, 0.89], [2525.8, 0.664, 1.46], [2537.5, 0.467, 0.71], [2556.7, 0.432, 0.53], [4560.4, 0.443, 0.46],
+  [4572.8, 0.602, 1.1], [5313.8, 0.555, 0.6], [5321.8, 0.482, 0.5], [5336.3, 1, 1.14], [5365.7, 0.47, 0.48], [6389.2, 0.434, 0.78], [6481.2, 0.421, 0.87], [6673.2, 0.451, 0.53]]
+export function magmaHitTone(f, t, vel = 0.8) {
+  const k = f / 164, open = Math.min(1, t / 0.002)
+  let y = 0
+  for (let i = 0; i < MAGMA_HIT.length; i++) {
+    const [F, a, late] = MAGMA_HIT[i], fi = F * k
+    if (fi > 18000) continue
+    // the level moves from a to a·late over 0.34 s and keeps drifting — a slow cosine of its own
+    const drift = 1 + (late - 1) * 0.5 * (1 - Math.cos((PI * t) / 0.34)) * (0.8 + 0.2 * sin(0.9 * i))
+    y += a * Math.max(0, drift) * sin(TAU * fi * t + 1.7 * i)
+  }
+  return 0.06 * vel * open * y
+}

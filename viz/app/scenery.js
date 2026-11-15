@@ -2,7 +2,7 @@
 // a night in space, a rainy city, 8-bit hills, a sunset sea, sakura, a baroque hall, a cathedral,
 // outrun, a neon tunnel, a drift road, cats on roofs, ink mountains, a moonlit lake, a jazz club, a factory at dusk,
 // Brinstar's glowing jungle, a cathedral's organ, a stadium, northern lights, an old desktop, a demoscene cathedral, a
-// haunted arcade, a favela at night, a night storm, heaven above the clouds, hell's lake of fire.
+// haunted arcade, a favela at night, a night storm, heaven above the clouds, hell's lake of fire, the user's magma depths, the dark studio.
 // It moves with the music, not the clock: x is the beat, so the sun's stripes, the floor grid, the
 // tunnel frames, road dashes and waves step exactly once per beat, the rose window's light goes round
 // once per bar, windows switch on every two bars, fireflies flash on beats; the nearest layer scrolls
@@ -463,6 +463,15 @@ function lighthouseBuoy(g, x, y, s, m, side, rgb, b = 0) {
   g.restore()
   halo(g, x, y - 3 * s, 1.8 * s, rgb, 0.15 + 0.6 * m.down)
 }
+// a basalt column on the shore, a crack in it glowing with the bar (Magma Depths)
+function basalt(g, x, y, s, m, side, rgb, b = 0) {
+  const h = (3.2 + 1.2 * hsh(b * 1.7)) * s
+  g.fillStyle = 'rgba(28,18,16,0.97)'; g.beginPath(); g.moveTo(x - 0.6 * s, y); g.lineTo(x - 0.6 * s, y - h); g.lineTo(x - 0.2 * s, y - h - 0.25 * s); g.lineTo(x + 0.4 * s, y - h - 0.1 * s); g.lineTo(x + 0.6 * s, y - h + 0.1 * s); g.lineTo(x + 0.6 * s, y); g.closePath(); g.fill()
+  const a = 0.35 + 0.55 * Math.exp(-3 * fr((m.x - b) / 4)) + 0.3 * m.kick
+  g.strokeStyle = `rgba(255,120,40,${Math.min(1, a)})`; g.lineWidth = Math.max(1, 0.12 * s)
+  g.beginPath(); g.moveTo(x - 0.1 * s, y - 0.2 * s); g.lineTo(x + 0.15 * s, y - h * 0.4); g.lineTo(x - 0.05 * s, y - h * 0.65); g.lineTo(x + 0.1 * s, y - h * 0.9); g.stroke()
+  halo(g, x, y - h * 0.5, 1.6 * s, rgb, 0.08 + 0.2 * a)
+}
 // a thin stand with a small light that glows on the downbeat (the dark studio)
 function studiolight(g, x, y, s, m, side, rgb) {
   g.fillStyle = 'rgba(70,75,95,0.9)'; g.beginPath(); g.rect(x - 0.05 * s, y - 2.6 * s, 0.1 * s, 2.6 * s); g.rect(x - 0.4 * s, y - 0.1 * s, 0.8 * s, 0.1 * s); g.fill()
@@ -488,7 +497,7 @@ function brazier(g, x, y, s, m, side, rgb, b = 0) {
   g.fillStyle = 'rgba(255,220,110,0.95)'; g.beginPath(); g.moveTo(x - 0.3 * s, y - 2.5 * s); g.quadraticCurveTo(x + lean * 0.5, y - 2.5 * s - fh * 0.75, x + 0.3 * s, y - 2.5 * s); g.closePath(); g.fill()
   halo(g, x, y - 3 * s, 2.6 * s, rgb, 0.2 + 0.4 * m.kick)
 }
-const PROPS = { lighthouseBuoy, studiolight, halolamp, brazier, lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir, crate, mushroom, organpipe, floodlight, pine, monitor, pixelCandle, qblock, speaker }
+const PROPS = { lighthouseBuoy, basalt, studiolight, halolamp, brazier, lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir, crate, mushroom, organpipe, floodlight, pine, monitor, pixelCandle, qblock, speaker }
 
 function torii(g, cx, y, s, half, rgb, a) {
   g.fillStyle = rgba(rgb, a)
@@ -1617,6 +1626,70 @@ const SKIES = {
     onBeats(c, 4, (x, b) => speaker(g, x, c.ground, H * 0.03, m, 1, m.A, b))
   },
 
+  // ---- magma depths (the user's own «Magma depths»): a cavern deep under a volcano — a vault of rock with stalactites, basalt
+  // columns in rows (hexagonal, their faces catching the glow), a magma fall pouring on the right, a river of lava below whose
+  // crust cracks and glows on the kick, waves of heat a bar long, embers rising; the light flares with each section
+  magma(g, c, m) {
+    const { W, H, k, hy } = c, heat = Math.max(m.flash, 0.55 * m.kick)
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(12, 45, 3)); sky.addColorStop(0.6, hsla(14, 60, 7 + 3 * heat)); sky.addColorStop(1, hsla(20, 80, 16 + 8 * heat))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    g.globalCompositeOperation = 'lighter'
+    halo(g, W * 0.5, hy, W * 0.6, '255,90,20', 0.16 + 0.1 * m.energy + 0.15 * heat)
+    g.globalCompositeOperation = 'source-over'
+    // the vault: a ragged ceiling, and stalactites hanging from it (one path)
+    ridge(g, c, { par: 0.02, y: hy * 0.12, amp: -hy * 0.1, scale: 60, seed: 410, oct: 5, fill: hsla(10, 30, 3), to: 0 })
+    g.fillStyle = hsla(10, 30, 3); g.beginPath()
+    slots(c, 0.02, 26, (x, i, st) => { const h = hy * (0.05 + 0.2 * hsh(i * 3.7 + 1)), w = st * (0.2 + 0.2 * hsh(i * 1.9)), y0 = hy * 0.12; g.moveTo(x, y0); g.lineTo(x + w / 2, y0 + h); g.lineTo(x + w, y0) })
+    g.fill()
+    // basalt columns in clusters: hexagonal prisms standing close, heights stepping like organ pipes within a cluster, tops cut
+    // at a slant; the face turned to the lava lit orange (brighter on the kick). Each layer is two paths: the dark sides, the lit faces
+    for (const [row, par, slot, lo, hi, light] of [[0, 0.03, 16, 0.18, 0.5, 14], [1, 0.07, 22, 0.1, 0.32, 20]]) {
+      const base = hy + row * 8 * k, col = (i, st) => {
+        const cl = Math.floor(i / 5), inCl = hsh(cl * 7.7 + row * 3) < 0.6 // gaps between the clusters
+        if (!inCl) return null
+        const p = i - 5 * cl, top = lo + (hi - lo) * hsh(cl * 4.1 + row), h = hy * top * (0.72 + 0.28 * Math.sin((Math.PI * (p + 0.5)) / 5)) * (0.9 + 0.2 * hsh(i * 1.3))
+        return { h, w: st * 0.92, cut: (hsh(i * 3.9) - 0.5) * st * 0.7 }
+      }
+      g.fillStyle = hsla(15, 20, 3.5 + row * 2); g.beginPath()
+      slots(c, par, slot, (x, i, st) => { const q = col(i, st); if (!q) return; g.moveTo(x, base + 2 * k); g.lineTo(x, base - q.h + q.cut); g.lineTo(x + q.w * 0.5, base - q.h - Math.abs(q.cut) * 0.3); g.lineTo(x + q.w, base - q.h - q.cut); g.lineTo(x + q.w, base + 2 * k); g.closePath() })
+      g.fill()
+      g.fillStyle = `hsla(20, 85%, ${light + 14 * heat}%, 0.6)`; g.beginPath()
+      slots(c, par, slot, (x, i, st) => { const q = col(i, st); if (!q) return; const y0 = base - q.h * 0.55; g.moveTo(x + q.w * 0.62, base + 2 * k); g.lineTo(x + q.w * 0.62, y0); g.lineTo(x + q.w * 0.92, y0 - 2 * k); g.lineTo(x + q.w * 0.92, base + 2 * k); g.closePath() })
+      g.fill()
+    }
+    // the magma fall: a ribbon of light pouring down the right, its bright streaks moving down a beat at a time
+    const fx = W * 0.83, fw = 26 * k
+    const fall = g.createLinearGradient(fx - fw, 0, fx + fw, 0)
+    fall.addColorStop(0, 'rgba(255,90,20,0)'); fall.addColorStop(0.5, `rgba(255,${150 + 60 * heat},60,0.9)`); fall.addColorStop(1, 'rgba(255,90,20,0)')
+    g.fillStyle = fall; g.fillRect(fx - fw, hy * 0.14, 2 * fw, hy * 0.88)
+    g.fillStyle = 'rgba(255,230,140,0.5)'; g.beginPath()
+    for (let i = 0; i < 6; i++) { const y = hy * 0.14 + fr(m.x / 2 + i / 6) * hy * 0.86; g.rect(fx - 3 * k + 4 * k * Math.sin(i * 2.1), y, 2.5 * k, 22 * k) }
+    g.fill()
+    g.globalCompositeOperation = 'lighter'
+    halo(g, fx, hy, 70 * k, '255,140,40', 0.4 + 0.3 * heat)
+    g.globalCompositeOperation = 'source-over'
+    // the lava river: dark crust in bands, the glow showing between them, rising on the kick
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(24, 100, 45 + 15 * heat)); fl.addColorStop(0.35, hsla(14, 95, 22 + 8 * heat)); fl.addColorStop(1, hsla(8, 80, 6))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    g.fillStyle = hsla(10, 35, 5, 0.85)
+    for (let row = 0; row < 5; row++) {
+      const y = hy + (c.ground - hy) * (0.08 + 0.92 * (row / 5) ** 1.25), amp = (2 + 3 * row) * k, gap = (2 + 3 * row) * k * (1 - 0.7 * heat)
+      g.beginPath(); g.moveTo(0, y + gap)
+      for (let x = 0; x <= W + 14 * k; x += 14 * k) g.lineTo(x, y + gap + amp * Math.sin(x / (80 * k) + (m.x * TAU) / 4 + row * 1.3))
+      g.lineTo(W, y + (c.ground - hy) * 0.16 + 8 * k); g.lineTo(0, y + (c.ground - hy) * 0.16 + 8 * k); g.closePath(); g.fill()
+    }
+    // embers rising (three colours, one path each)
+    g.globalCompositeOperation = 'lighter'
+    for (let col = 0; col < 3; col++) {
+      g.fillStyle = ['rgba(255,110,30,0.7)', 'rgba(255,170,60,0.7)', 'rgba(255,220,120,0.6)'][col]; g.beginPath()
+      for (let i = col; i < 42; i += 3) { const sp = 0.5 + hsh(i * 0.618), u = fr(m.time * sp * 0.06 + hsh(i * 0.137)), x = hsh(i * 9.7) * W + Math.sin(m.time * 0.8 * sp + i) * 14 * k, s = (1.2 + 1.8 * hsh(i * 2.1)) * k * (1 - 0.6 * u); g.rect(x, H - u * H, s, s) }
+      g.fill()
+    }
+    g.globalCompositeOperation = 'source-over'
+    onBeats(c, 4, (x, b) => basalt(g, x, c.ground, H * 0.03, m, 1, '255,120,40', b))
+  },
   // ---- the dark studio (a song with no style): near black, a soft light from above breathing with the energy, a floor of
   // thin lines coming toward us a beat at a time, a slow haze, a faint pulse on the kick — quiet, so the curves carry it
   dark(g, c, m) {
@@ -1966,6 +2039,7 @@ const ROAD = {
   mystery: { prop: 'qblock', every: 4 },
   favela: { prop: 'speaker', every: 4 },
   storm: { prop: 'lighthouseBuoy', every: 4, rgb: '255,90,80' },
+  magma: { prop: 'basalt', every: 4, rgb: '255,120,40' },
   dark: { prop: 'studiolight', every: 4 },
   heaven: { prop: 'halolamp', every: 4, rgb: '255,236,180' },
   hell: { prop: 'brazier', every: 4, rgb: '255,120,40', span: 'lancet', spanEvery: 16 },

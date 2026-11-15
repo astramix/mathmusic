@@ -14,7 +14,7 @@ Open a source file only to change it or when something here is unclear.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
 - `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (46 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+  the generator (47 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -184,6 +184,9 @@ its octave at 2.01f dying sooner), `dewTone` (a sine, its octave, and the note a
 third: ½, 1, 2^{4/12}, 2^{7/12}, 2, 2.52, 3.01, 4.1, every partial a pair), `hellBellTone` (a cracked bell: minor third and tritone, the
 hum ringing longest) · `haloPad({ voices, attack, release, gain })` → p(freqs) ⇒ [l, r] (every note two oscillators −5 / +6 ¢, one per
 ear, sines below, triangles above, low-pass 520 + 160j Hz) · `heartBeat(t s, vel)` (two thumps 0.2 s apart, 52 → 38 and 48 → 34 Hz).
+`magmaHitTone(f, t, vel)` — the synth hit of the user's own drum kit (pads 44 / 48 of «Magma depths»), resynthesised from their sample:
+`MAGMA_HIT` = 28 measured partials [Hz at f = 164, level, level 0.34 s later] — a pair 164 / 173.6 Hz beating under a cloud 1.25–6.7 kHz,
+each drifting at its own rate; f scales them all.
 
 ## theory.js (shared by the generator, the app, the tests — not imported by songs)
 `freq(n)` A4 = 440 · `pc(n)` · `parseKey('F#m' | 'E𝄳')` → {tonic (3.5 for E𝄳), mode, name?} · `keyName`, `keyLabel` ('F♯ минор') ·
@@ -413,12 +416,12 @@ others' dice untouched — each draws its own rng) a seed gives byte for byte th
 **Families** (`STYLE_FAMILIES`, the menus' order, most finished first; `STYLE_LIST` follows it, `styleGroups(keep)` for menus/optgroups,
 `familyOf(id)`): ⚔️ Арена (boss jbattle fight) · 🎮 Игровой (factory factorycave factorydanger darkecho prime artifact brinstar) · 🕹️ Ретро-игры
 (zunpet oldzun podskazka chiptune) · ⚡ Неоновый танцпол (edm hardstyle synthwave) · 🌃 Андеграунд (phonk breakcore babushka) · 📻 Радиоволна
-(disco kawaii) · 🎬 Большой экран (epic ishope nordic) · 🏛️ Концертный зал (romantic classical fugue organ) · 🌙 После полуночи (jazz bossa lofi) ·
+(disco kawaii) · 🎬 Большой экран (epic ishope nordic magma) · 🏛️ Концертный зал (romantic classical fugue organ) · 🌙 После полуночи (jazz bossa lofi) ·
 🌌 Невесомость (ambient space nightstorm) · 🌍 Голоса Земли (celtic maqam raga gamelan) · 🌐 Интернет-легенды (montagem velora xperror keygen) · ⚖️ По ту сторону (heaven hell) · 🎈 Разное (meow).
 A new style goes into a family (test/generate.test.js checks every style is in exactly one).
 Styles (`STYLES`): lofi bossa chiptune synthwave classical romantic jbattle kawaii space meow boss fugue organ maqam raga gamelan jazz celtic ambient
 edm disco epic factory factorycave factorydanger darkecho ishope prime nordic artifact zunpet oldzun fight babushka podskazka hardstyle phonk
-breakcore brinstar montagem velora xperror keygen nightstorm heaven hell — each: tempo/keys, forms
+breakcore brinstar montagem velora xperror keygen nightstorm heaven hell magma — each: tempo/keys, forms
 (sections with roles intro/theme/themeB/bridge/solo/break/final/outro (+ build, trade) + energy), its theme list,
 instruments per role (lead, lead2, chords, bass, pad, arp, texture), drum grooves as 16-step strings,
 comping and bass patterns. Themes come from `MELODIES` (melodies of the songs here, each with its own
@@ -602,6 +605,20 @@ octave in 4 s, a shriek and a fall 46 → 28 Hz where a loud section begins). Th
 domain: its first two phrases, a chord every half bar, our own close), Ninth Circle (i – ♭II – i – V7, the leading tone falling a
 tritone), Lake of Fire (a dotted march down the Andalusian steps to the Neapolitan) (`only`). The lead's off-chord strong beats are the
 half-speed outro's accented passing notes (as in every style). Project instruments: angelchoir, seraph, glint, halobell, hellbell.
+**magma** (🌋 Magma Depths, 134–144, `stage`, theme 'magma'): the style of the user's own set «Magma depths» (2021), read from its
+Ableton file (D:… К С-ву\Творения\1- Проекты\New era Project; gzipped XML: tracks, clips, notes, the drum rack's pads, transposes and
+volumes): 139 BPM, D minor; the organ and the piano doubling each other in open fifths low (A1 A2 E3 | B♭1 B♭2 F3), strings on the theme in
+octaves, ChoirZ, low strings held in octaves, a World StringZ figure in eighths, their own drum kit. CHORDS.fifthorgan (organ + a grand piano
+struck at each chord on the bass, its octave and fifth; the chord itself softly on a second manual — without it no third sounds), LEADS.stringsection
+(strings on the line and its octave below) / depthchoir (the angel choir in octaves, «а» → «о»), lead2 piano too, BASSES.bowedoctaves (the bass
+and its octave, held), ARPS.magmaarp (their figure as scale degrees above the chord's root: 8 5 1 3 8 10 9 8 | 10 5 1 7 8 10 9 5, KS strings
+left / right), PADS choirpad / strings, KITS.magma (their grooves: intro kick + tom on 1, the low tom on 3 and 4; theme two-bar 3 + 4 with two
+toms, then 3; the big part a four-bar pattern with the ride on 2, the second kick on the «and» of 3, the synth hit on 4; a soft felt kick 50 Hz,
+toms tuned 73 / 56 / 80 / 61 Hz as the pads' transposes say, `magmaHitTone` at 164 Hz and 8 semitones lower), TEXTURES.lavaflow (a rumble two
+octaves under the tonic, lava bubbling, steam). Themes, theirs note for note (`only`): Lava Flow (their string line over Dm – Csus2 – Asus4 – F –
+Gsus2, a chord every 2 beats: i7 VIIsus2 VII6 Vsus4 v7 VImaj7 IVsus2), Magma Depths (their choir's call D – D′ – A – C over the lament, i7 –
+V7sus4 – VImaj7 – V7sus4), Magma Gate (their opening A5 – B♭5 – A5 – C♯°: V – VI – V – ♯vii°, home to i). Modes: minor or Dorian. Project kit
+drums: kick2, tom1–4, hit, hitlo, hithi.
 **zunpet** (🎺 ZUNpet, 148–176, Touhou's Windows era): LEADS.zunpet (two bright brass voices ±4 ¢ — the SC-88 trumpet —,
 a scoop into each note, a late vibrato), lead2 piano / violin / flute (the stage theme), counter violin, CHORDS.zunpiano (octave bass and
 off-beat chords in 3 + 3 + 2, rolling sixteenths over two octaves in the spell cards), BASSES.zunbass (picked electric bass in octaves,
@@ -707,7 +724,8 @@ stepping on a conveyor, sparks on the kick: factory styles), Brinstar's jungle (
 nave with the organ lit pipe by pipe (organ), an arena (floodlight beams, tiers of a crowd with phones: fight, epic), northern lights over
 snow peaks and pines (nordic), an old desktop (a green hill, error dialogs cascading a beat at a time, a cursor: xperror), a demoscene
 cathedral (copper bars, a starfield, a pixel rose window, a sine scroller: keygen), a haunted arcade (a neon maze, question blocks flipping on
-the beats, scanlines, a glitch on the kick: montagem), a favela at night (houses up the hill, lasers on the kick, a moon: velora), a night storm (clouds in layers, lightning on the sections
+the beats, scanlines, a glitch on the kick: montagem), a favela at night (houses up the hill, lasers on the kick, a moon: velora), magma depths (a cavern under a volcano: a vault with stalactites, clusters of basalt columns stepping like organ pipes with lit faces,
+a magma fall whose streaks move a beat at a time, a lava river whose crust opens on the kick, embers: magma), a night storm (clouds in layers, lightning on the sections
 and the timpani, a lighthouse whose beam turns once a bar, the sea's swell, slant rain, buoys: nightstorm), heaven (dawn above a sea of clouds, twelve rays turning a ray a bar, a gate dissolving in the haze, an angel of light whose
 wings open once in two bars, glints flashing on their beats, feathers: heaven), hell (a black sun with a burning rim, smoke, a volcano flaring on the kick
 and throwing sparks when a section opens, a citadel with red windows, chains swaying, waves of lava a bar long, embers: hell) — both ≈ 0.5 ms a frame
@@ -828,6 +846,9 @@ the bass (a ø7 has a diminished fifth), no clicks; declare `key` in every song.
 | midnight-cloud | generated nightstorm (seed 1) | 161 | B♭ mixolydian | Night Storm on the night voice, cello, harp runs, the calm in the middle |
 | lost-angel | generated breakcore (seed 8) | 198 | C♯m | Static Tears on a synth lead over minor ninths, Reese, glitches, Amen rolls |
 | hollow-canopy | generated brinstar (seed 9) | 78 | B dorian | pan pipes on Lair Below and Spore Drift, rhodes, synth strings, fretless bass, tribal toms, marimba bubbles, the jungle's night |
+| obsidian-caldera | generated magma (seed 4) | 135 | Dm | the user's opening as Magma Gate on strings in octaves, their choir call on the choir, organ + piano in open fifths, their kit's grooves and synth hit |
+| ember-forge | generated magma (seed 3) | 134 | Bm | Lava Flow (their string line, sus chords) sung by the choir, Magma Gate on strings, the eighth-note figure plucked |
+| ember-caldera | generated magma (seed 11) | 141 | D dorian | strings and choir on Lava Flow, string pad, the four-bar big-part groove with the hit on 4 |
 | gentle-dawn | generated heaven (seed 11) | 66 | F | the angel's voice on Gloria over the angel choir, dew drops on White Garden, halo pad, hum, glints, bell and chime |
 | white-feather | generated heaven (seed 6) | 60 | B♭ | the halo bell on White Garden, glints an octave up on Feather Light, harp, a key up in the ascension |
 | silent-dawn | generated heaven (seed 4) | 58 | G | the angel's voice on Gloria, celesta on Feather Light (the Lydian II), glints |

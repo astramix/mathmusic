@@ -611,6 +611,30 @@ export const MELODIES = [
     notes: [[0, 12, 1.5], [1.5, 12, 0.5], [2, 15, 1], [3, 14, 1], [4, 14, 1.5], [5.5, 14, 0.5], [6, 10, 2], [8, 12, 1.5], [9.5, 12, 0.5], [10, 8, 1], [11, 10, 1], [12, 11, 2], [14, 7, 2],
       [16, 8, 1.5], [17.5, 8, 0.5], [18, 12, 1], [19, 10, 1], [20, 7, 1.5], [21.5, 7, 0.5], [22, 3, 2], [24, 5, 1], [25, 8, 1], [26, 13, 2], [28, 11, 1.5], [29.5, 14, 0.5], [30, 7, 2]],
   },
+  // Magma Depths: themes from the user's own set «Magma depths» (2021, D minor) — read note for note from its Ableton file
+  // "Lava Flow": their string line (bars 17–24) over their sus harmony: Dm – Csus2 – Asus4 – F – Gsus2 (a chord every two beats)
+  {
+    id: 'magma-lava', from: 'magma', title: 'Lava Flow (лавовый поток)', key: 'Dm', base: 'D4', feel: 'straight', per: 2, modal: false, only: 'magma',
+    moods: ['dark', 'epic'], chords: ['i7', 'i7', 'VIIsus2', 'VII6', 'Vsus4', 'v7', 'VImaj7', 'IVsus2', 'i7', 'i7', 'VIIsus2', 'VIIsus4', 'Vsus4', 'v7', 'VImaj7', 'IVsus2'],
+    notes: [[0, 0, 2], [2, -2, 1], [3, -5, 1], [4, 0, 2], [6, -5, 2], [8, 0, 2], [10, -2, 1], [11, -7, 1], [12, -5, 4],
+      [16, 0, 2], [18, -2, 1], [19, -5, 1], [20, 0, 2], [22, 3, 2], [24, 2, 1], [25, 3, 1], [26, -5, 1], [27, 2, 1], [28, 0, 4]],
+  },
+  // "Magma Depths": their choir's call (bars 33–40): D, its octave, A, C in a bar, over the lament D – C♯ – B♭ – A (here i7 – V7sus4 –
+  // VImaj7 – V7sus4), the second half rising
+  {
+    id: 'magma-depths', from: 'magma', title: 'Magma Depths (глубины магмы)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: false, only: 'magma',
+    moods: ['dark', 'epic'], chords: ['i7', 'V7sus4', 'VImaj7', 'V7sus4', 'i7', 'V7sus4', 'VImaj7', 'V7sus4'],
+    notes: [[0, 0, 1], [1, 12, 1], [2, 7, 1], [3, 10, 1], [4, 0, 2], [8, 0, 1], [9, 12, 1], [10, 7, 1], [11, 10, 1], [12, 0, 2],
+      [16, 0, 1], [17, 12, 1], [18, 7, 1], [19, 10, 1], [20, 12, 2], [22, 7, 2], [24, 3, 1], [25, 10, 1], [26, 7, 1], [27, 2, 1], [28, 2, 2], [30, 0, 2]],
+  },
+  // "Magma Gate": their opening — the dominant A with the B♭ above it and the leading tone's C♯° (A5 – B♭5 – A5 – C♯°, harmonic
+  // minor) — a line drawn on it, home to D at the end
+  {
+    id: 'magma-gate', from: 'magma', title: 'Magma Gate (врата магмы)', key: 'Dm', base: 'D4', feel: 'straight', per: 4, modal: false, only: 'magma',
+    moods: ['dark', 'epic'], chords: ['V', 'VI', 'V', '#vii°', 'V', 'VI', 'V7', 'i'],
+    notes: [[0, 7, 2], [2, 2, 2], [4, 3, 2], [6, 0, 2], [8, 2, 1.5], [9.5, -1, 0.5], [10, -5, 2], [12, 5, 2], [14, 2, 1], [15, -1, 1],
+      [16, 7, 2], [18, 2, 2], [20, 3, 1], [21, 5, 1], [22, 12, 2], [24, 11, 2], [26, 7, 1], [27, 5, 1], [28, 3, 2], [30, 0, 2]],
+  },
   // Nightstorm: the intro's own melody (the user's: C5 – G4 – D5 – F4, long, over ii – vi – iii – I) and a storm line of
   // our own in its idiom (I – ♭VII – IV – I)
   {
