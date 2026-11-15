@@ -11,6 +11,7 @@ import { generate, generatedPart, STYLES, STYLE_LIST, styleGroups } from './gene
 import { MODE_GROUPS, keyFor, MODES } from './modes.js'
 import { harmonize } from './harmonize.js'
 import { parentMode } from './modes.js'
+import { vstState } from './vstclient.js'
 
 const OWN = ['fugue', 'organ', 'maqam', 'raga', 'gamelan', 'ambient'] // styles with a composer of their own: no arrangement under your melody
 const newSeed = () => 1 + Math.floor(Math.random() * 999998)
@@ -395,6 +396,64 @@ export function newProjectDialog() {
   ])
 }
 
+// ---- the user's VST plugins on a track (⋯ → «Плагин VST…»): PROJECT.vst = { trackKey: { plugin, preset | program, octaves, gain } | null } —
+// __project puts it on the track, the server (MathMusic.exe, Visualizer.bat) plays its notes through that plugin. Where no plugin is
+// found (the APK, a page opened as a file, a computer without them) the button is grey
+let vstNow = null // what /api/vst said: { plugins, presets } | null (asked once)
+const vstPlugins = () => (vstNow?.plugins ?? []).filter(p => p.hosted)
+const trackVst = key => app.current?.song?.tracks?.[key]?.vst ?? null
+export function setTrackVst(key, v) {
+  const p = projectOf()
+  const fromCode = !!app.current?.song?.tracks?.[key]?.vst && !(p.vst && key in p.vst)
+  p.vst = { ...(p.vst ?? {}) }
+  if (v) p.vst[key] = v
+  else if (fromCode || (p.vst[key] && trackVst(key))) p.vst[key] = null // its code names a plugin: say "none" explicitly
+  else delete p.vst[key]
+  setProject(p)
+}
+function vstItem(key) {
+  const cur = trackVst(key), list = vstPlugins()
+  if (!list.length) return { icon: '🔌', label: 'Плагин VST…', disabled: true, note: vstNow ? 'плагины не найдены в папках VST' : 'плагинов нету — они работают в MathMusic.exe и Visualizer.bat на Windows' }
+  return { icon: '🔌', label: cur ? `Плагин VST: ${cur.plugin}…` : 'Плагин VST…', checked: !!cur, action: () => vstDialog(key, cur), note: cur ? (cur.preset ?? (cur.program != null ? 'программа ' + cur.program : '')) : 'звук настоящего плагина, ваши пресеты из сетов Ableton' }
+}
+function vstDialog(key, cur) {
+  const list = vstPlugins(), presets = vstNow?.presets ?? []
+  const plug = h('select', {}, ...list.map(p => new Option(`${p.name}${p.bits === 32 ? ' · 32 бит' : ''}`, p.name)))
+  plug.value = list.some(p => p.name === cur?.plugin) ? cur.plugin : list[0].name
+  const sound = h('select', { style: 'max-width:100%' })
+  const fill = () => {
+    const p = list.find(x => x.name === plug.value), mine = presets.filter(x => x.plugin.toLowerCase() === p.name.toLowerCase()).sort((a, b) => a.name.localeCompare(b.name))
+    sound.innerHTML = ''
+    if (mine.length) sound.append(h('optgroup', { label: 'Ваши пресеты из сетов' }, ...mine.map(x => new Option(x.name, 'preset:' + x.name))))
+    sound.append(h('optgroup', { label: 'Программы плагина' }, ...p.programs.map((n, i) => (n ? new Option(`${i}. ${n}`, 'program:' + i) : null)).filter(Boolean)))
+    const want = cur && cur.plugin === p.name ? (cur.preset ? 'preset:' + cur.preset : 'program:' + (cur.program ?? 0)) : null
+    if (want && [...sound.options].some(o => o.value === want)) sound.value = want
+  }
+  plug.onchange = fill
+  fill()
+  const oct = h('input', { type: 'checkbox' })
+  oct.checked = !!cur?.octaves?.includes(-12)
+  const gain = h('input', { type: 'range', min: 0.1, max: 4, step: 0.05, value: cur?.gain ?? 1, style: 'flex:1' }), gv = h('span', { style: 'width:44px;text-align:right' })
+  const showGain = () => (gv.textContent = (20 * Math.log10(+gain.value)).toFixed(1) + ' дБ')
+  gain.oninput = showGain
+  showGain()
+  const row = (l, ...c) => h('div', { class: 'row' }, h('span', { style: 'width:110px' }, l), ...c)
+  const body = h('div', {},
+    h('p', { style: 'margin-top:0;opacity:.8' }, `Дорожка «${key}» зазвучит через настоящий плагин: её ноты сыграет он. Без плагинов (APK, файл страницы) — как раньше.`),
+    row('Плагин', plug), row('Звук', sound), row('Октавой ниже', h('label', {}, oct, ' дублировать партию')), row('Громкость', gain, gv))
+  const apply = () => {
+    const [kind, v] = sound.value.split(/:(.*)/s)
+    const out = { plugin: plug.value, ...(kind === 'preset' ? { preset: v } : { program: +v }) }
+    if (oct.checked) out.octaves = [0, -12]
+    if (Math.abs(+gain.value - 1) > 0.01) out.gain = +(+gain.value).toFixed(2)
+    setTrackVst(key, out)
+    toast(`🔌 «${key}» → ${out.plugin}${out.preset ? ` («${out.preset}»)` : ''} — звук появится через несколько секунд`, { ms: 5000 })
+  }
+  modal('🔌 Плагин VST — ' + key, body, [
+    ...(cur ? [{ label: 'Без плагина', action: () => { setTrackVst(key, null); toast(`«${key}» — снова свой звук`, { ms: 3000 }) } }] : []),
+    { label: 'Отмена' }, { label: 'Поставить', primary: true, action: apply }])
+}
+
 // ---- the track list -------------------------------------------------------------------------------------------------------
 const muted = key => app.scene?.tracks.find(t => t.key === key)?.muted
 export function createTrackList(root, pr) {
@@ -403,7 +462,8 @@ export function createTrackList(root, pr) {
   const list = h('div', { class: 'tl-list' })
   root.append(head, list)
   const menuAt = (e, items) => { e.preventDefault(); e.stopPropagation(); contextMenu(items, e.clientX, e.clientY) }
-  function projectMenu(t) {
+  if (!vstNow) vstState().then(s => { vstNow = s ?? { plugins: [], presets: [] }; render() })
+  function projectMenu(t, key) {
     const others = refSelect(t.id).options.length > 0
     return [
       { icon: '🎵', label: 'Сочинить мелодию в стиле', items: () => styleGroups().map(f => ({ icon: f.emoji, label: f.label, items: () => f.list.map(s => ({ icon: s.emoji, label: s.label, action: () => composeMelody(t.id, s.id) })) })) },
@@ -411,6 +471,7 @@ export function createTrackList(root, pr) {
       { icon: '🔁', label: 'Переписать', disabled: !t.gen, action: () => rewrite(t.id), note: t.gen ? `${styleLabel(t.gen.style)} — новый вариант` : 'для дорожки, сочинённой стилем' },
       '-',
       { icon: '🎻', label: 'Инструмент', items: () => { const used = usedInstruments(); return pickerGroups().map(([g, list]) => ({ label: g, color: used.get(list.find(i => used.has(i.id))?.id)?.[0].color, items: () => list.map(i => ({ label: usedLabel(i, used), color: used.get(i.id)?.[0].color, checked: t.inst === i.id, action: () => updateTrack(t.id, x => { if (x.name === INSTRUMENT[x.inst]?.label) x.name = nameFor(projectOf(), i.label); x.inst = i.id }) })) })) } },
+      vstItem(key),
       { icon: '🏛', label: 'Пространство', items: () => [['', 'как у инструмента'], ['hall', 'зал'], ['room', 'комната'], ['echo', 'эхо + зал'], ['dry', 'сухо']].map(([v, l]) => ({ label: l, checked: (t.fx ?? '') === v, action: () => updateTrack(t.id, x => { if (v) x.fx = v; else delete x.fx }) })) },
       { icon: '✎', label: 'Переименовать…', action: () => renameTrack(t) },
       { icon: '⧉', label: 'Дублировать дорожку', action: () => addTrack(t.inst, { name: t.name, notes: t.notes.map(e => [...e]) }) },
@@ -445,10 +506,10 @@ export function createTrackList(root, pr) {
       const d = INSTRUMENT[t.inst] ?? INSTRUMENT.piano, on = sel?.kind === 'project' && sel.id === t.id
       const r = h('div', { class: 'tl-row' + (on ? ' sel' : ''), title: `${t.name} — ${d.label} · ${t.notes.length} нот${t.gen ? ` · ${styleLabel(t.gen.style)}` : ''} · ПКМ — меню` },
         h('span', { class: 'dot', style: `background:${t.color ?? d.color}` }),
-        h('span', { class: 'nm' }, t.name, h('small', {}, d.label + (t.notes.length ? ` · ${t.notes.length}` : ' · пусто'))),
-        ms(key), h('button', { class: 'more', title: 'меню дорожки', onclick: e => menuAt(e, projectMenu(t)) }, '⋯'))
+        h('span', { class: 'nm' }, t.name, h('small', {}, (trackVst(key) ? `🔌 ${trackVst(key).plugin}` : d.label) + (t.notes.length ? ` · ${t.notes.length}` : ' · пусто'))),
+        ms(key), h('button', { class: 'more', title: 'меню дорожки', onclick: e => menuAt(e, projectMenu(t, key)) }, '⋯'))
       r.onclick = () => pr.want('p:' + t.id)
-      r.oncontextmenu = e => menuAt(e, projectMenu(t))
+      r.oncontextmenu = e => menuAt(e, projectMenu(t, key))
       r.ondblclick = () => renameTrack(t)
       list.append(r)
       if (on) {
@@ -472,10 +533,12 @@ export function createTrackList(root, pr) {
       const menu = [
         { icon: '❄', label: 'В ноты — сделать редактируемой', action: () => freeze(key), note: 'дорожка станет нотами на инструменте библиотеки; код останется в файле' },
         { icon: '🗑', label: 'Удалить из песни', action: () => removeCode(key), note: 'код остаётся в файле, песня его не играет — ↶ вернёт' },
+        '-',
+        vstItem(key),
       ]
       const r = h('div', { class: 'tl-row code' + (on ? ' sel' : ''), title: `${key} — написана формулами в коде · клик — посмотреть ноты · ПКМ — меню` },
-        h('span', { class: 'dot', style: `background:${color}` }), h('span', { class: 'nm' }, key, h('small', {}, 'ƒ код')), ms(key),
-        h('button', { class: 'more', title: '❄ в ноты · 🗑 удалить', onclick: e => menuAt(e, menu) }, '⋯'))
+        h('span', { class: 'dot', style: `background:${color}` }), h('span', { class: 'nm' }, key, h('small', {}, trackVst(key) ? `🔌 ${trackVst(key).plugin}` : 'ƒ код')), ms(key),
+        h('button', { class: 'more', title: '❄ в ноты · 🗑 удалить · 🔌 плагин', onclick: e => menuAt(e, menu) }, '⋯'))
       r.onclick = () => pr.want('v:' + key)
       r.oncontextmenu = e => menuAt(e, menu)
       list.append(r)

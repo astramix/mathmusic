@@ -254,7 +254,10 @@ process, cached by a hash of everything in ~/.mathmusic/vst-cache/), `partNotes(
 `vstStems(song)` (every part at once) → engine `render(song, { stems })` uses them instead of audio(). **tools/als.mjs**: `readSet(file)` →
 tempo, tracks: plugin (name, file, uniqueId, program, chunk, bank), notes (arrangement clips: CurrentStart/End = the place, notes counted
 from LoopStart, looped when LoopOn, disabled notes left out), clips, drum pads (ReceivingNote = 128 − MIDI, sample, transpose, volume).
-**The app**: viz/app/vstclient.js asks /api/vst once, sends a track's notes to /api/vst/render, the player puts that audio in place of the
+**The button**: the track list's ⋯ (a project track or a code track) → «🔌 Плагин VST…» — a plugin, its sound (the user's presets from their
+sets, or the plugin's own programs), «октавой ниже», a gain; stored as PROJECT.vst = { trackKey: { … } | null } (null = none, even when the
+code names one), __project puts it on the track; the row shows «🔌 plugin». Grey where /api/vst finds nothing (the APK, a page opened as a
+file, no plugins). **The app**: viz/app/vstclient.js asks /api/vst once, sends a track's notes to /api/vst/render, the player puts that audio in place of the
 workers' for the track chunk by chunk (`finish`), refreshing from just ahead of the playhead when it arrives; renderSong (exports, video) the
 same. Not working yet: BellsEbuth (64-bit) crashes inside its own VSTPluginMain right after audioMasterVersion; VST3 needs another host.
 Styles may name plugins per recipe: `S.vst = { recipe: { plugin, preset, octaves, gain } }` (generate.js adds the field to those tracks with

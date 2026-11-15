@@ -413,6 +413,7 @@ function dataText(p) {
   if (p.song) L.push(`  "song": ${JSON.stringify(p.song)},`)
   if (p.removed?.length) L.push(`  "removed": ${JSON.stringify(p.removed)},`)
   if (p.tuning) L.push(`  "tuning": ${JSON.stringify(p.tuning)},`)
+  if (p.vst && Object.keys(p.vst).length) L.push(`  "vst": ${JSON.stringify(p.vst)},`)
   L.push('  "tracks": [')
   p.tracks.forEach((t, i) => {
     const { notes = [], ...rest } = t
@@ -526,6 +527,9 @@ ${inst.join('\n')}
       tracks[k] = track(t, o)
       for (const e of t.notes ?? []) end = Math.max(end, e[0] + e[2])
     }
+    // the user's VST plugins chosen in the track list (⋯ → Плагин VST): a track → { plugin, preset | program, octaves, gain }, or null =
+    // none (also when its code names one); src/vst.js and the app play it through that plugin where it is installed
+    for (const [k, v] of Object.entries(PROJECT.vst ?? {})) if (tracks[k]) { if (v) tracks[k] = { ...tracks[k], vst: v }; else { const { vst, ...rest } = tracks[k]; tracks[k] = rest } }
     song.tracks = tracks
     song.length = Math.max(song.length ?? 0, Math.ceil(end / 4 - 1e-9) * 4)
     return song
