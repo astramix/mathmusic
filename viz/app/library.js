@@ -80,6 +80,18 @@ export function fromFile(file, source, mtime, index = {}, shelf = 'mine') {
 // generated/, the rest in my_songs/ — Ctrl+S, rename or duplicate (pristine: false) moves it over
 export const shelfOf = e => (e.pristine === true && e.kind !== 'builtin' ? 'gen' : 'mine')
 // the file for a song: its old one while the name still fits it, else <name>.js or the first free <name>-N.js
+// an older version of a song, kept next to it when Ctrl+S (or anything else) writes over its file: <stem>.v<date-time>.js.
+// A song's own file name never has a dot (fileName), so these are never read as songs; library.json lists them under
+// the song (versions, newest last); KEEP_VERSIONS at most, the oldest go
+export const KEEP_VERSIONS = 30
+export const isVersionFile = f => /\.js$/.test(f) && f.slice(0, -3).includes('.')
+export function versionFile(file, t, taken) {
+  const d = new Date(t), p = n => String(n).padStart(2, '0')
+  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+  let f = `${file.slice(0, -3)}.v${stamp}.js`, i = 2
+  while (taken.has(f)) f = `${file.slice(0, -3)}.v${stamp}-${i++}.js`
+  return f
+}
 export function fileFor(name, old, taken) {
   const stem = fileName(name)
   if (old && (old === stem + '.js' || new RegExp(`^${stem}-\\d+\\.js$`).test(old))) return old
@@ -157,7 +169,7 @@ class Shelf {
   async read() {
     const index = await this.readIndex(), out = []
     for (const [file, h] of await this.files()) {
-      if (h.kind !== 'file' || !file.endsWith('.js')) continue
+      if (h.kind !== 'file' || !file.endsWith('.js') || isVersionFile(file)) continue
       const f = await h.getFile()
       out.push(fromFile(file, await f.text(), f.lastModified, index, this.key))
     }
@@ -169,6 +181,18 @@ class Shelf {
     const old = Object.keys(index).find(f => index[f].id === e.id && files.has(f)) ?? ((e.shelf ?? 'mine') === this.key && e.file && files.has(e.file) ? e.file : null)
     const taken = new Set([...files.keys()].filter(f => f !== old))
     const file = fileFor(e.name, old, taken)
+    // what the file said before: kept as a version when this write changes it (never lost to Ctrl+S)
+    let versions = [...(old ? index[old]?.versions ?? [] : [])].filter(v => files.has(v.file))
+    const before = old ? await files.get(old).getFile().then(f => f.text()).catch(() => null) : null
+    if (before != null && lf(before) !== lf(e.source)) {
+      const vf = versionFile(file, Date.now(), new Set(files.keys()))
+      const w = await (await this.dir.getFileHandle(vf, { create: true })).createWritable()
+      await w.write(before)
+      await w.close()
+      files.set(vf, true)
+      versions.push({ file: vf, at: Date.now(), name: nameIn(lf(before), '') })
+      while (versions.length > KEEP_VERSIONS) { const v = versions.shift(); await this.dir.removeEntry(v.file).catch(() => {}) }
+    }
     const w = await (await this.dir.getFileHandle(file, { create: true })).createWritable()
     await w.write(e.source)
     await w.close()
@@ -178,15 +202,28 @@ class Shelf {
       files.delete(old)
       delete index[old]
     }
-    index[file] = { id: e.id, kind: e.kind, pristine: e.pristine, base: e.base, meta: e.meta, created: e.created, updated: e.updated }
+    index[file] = { id: e.id, kind: e.kind, pristine: e.pristine, base: e.base, meta: e.meta, created: e.created, updated: e.updated, ...(versions.length ? { versions } : {}) }
     await this.writeIndex(index, files)
     const { where, ...rest } = e
     return { ...rest, file, where: 'disk', shelf: this.key }
   }
-  // the song's file and its line go
+  // the older versions of a song (by its id) → [{ file, at, name, source }], newest first
+  async versions(id) {
+    const index = await this.readIndex(), files = await this.files(), out = []
+    const f = Object.keys(index).find(f => index[f].id === id)
+    for (const v of f ? index[f].versions ?? [] : []) {
+      if (!files.has(v.file)) continue
+      try { out.push({ ...v, source: lf(await (await files.get(v.file).getFile()).text()) }) } catch {}
+    }
+    return out.reverse()
+  }
+  // the song's file, its versions and its line go
   async remove(id, file) {
     const index = await this.readIndex(), files = await this.files()
-    for (const f of Object.keys(index)) if (index[f].id === id) { await this.dir.removeEntry(f).catch(() => {}); files.delete(f) }
+    for (const f of Object.keys(index)) if (index[f].id === id) {
+      for (const v of index[f].versions ?? []) if (files.has(v.file)) { await this.dir.removeEntry(v.file).catch(() => {}); files.delete(v.file) }
+      await this.dir.removeEntry(f).catch(() => {}); files.delete(f)
+    }
     if (file && files.has(file)) { await this.dir.removeEntry(file).catch(() => {}); files.delete(file) }
     await this.writeIndex(index, files)
   }
@@ -207,6 +244,7 @@ export class Library {
     // the folders as they were at build time — shown before (or without) the folders themselves
     for (const [files, index, shelf] of [[SRC.mine, SRC.mineIndex, 'mine'], [SRC.gen, SRC.genIndex, 'gen']]) {
       for (const [file, { source, mtime }] of Object.entries(files ?? {})) {
+        if (isVersionFile(file)) continue
         const e = fromFile(file, source, mtime, index?.songs ?? {}, shelf)
         this.user.set(e.id, e)
       }
@@ -427,6 +465,14 @@ export class Library {
     this.ping(saved.id)
     this.emit(saved.id, saved)
     return saved
+  }
+  // its older versions (written over by a save) → [{ file, at, name, source }], newest first; [] when its folder isn't here
+  async versions(id) {
+    const e = this.user.get(id)
+    if (!e || e.where !== 'disk') return []
+    const shelf = this.shelves[e.shelf ?? 'mine']
+    if (!shelf.dir && !(await this.connect())) return []
+    return shelf.dir ? shelf.versions(id) : []
   }
   // a song with a file needs its folder to be removed (else this throws)
   async remove(id, { pick = true } = {}) {

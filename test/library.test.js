@@ -2,7 +2,7 @@
 // (through a folder handle faked in memory, as File System Access gives it).
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { Library, nameIn, styleIn, setName, cleanName, fileName, fromFile, fileFor } from '../viz/app/library.js'
+import { Library, nameIn, styleIn, setName, cleanName, fileName, fromFile, fileFor, isVersionFile, KEEP_VERSIONS } from '../viz/app/library.js'
 
 const SONG = `const LAYER = { name: 'pad layer' }
 export default {
@@ -169,4 +169,44 @@ test('generated/: untouched 🎲 songs live there, Ctrl+S moves one to my_songs/
   const only = new Library({ songs: {} })
   await only.attach(fakeDir('my_songs'), 'disk', null)
   assert.equal((await only.save({ name: 'x', source: GEN('x'), kind: 'generated', pristine: true })).where, 'pending')
+})
+
+test('a save never loses the code it writes over: the old version stays next to it, listed under the song', async () => {
+  const dir = fakeDir(), l = new Library({ songs: {} })
+  await l.attach(dir, 'disk')
+  const one = await l.save({ name: 'Пробa', source: setName(SONG, 'Проба'), kind: 'user' })
+  assert.equal([...dir.files.keys()].filter(isVersionFile).length, 0) // a new song has nothing to keep
+  const v2 = SONG.replace('bpm: 80', 'bpm: 90'), v3 = SONG.replace('bpm: 80', 'bpm: 100')
+  await l.save({ ...l.get(one.id), source: setName(v2, 'Проба') })
+  await l.save({ ...l.get(one.id), source: setName(v2, 'Проба') }) // the same code again: no new version
+  await l.save({ ...l.get(one.id), source: setName(v3, 'Проба') })
+  const vs = await l.versions(one.id)
+  assert.deepEqual(vs.map(v => v.source.match(/bpm: (\d+)/)[1]), ['90', '80']) // newest first
+  assert.ok(vs.every(v => isVersionFile(v.file) && dir.files.has(v.file) && v.file.startsWith('Proba.v')))
+  // versions are not songs: not in the list, not in a page built with the folder embedded
+  assert.deepEqual(l.list().map(e => e.id), [one.id])
+  await l.reload('disk')
+  assert.deepEqual(l.list().map(e => e.id), [one.id])
+  const embedded = new Library({ songs: {}, mine: Object.fromEntries([...dir.files].filter(([f]) => f.endsWith('.js')).map(([f, source]) => [f, { source, mtime: 1 }])), mineIndex: JSON.parse(dir.files.get('library.json')) })
+  assert.deepEqual(embedded.list().map(e => e.id), [one.id])
+  // a rename keeps them; at most KEEP_VERSIONS; removing the song removes them
+  await l.save({ ...l.get(one.id), source: setName(v3, 'Другая') })
+  assert.equal((await l.versions(one.id)).length, 3)
+  for (let i = 0; i < KEEP_VERSIONS + 3; i++) await l.save({ ...l.get(one.id), source: setName(SONG.replace('bpm: 80', `bpm: ${200 + i}`), 'Другая') })
+  assert.equal((await l.versions(one.id)).length, KEEP_VERSIONS)
+  assert.equal([...dir.files.keys()].filter(isVersionFile).length, KEEP_VERSIONS)
+  await l.remove(one.id)
+  assert.deepEqual([...dir.files.keys()].filter(f => f.endsWith('.js')), [])
+})
+
+test('every generator style has its scene; a song without a style gets the dark studio', async () => {
+  const { STYLES } = await import('../src/generate.js')
+  const { STYLE_THEME, THEMES, themeFor } = await import('../viz/app/themes.js')
+  for (const [id, s] of Object.entries(STYLES)) {
+    assert.equal(STYLE_THEME[id], s.theme, id)
+    assert.ok(THEMES[s.theme], `${id}: theme ${s.theme}`)
+    assert.equal(themeFor({ style: id, name: 'x' }).id, s.theme)
+  }
+  assert.equal(themeFor({ theme: 'hell', style: 'heaven' }).id, 'hell')
+  for (const song of [{ name: 'Мой проект', style: 'project' }, { name: 'песня' }, {}]) assert.equal(themeFor(song).id, 'dark') // the dark studio
 })

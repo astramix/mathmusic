@@ -463,6 +463,12 @@ function lighthouseBuoy(g, x, y, s, m, side, rgb, b = 0) {
   g.restore()
   halo(g, x, y - 3 * s, 1.8 * s, rgb, 0.15 + 0.6 * m.down)
 }
+// a thin stand with a small light that glows on the downbeat (the dark studio)
+function studiolight(g, x, y, s, m, side, rgb) {
+  g.fillStyle = 'rgba(70,75,95,0.9)'; g.beginPath(); g.rect(x - 0.05 * s, y - 2.6 * s, 0.1 * s, 2.6 * s); g.rect(x - 0.4 * s, y - 0.1 * s, 0.8 * s, 0.1 * s); g.fill()
+  g.fillStyle = 'rgba(220,225,255,0.85)'; g.beginPath(); g.arc(x, y - 2.7 * s, 0.14 * s, 0, TAU); g.fill()
+  halo(g, x, y - 2.7 * s, 1.6 * s, rgb, 0.08 + 0.3 * m.down)
+}
 // a lamp of the garden: a slim white stem, a globe of light breathing with the bar, two small wings (heaven)
 function halolamp(g, x, y, s, m, side, rgb, b = 0) {
   g.fillStyle = 'rgba(250,244,228,0.9)'; g.beginPath(); g.rect(x - 0.08 * s, y - 3.6 * s, 0.16 * s, 3.6 * s); g.rect(x - 0.5 * s, y - 0.18 * s, s, 0.18 * s); g.fill()
@@ -482,7 +488,7 @@ function brazier(g, x, y, s, m, side, rgb, b = 0) {
   g.fillStyle = 'rgba(255,220,110,0.95)'; g.beginPath(); g.moveTo(x - 0.3 * s, y - 2.5 * s); g.quadraticCurveTo(x + lean * 0.5, y - 2.5 * s - fh * 0.75, x + 0.3 * s, y - 2.5 * s); g.closePath(); g.fill()
   halo(g, x, y - 3 * s, 2.6 * s, rgb, 0.2 + 0.4 * m.kick)
 }
-const PROPS = { lighthouseBuoy, halolamp, brazier, lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir, crate, mushroom, organpipe, floodlight, pine, monitor, pixelCandle, qblock, speaker }
+const PROPS = { lighthouseBuoy, studiolight, halolamp, brazier, lamp, palm, column, spire, pylon, sakura, block, toro, rock, catpost, lantern, diya, menhir, crate, mushroom, organpipe, floodlight, pine, monitor, pixelCandle, qblock, speaker }
 
 function torii(g, cx, y, s, half, rgb, a) {
   g.fillStyle = rgba(rgb, a)
@@ -1611,6 +1617,31 @@ const SKIES = {
     onBeats(c, 4, (x, b) => speaker(g, x, c.ground, H * 0.03, m, 1, m.A, b))
   },
 
+  // ---- the dark studio (a song with no style): near black, a soft light from above breathing with the energy, a floor of
+  // thin lines coming toward us a beat at a time, a slow haze, a faint pulse on the kick — quiet, so the curves carry it
+  dark(g, c, m) {
+    const { W, H, k, hy } = c
+    const sky = g.createLinearGradient(0, 0, 0, hy)
+    sky.addColorStop(0, hsla(232, 18, 3)); sky.addColorStop(1, hsla(230, 16, 7 + 2 * m.energy))
+    g.fillStyle = sky; g.fillRect(0, 0, W, hy)
+    g.globalCompositeOperation = 'lighter'
+    halo(g, W * 0.5, -hy * 0.15, W * 0.55, m.A, 0.05 + 0.05 * m.energy + 0.06 * m.flash)
+    for (let i = 0; i < 3; i++) { const x = fr(hsh(i * 3.1) + m.time * 0.006 * (1 + i * 0.4)) * W * 1.4 - W * 0.2; halo(g, x, hy * (0.45 + 0.2 * i), W * 0.28, '150,160,200', 0.025) }
+    // a few dim points of light, each brightening on the beat it owns
+    g.fillStyle = 'rgba(210,215,240,0.5)'; g.beginPath()
+    for (let i = 0; i < 40; i++) { const a = Math.exp(-4 * fr(m.x / 4 + hsh(i * 5.1))), s = (0.6 + 1.2 * a) * k; g.rect(W * hsh(i * 2.7 + 1), hy * 0.85 * hsh(i * 7.3 + 2), s, s) }
+    g.fill()
+    g.globalCompositeOperation = 'source-over'
+    const fl = g.createLinearGradient(0, hy, 0, H)
+    fl.addColorStop(0, hsla(230, 14, 6)); fl.addColorStop(1, hsla(232, 18, 2))
+    g.fillStyle = fl; g.fillRect(0, hy, W, H - hy)
+    g.globalCompositeOperation = 'lighter'
+    floorGrid(g, c, m, m.A, 0.07 + 0.08 * m.kick, true)
+    g.globalCompositeOperation = 'source-over'
+    g.fillStyle = `rgba(150,165,230,${0.05 + 0.05 * m.kick})`; g.fillRect(0, hy - 0.5 * k, W, k)
+    onBeats(c, 4, (x, b) => studiolight(g, x, c.ground, H * 0.03, m, 1, m.A, b))
+  },
+
   // ---- heaven (the white garden of the dream): dawn above a sea of clouds — the light behind a gate dissolving in the
   // haze, its rays turning a step a bar, an angel made of light whose wings open with every phrase, feathers falling,
   // glints flashing on their beats, the clouds rolling toward us
@@ -1935,6 +1966,7 @@ const ROAD = {
   mystery: { prop: 'qblock', every: 4 },
   favela: { prop: 'speaker', every: 4 },
   storm: { prop: 'lighthouseBuoy', every: 4, rgb: '255,90,80' },
+  dark: { prop: 'studiolight', every: 4 },
   heaven: { prop: 'halolamp', every: 4, rgb: '255,236,180' },
   hell: { prop: 'brazier', every: 4, rgb: '255,120,40', span: 'lancet', spanEvery: 16 },
 }

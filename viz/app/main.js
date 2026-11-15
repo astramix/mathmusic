@@ -157,6 +157,11 @@ async function open(idOrEntry, from = 0, opts = {}) {
   app.current = { id: entry.id, entry, source, song, key, tracks }
   setScene(song, tracks, key, false)
   buildLegend()
+  // a scene fixed in Вид → Тема stays for every song: say so once, with the way back to «по стилю песни»
+  if (V.theme !== 'auto' && THEMES[V.theme] && themeFor(song).id !== V.theme && !app.fixedThemeSaid) {
+    app.fixedThemeSaid = true
+    toast(`🎨 фон закреплён: «${THEMES[V.theme].label}» — у этой песни свой («${THEMES[themeFor(song).id]?.label}»)`, { ms: 9000, action: { label: 'по стилю песни', run: () => setTheme('auto') } })
+  }
   refreshSongList()
   $('song').value = entry.id
   $('hint').style.display = 'none'
@@ -176,6 +181,10 @@ async function open(idOrEntry, from = 0, opts = {}) {
   updatePlayButton()
   updateLoopButton()
   if (!opts.ab) app.masterSong?.()
+  if (!opts.source && app.drafts.has(entry.id) && app.current?.entry === entry) {
+    toast(entry.kind === 'builtin' ? `✎ «${entry.name}» открыта с твоими несохранёнными правками — сама встроенная песня не менялась` : `✎ «${entry.name}» открыта с несохранёнными правками`,
+      { ms: 9000, action: { label: entry.kind === 'builtin' ? '↺ оригинал' : '↺ сохранённая', run: revertCurrent } })
+  }
   app.editor?.load(app.current)
   app.pianoroll?.load?.(app.current)
   if (app.scoreview?.visible) app.scoreview.load(app.current)
@@ -388,6 +397,44 @@ async function revertCurrent() {
   if (cur.source !== cur.entry.source || cur.broken) await apply(cur.entry.source, { of: cur })
   app.pianoroll?.load?.(cur)
   toast('↺ вернулась сохранённая версия')
+}
+// Песня → «Прошлые версии…»: every save that wrote over a song kept what was there (my_songs/<name>.v<date>.js); a copy of
+// a built-in song can go back to that original too. Picking one opens it as unsaved edits at the same beat — Ctrl+S keeps it
+// (and the code it replaces becomes a version in its turn), ↺ goes back.
+async function versionsDialog() {
+  const cur = app.current
+  if (!cur) return
+  const e = cur.entry, list = e.kind === 'builtin' ? [] : await app.lib.versions(cur.id).catch(() => [])
+  const base = e.kind === 'builtin' ? e : e.base?.startsWith('builtin:') ? app.lib.get(e.base) : null
+  const when = t => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const rows = [
+    ...(app.dirty(cur) ? [{ label: 'сейчас — несохранённые правки', note: 'то, что звучит', current: true }] : []),
+    ...(e.kind !== 'builtin' ? [{ label: `сохранённая — ${when(e.updated ?? Date.now())}`, source: e.source, saved: true, current: !app.dirty(cur) }] : []),
+    ...list.map(v => ({ label: when(v.at), note: v.name && v.name !== e.name ? `называлась «${v.name}»` : '', source: v.source })),
+    ...(base ? [{ label: `встроенный оригинал «${base.name}»`, note: 'как в проекте', source: base.source, saved: e.kind === 'builtin', current: e.kind === 'builtin' && !app.dirty(cur) }] : []),
+  ]
+  const box = h('div', {}, h('p', { html: e.kind === 'builtin'
+    ? 'Встроенная песня не меняется: правки — это черновик, а <kbd>Ctrl+S</kbd> сохраняет копию в my_songs.'
+    : `Каждое сохранение, которое что-то меняет, оставляет прошлую версию рядом (my_songs/…<b>.v</b>дата<b>.js</b>, до ${30} штук). Выбранная откроется как несохранённые правки с того же места — <kbd>Ctrl+S</kbd> оставит её.` }))
+  if (rows.length <= 1 && !list.length) box.append(h('p', { style: 'opacity: 0.7' }, 'Прошлых версий пока нет — они появятся после следующего сохранения поверх этой.'))
+  const ul = h('div', { class: 'versions' })
+  for (const r of rows) {
+    ul.append(h('div', { class: 'vrow' + (r.current ? ' on' : '') },
+      h('span', { class: 'vl' }, r.label, r.note ? h('small', {}, ' · ' + r.note) : ''),
+      r.current ? h('small', {}, '▶ звучит') : h('button', { onclick: async () => {
+        dlg.close()
+        await restoreVersion(cur, r.source, r.saved, r.label)
+      } }, r.saved ? '↺ вернуть' : 'открыть')))
+  }
+  box.append(ul)
+  const dlg = modal('🕘 Прошлые версии — ' + e.name, box, [{ label: 'Закрыть', primary: true }])
+}
+async function restoreVersion(cur, source, saved, label) {
+  if (app.current !== cur) return
+  if (saved) return revertCurrent()
+  app.drafts.put(cur.id, source, cur.entry.source)
+  await open(cur.id, player.x)
+  toast(`🕘 открыта версия «${label}» — Ctrl+S, чтобы оставить её`, { ms: 7000, action: { label: '↺ назад', run: revertCurrent } })
 }
 async function saveToFolder(choose) {
   const cur = app.current
@@ -691,6 +738,7 @@ menubar($('menus'), [
       { icon: '✚', label: 'Новая песня из шаблона (код)', action: newSong },
       { icon: '📂', label: 'Открыть файл .js…', action: openFile },
       { icon: '💾', label: 'Сохранить в my_songs', kbd: 'Ctrl+S', action: saveCurrent },
+      { icon: '🕘', label: 'Прошлые версии…', action: versionsDialog, disabled: () => !app.current, note: 'каждое сохранение поверх оставляет прошлую версию; у встроенной — её оригинал' },
       { icon: '⧉', label: 'Дублировать', action: () => duplicateSong(), disabled: () => !app.current, note: 'копия под новым именем — с правками, как сейчас в коде' },
       { icon: '✎', label: 'Переименовать…', action: () => renameSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },
       { icon: '🗑', label: 'Удалить', action: () => deleteSong(), disabled: () => !app.current || app.current.entry.kind === 'builtin' },

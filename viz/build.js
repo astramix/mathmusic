@@ -24,7 +24,7 @@ export async function build({ quiet = false, mine: withMine = true } = {}) {
   const formulas = (await import(pathToFileURL(path.join(ROOT, 'viz/formulas.js')).href + `?${Date.now()}`)).default
   // my_songs/: shown at once; the page reads the folder itself again once it may (viz/app/library.js)
   const mineDir = path.join(ROOT, 'my_songs')
-  const mine = withMine && fs.existsSync(mineDir) ? Object.fromEntries(jsIn('my_songs').map(f => [f, { source: text(`my_songs/${f}`), mtime: fs.statSync(path.join(mineDir, f)).mtimeMs }])) : {}
+  const mine = withMine && fs.existsSync(mineDir) ? Object.fromEntries(jsIn('my_songs').filter(f => !f.slice(0, -3).includes('.')).map(f => [f, { source: text(`my_songs/${f}`), mtime: fs.statSync(path.join(mineDir, f)).mtimeMs }])) : {}
   let mineIndex = null
   try { if (withMine) mineIndex = JSON.parse(read('my_songs/library.json')) } catch {}
   // generated/: the untouched 🎲 songs, the same way

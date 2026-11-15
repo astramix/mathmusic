@@ -32,6 +32,7 @@ export const THEMES = {
   storm: { label: 'Ночная буря', hue: 215, sat: 30, light: 5, star: '210,225,255', accent: '#8fb8ff', accent2: '#ffd27a', deco: 'rain' },
   heaven: { label: 'Райский сад', hue: 40, sat: 38, light: 8, star: '255,244,214', accent: '#ffd98a', accent2: '#a8d8ff', deco: 'gold' },
   hell: { label: 'Преисподняя', hue: 8, sat: 60, light: 5, star: '255,170,120', accent: '#ff5a2a', accent2: '#ffc04a', deco: 'grain' },
+  dark: { label: 'Тёмная студия', hue: 230, sat: 12, light: 3, star: '200,205,225', accent: '#9aa8ff', accent2: '#c8d0e8', deco: 'stars' },
   jazz: { label: 'Джаз-клуб', hue: 220, sat: 40, light: 6, star: '200,220,255', accent: '#7fb0ff', accent2: '#ffc56b', deco: 'grain' },
 }
 const BY_NAME = {
@@ -39,8 +40,20 @@ const BY_NAME = {
   gothic: 'gothic', synthwave: 'synth', dnb: 'dnb', phonk: 'phonk', meow: 'meow', hardstyle: 'phonk', example: 'void',
   jbattle: 'ink', romantic: 'romantic', maqam: 'desert', fugue: 'classical', raga: 'india', gamelan: 'java', celtic: 'celtic', jazz: 'jazz',
 }
+// every generator style's own theme (as STYLES[id].theme in src/generate.js says — test/library.test.js keeps them equal), so a
+// song that names only its style still gets its scene
+export const STYLE_THEME = {
+  lofi: 'lofi', bossa: 'bossa', chiptune: 'chip', synthwave: 'synth', classical: 'classical', fugue: 'classical', organ: 'cathedral', maqam: 'desert',
+  raga: 'india', gamelan: 'java', jazz: 'jazz', celtic: 'celtic', ambient: 'void', romantic: 'romantic', jbattle: 'ink', kawaii: 'kawaii', space: 'void',
+  meow: 'meow', boss: 'chip', edm: 'dnb', disco: 'synth', epic: 'arena', factory: 'factory', factorycave: 'factory', factorydanger: 'factory',
+  darkecho: 'gothic', ishope: 'phonk', prime: 'void', brinstar: 'jungle', montagem: 'mystery', velora: 'favela', xperror: 'xp', keygen: 'keygen',
+  nightstorm: 'storm', heaven: 'heaven', hell: 'hell', nordic: 'snow', artifact: 'java', zunpet: 'ink', oldzun: 'chip', fight: 'arena', babushka: 'synth',
+  podskazka: 'chip', hardstyle: 'phonk', phonk: 'phonk', breakcore: 'dnb',
+}
+// a song that says nothing of its style (a project, a song of your own) gets the dark studio — not a style's landscape
 export function themeFor(song) {
-  const id = song?.theme ?? BY_NAME[song?.style] ?? BY_NAME[song?.name] ?? 'void'
+  const s = song?.style, g = song?.generator?.style
+  const id = (THEMES[song?.theme] && song.theme) ?? BY_NAME[s] ?? STYLE_THEME[s] ?? STYLE_THEME[g] ?? BY_NAME[song?.name] ?? 'dark'
   return { id, ...(THEMES[id] ?? THEMES.void) }
 }
 // UI tokens follow the theme accent

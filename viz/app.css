@@ -275,3 +275,9 @@ li.CodeMirror-hint-active { background: color-mix(in srgb, var(--accent) 40%, tr
 .masterpanel .mmeters { border-top: 1px solid var(--line); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
 .masterpanel .mbar { flex: 1; height: 7px; background: #ffffff14; border-radius: 4px; overflow: hidden; }
 .masterpanel .mbar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .08s linear; }
+
+/* Песня → Прошлые версии */
+.versions { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow: auto; margin-top: 8px }
+.versions .vrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: 6px; background: #ffffff0d }
+.versions .vrow.on { outline: 1px solid var(--accent) }
+.versions .vl small { opacity: 0.65 }

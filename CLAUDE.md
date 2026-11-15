@@ -689,8 +689,14 @@ opened as a file the page reaches generated/ only when the project folder was ch
 as a directory handle), opened as a file through File System Access (dialog starts in Documents after an
 explaining modal; the handle is kept in IndexedDB, the browser may ask to allow it again per session); a song saved before the folder is connected waits in
 IndexedDB (`where: 'pending'`) and moves in on connect; unique names, file names transliterated, a renamed
-song moves to its new file; "write to songs/" asks before replacing; tabs synced via a localStorage ping) ·
-themes.js · scenery.js (Вид → «Тематический фон», `app.view.scenery`, on by default, also in videos: a landscape per theme —
+song moves to its new file; **versions**: a save that changes a song's file keeps what was there as <stem>.v<YYYYMMDD-HHMMSS>.js beside it (a song's own
+file never has a dot; library.json lists them under the song, newest last; 30 at most; they go with the song; never read as songs, nor embedded) —
+Песня → «🕘 Прошлые версии…» (`lib.versions(id)`; a copy of a built-in also offers its original; a version opens as a draft at the same beat,
+Ctrl+S keeps it); a built-in song never changes — edits are a draft (opening a song with a draft says so, with ↺), Ctrl+S makes a copy in my_songs/;
+"write to songs/" asks before replacing; tabs synced via a localStorage ping) ·
+themes.js (`themeFor`: song.theme → `STYLE_THEME` (every generator style's theme; test/library.test.js keeps it equal to STYLES) → 'dark'
+— the dark studio for a song with no style: projects, your own; a theme pinned in Вид → Тема is said once, with «по стилю песни») · scenery.js (Вид → «Тематический фон», `app.view.scenery`, on by default, also in videos: a landscape per theme — the dark studio (near black, a
+soft light from above, a floor of thin lines a beat at a time, stands with small lights; songs with no style),
 space, rainy city, 8-bit hills, sunset sea, sakura, baroque hall, rose window + pointed arcade, outrun sun + grid, neon tunnel,
 drift road, cats on roofs, ink mountains + torii, moonlit lake, jazz club, a factory at dusk (smokestacks, gears turning a tooth a beat, crates
 stepping on a conveyor, sparks on the kick: factory styles), Brinstar's jungle (glowing roots and bulbs, spores, bubbles), a cathedral's
