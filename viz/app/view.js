@@ -314,7 +314,8 @@ export class Scene {
 
   drawClassic(g, o) {
     const { W, H } = o, k = o.scale ?? 1, x = this.x, tl = o.timeline !== false ? 44 * k : 0
-    const span = o.zoom * (1 - 0.06 * this.energy), ph = W * (o.playhead ?? 0.62), px = W / span
+    // (the zoom used to breathe with the loudness — 6 % —: the scenery scrolls by x · px, so far into a song every beat threw it a hundred pixels aside)
+    const span = o.zoom, ph = W * (o.playhead ?? 0.62), px = W / span
     const X = b => ph + (b - x) * px, Bx = sx => x + (sx - ph) / px
     const top = o.top ?? 0.12, Yf = y => top * H + (1 - top - 0.12) * H * (Y_MAX - y) / (Y_MAX - Y_MIN)
     const xa = Bx(0), xb = Bx(W)
@@ -870,6 +871,6 @@ export class Scene {
     g.globalCompositeOperation = 'source-over'
     this.drawSectionTitle(g, W, H, k, 0.2)
     if (o.timeline !== false) this.drawTimeline(g, o, W, H, k)
-    return null
+    return { tl: o.timeline !== false ? 44 * k : 0 } // the timeline is there: a click on it seeks, Shift + drag loops (main.js)
   }
 }
