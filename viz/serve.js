@@ -33,6 +33,32 @@ export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: tr
       const url = new URL(req.url, 'http://localhost')
       if (url.pathname === '/' && req.method === 'GET') return send(200, fs.readFileSync(await html()), 'text/html; charset=utf-8')
       if (url.pathname === '/api/hello') return send(200, JSON.stringify({ app: 'mathmusic' }), 'application/json')
+      // the user's VST plugins (src/vst.js): GET /api/vst → the plugins (with their programs) and the local presets;
+      // POST /api/vst/render { plugin, preset, program, notes: [[s, s, MIDI, vel]], seconds, sr } → float32 L then R (x-samples)
+      if (url.pathname === '/api/vst' || url.pathname === '/api/vst/render') {
+        if (req.headers[HEADER] !== '1') return send(403, 'header')
+        const vst = await import('../src/vst.js')
+        if (url.pathname === '/api/vst' && req.method === 'GET') {
+          const plugins = []
+          for (const p of vst.scanPlugins()) {
+            let info = null
+            if (p.hosted) try { info = await vst.pluginInfo(p) } catch {}
+            plugins.push({ name: p.name, kind: p.kind, bits: p.bits, hosted: p.hosted && !!info, programs: info?.programs ?? [], synth: info?.synth ?? null })
+          }
+          return send(200, JSON.stringify({ host: process.platform === 'win32', plugins, presets: vst.listPresets() }), 'application/json')
+        }
+        if (url.pathname === '/api/vst/render' && req.method === 'POST') {
+          const chunks = []
+          for await (const c of req) chunks.push(c)
+          const q = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+          const { L, R } = await vst.renderPart({ plugin: q.plugin, preset: q.preset ?? null, program: q.program ?? null, notes: q.notes ?? [], seconds: +q.seconds, sr: +q.sr || 44100 })
+          const n = Math.min(L.length, Math.ceil(+q.seconds * (+q.sr || 44100))), out = new Float32Array(2 * n)
+          out.set(L.subarray(0, n), 0)
+          out.set(R.subarray(0, n), n)
+          return send(200, Buffer.from(out.buffer), 'application/octet-stream', { 'x-samples': String(n) })
+        }
+        return send(405)
+      }
       const m = url.pathname.match(/^\/api\/(mine|gen|songs|export\/(?:mp3|wav|ogg|midi|stems|tuning|musicxml|code|video))(?:\/([^/]+))?$/)
       if (!m) return send(404, 'not found')
       const dir = dirs[m[1]], name = m[2] && decodeURIComponent(m[2])

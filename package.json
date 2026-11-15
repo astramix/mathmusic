@@ -11,6 +11,7 @@
     "viz": "node viz/build.js",
     "dev": "node viz/watch.js",
     "generate": "node generate.js",
-    "test": "node --test --test-reporter=spec \"test/*.test.js\""
+    "test": "node --test --test-reporter=spec \"test/*.test.js\"",
+    "vst": "node vst/build.js --force"
   }
 }

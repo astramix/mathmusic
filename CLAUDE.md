@@ -56,6 +56,14 @@ Open a source file only to change it or when something here is unclear.
   `x-mathmusic: 1` header, plain file names only). `npm run viz` builds the standalone `MathMusic Live.html`
   (render.js rebuilds it too; opened as a file it saves via File System Access); `npm run dev` rebuilds on
   every change. See "The app" below.
+- **The user's VST plugins** (real sounds, not imitations — the user wants their DSK instruments as in Ableton): `npm run vst` builds
+  vst/bin/vsthost32.exe + vsthost64.exe from vst/vsthost.cs (our own VST 2.4 host, C# 5, Windows' csc; 32-bit plugins load directly — no
+  jBridge). `node tools/als.mjs info|notes|presets <set.als | folder>` reads Ableton sets; `presets` copies every plugin's state (bank
+  chunk + program) into ~/.mathmusic/vst-presets/<plugin>/<set> — <track>.json — **local, never in git** (the user's choice). A track
+  with `vst: { plugin, preset, program, octaves, gain }` is played through that plugin by render.js (`--no-vst`: its math sound),
+  viz/serve.js and MathMusic.exe (GET /api/vst, POST /api/vst/render; the exe carries the hosts beside it); elsewhere (APK, a page
+  opened as a file, no plugin) the track's own audio plays. See "VST plugins" below.
+- `MM_VST_TRACE=1 vst/bin/vsthost64.exe --info <dll>`: every step and host call on stderr (where a plugin stops).
 - `npm run device` rebuilds `MathMusic.amxd` (only after moving the folder).
 - `node tools/from-audio.mjs file.wav [--name N] [--lead 49-80] [--bass a-b] [--keys a-b] [--seed 1] [--songs 1] [--render]`
   → a style from a recording (out/<audio-id>/style.json; `--style-json` that file generates again) and songs/<title>.js.
@@ -83,6 +91,9 @@ export default {
   //   | meters: [[0, '4/4'], [120, '7/8'], …] per section — for the score (plain '9/8' is compound 3+3+3)
   // optional: parts: ['violin', 'viola', 'cello'] — the score's staves (else guessParts); signature: 'home' — with `keys`: the
   //   signature stays the home key's, the local keys only spell the notes (a fugue's entries, as Bach wrote them)
+  // optional per track: vst: { plugin: 'DSK ChoirZ', preset: 'Magma depths — 4-DSK ChoirZ', program, octaves: [0, -12], gain } —
+  //   where that plugin is installed (Windows: render.js, the exe, Visualizer.bat) the track's midi() notes play through it
+  //   (src/vst.js); anywhere else its audio() as always
   // optional: mode: 'rast' (a modes.js id — a microtonal one makes the app spell E𝄳, B♭¹, D♯−37¢);
   //   tuning: { id: 'werckmeister3', name, offsets: [12 cents of C … B from 12-TET] } — what the song sounds in (export, inspector)
 }
@@ -226,6 +237,30 @@ the bass weighted and hysteresis (lofi → Gm9 C13 Fmaj9 Dm9). `keySignature`: k
 microtonal mode written out (Rast: B𝄳 E𝄳; Turkish Rast: B♭¹ F♯⁴ — flats first). `musicXml(score)` → MusicXML 4.0 (valid
 against the XSD): <alter> exact, <accidental> SZG names / koron / sori / smufl="accidentalKomaFlat", <key-step>/<key-alter>,
 <harmony>, rehearsal marks, metronome, <swing>, tuplets, grace, cents of a measured scale as lyrics.
+
+## VST plugins (src/vst.js, vst/, tools/als.mjs, viz/app/vstclient.js — Node and the app, not songs)
+How it was found (2026-11-15): the user's DSK plugins are 32-bit VST2 DLLs of 2010 (samples inside, 27–56 MB) in C:\Program Files\VSTPlugX;
+C:\Program Files\VSTPlugins holds 3.5 KB jBridge stubs (x64) whose .txt names the original — jBridge only exists because 64-bit Ableton can't
+load 32-bit DLLs. Our host renders a part exactly as Live does: checked against Ableton's own Freeze of the same notes — envelope r 0.996,
+1/3-octave spectrum r 1.000, level within 0.1 dB.
+**vst/vsthost.cs**: LoadLibrary → VSTPluginMain | main → AEffect (offsets for 32 and 64 bit: pointers aligned to their size), effOpen,
+setSampleRate, setBlockSize (256), **effSetChunk (index 0 = the bank, Live's 'FBCh')** from the user's set, effSetProgram (−1: as the chunk
+left it), mains on, startProcess; per block effProcessEvents (VstMidiEvent: note on/off at sample offsets) then processReplacing; offline
+(process level 4), a time info at 120 BPM; writes a 32-bit float stereo WAV. `--info`: name, vendor, uniqueId, outputs, synth, programs
+(effGetProgramNameIndexed). **src/vst.js**: `PLUGIN_DIRS` (+ MATHMUSIC_VST_PATH), `scanPlugins()` (stubs followed by `resolveStub`, bits by
+`peBits`, VST3 listed but not hosted — Serum2, DSK Asian DreamZ), `pluginInfo` (cached in ~/.mathmusic/vst-cache/info.json), presets
+(`savePreset`, `listPresets`, `readPreset`), `renderPart({ plugin, preset, program, notes: [[s, s, MIDI, vel]], seconds, sr })` (async host
+process, cached by a hash of everything in ~/.mathmusic/vst-cache/), `partNotes(track, song)` (readTrackNotes on midi(), × octaves),
+`vstStems(song)` (every part at once) → engine `render(song, { stems })` uses them instead of audio(). **tools/als.mjs**: `readSet(file)` →
+tempo, tracks: plugin (name, file, uniqueId, program, chunk, bank), notes (arrangement clips: CurrentStart/End = the place, notes counted
+from LoopStart, looped when LoopOn, disabled notes left out), clips, drum pads (ReceivingNote = 128 − MIDI, sample, transpose, volume).
+**The app**: viz/app/vstclient.js asks /api/vst once, sends a track's notes to /api/vst/render, the player puts that audio in place of the
+workers' for the track chunk by chunk (`finish`), refreshing from just ahead of the playhead when it arrives; renderSong (exports, video) the
+same. Not working yet: BellsEbuth (64-bit) crashes inside its own VSTPluginMain right after audioMasterVersion; VST3 needs another host.
+Styles may name plugins per recipe: `S.vst = { recipe: { plugin, preset, octaves, gain } }` (generate.js adds the field to those tracks with
+`withField`; nothing changes for styles without it). Magma Depths: DSK Strings (theme in octaves, low strings), DSK ChoirZ (the call, the
+pad), DSK Virtuoso, Church Organ, DSK World StringZ — each with its preset from «Magma depths», gains measured.
+test/vst.test.js: a set read, a stub followed, PE bits, given stems, octaves; a real ChoirZ render where it is installed.
 
 ## master.js (the master bus — the worklet, export, render.js --master, tests)
 `masterChain(params, sr)` → process(l, r) (delayed by `latency`): side signal high-passed below `monoBelow` (LR4), × `width`;

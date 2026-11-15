@@ -24,3 +24,8 @@ generated/
 # every export (Экспорт → MP3, WAV, MIDI, стемы, видео…), each kind in its folder; videos/ = older videos
 exports/
 videos/
+
+# the VST hosts — rebuild with `npm run vst`
+vst/bin/
+vsthost32.exe
+vsthost64.exe

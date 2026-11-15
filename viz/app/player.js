@@ -12,6 +12,7 @@
 //   · A/B: the rendered audio of the last few versions is kept, so switching to the other one is instant — it
 //     cross-fades in at the same beat, matched in loudness if asked (trim).
 import { makeRuntime, compile, trackList, SR, TAIL } from './runtime.js'
+import { vstTracks, vstAudio, sliceOf } from './vstclient.js'
 
 export const CH = 8192 // samples per chunk
 let wurl = null
@@ -49,6 +50,7 @@ export class Player extends EventTarget {
     this.loop = null // { a, b } in samples of the song
     this.kept = new Map() // source → { cache, peak } of earlier versions
     this.trim = 1 // a loudness match for A/B
+    this.vst = new Map() // track → { L, R }: its audio from the user's VST plugin (vstclient.js), used instead of the workers'
   }
   // the song position (samples) of virtual position v
   songAt(v) {
@@ -205,6 +207,30 @@ export class Player extends EventTarget {
     this.chunks = Math.ceil(this.end / CH)
     this.mask = this.maskOf()
     this.ended = false
+    this.loadVst(song, source)
+  }
+  // tracks played through the user's VST plugins (MathMusic.exe, Visualizer.bat): their audio comes from the server once and
+  // replaces the workers' for those tracks chunk by chunk; until it arrives (or anywhere else) the track's own sound plays
+  async loadVst(song, source) {
+    const list = await vstTracks(song, trackList)
+    for (const k of [...this.vst.keys()]) if (!list.some(([key]) => key === k)) this.vst.delete(k)
+    for (const [k, t] of list) {
+      vstAudio(song, t, { sr: SR, seconds: this.end / SR }).then(a => {
+        if (this.source !== source || this.vst.get(k) === a) return
+        this.vst.set(k, a)
+        this.refreshVst()
+      }).catch(e => this.emit('problem', { key: k, message: `VST «${t.vst.plugin}»: ${e.message}` }))
+    }
+  }
+  // the rendered audio again from just ahead of the playhead, with the plugins' tracks in
+  refreshVst() {
+    if (!this.node || !this.song) return
+    const at = Math.min(this.fed ?? 0, Math.max(0, Math.round(this.vpos + 0.15 * SR)))
+    this.cache = new Map()
+    this.stems = new Map()
+    this.node.port.postMessage({ type: 'cut', at })
+    this.fed = at
+    this.restart(Math.floor(Math.min(this.end - 1, this.songAt(at)) / CH))
   }
   maskOf() {
     return this.keys.filter(k => this.muted.has(k)).join('|')
@@ -253,6 +279,7 @@ export class Player extends EventTarget {
   }
   // mix the stems of one chunk → cache; per-track levels for the meters
   finish(idx, stems, n) {
+    for (const [k, a] of this.vst) if (this.keys.includes(k)) stems[k] = sliceOf(a, idx * CH, n)
     const nt = this.keys.length, nb = Math.ceil(n / BLOCK), levels = new Float32Array(nb * nt)
     this.keys.forEach((k, j) => {
       const s = stems[k]
@@ -493,6 +520,11 @@ export async function renderSong(SRC, source, { muted = new Set(), only = null, 
   const k = Math.max(1, Math.min(keys.length, 6, (navigator.hardwareConcurrency || 4) - 1))
   const groups = Array.from({ length: k }, () => [])
   keys.forEach((key, i) => groups[i % k].push(key))
+  // the tracks played through the user's VST plugins: their audio from the server (vstclient.js) instead of the workers'
+  const vst = new Map()
+  for (const [k, t] of await vstTracks(song, trackList)) if (keys.includes(k)) {
+    try { vst.set(k, await vstAudio(song, t, { sr: SR, seconds: end / SR })) } catch (e) { onProblem({ key: k, message: `VST «${t.vst.plugin}»: ${e.message}` }) }
+  }
   const L = new Float32Array(chunks * CH), R = new Float32Array(chunks * CH)
   const nt = keys.length, levels = new Float32Array(Math.ceil((chunks * CH) / BLOCK) * nt)
   const stats = Object.fromEntries(keys.map(k => [k, { peak: 0, sum: 0, nan: false }]))
@@ -510,7 +542,8 @@ export async function renderSong(SRC, source, { muted = new Set(), only = null, 
         }
         if (d.type === 'ready' || d.type === 'chunk') {
           if (d.type === 'chunk') {
-            for (const [key, s] of Object.entries(d.stems)) {
+            for (const [key, s0] of Object.entries(d.stems)) {
+              const s = vst.has(key) ? sliceOf(vst.get(key), d.start, d.n) : s0
               if (!s) continue
               const j = keys.indexOf(key), on = !muted.has(key), st = stats[key]
               for (let t = 0; t < d.n; t++) {

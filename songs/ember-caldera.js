@@ -216,6 +216,7 @@ const counterAt = x => {
 
 // ---- stringsection -----------------------------------------------------------------------------
 const track0 = {
+  vst: {"plugin":"DSK Strings","preset":"Magma depths — 3-DSK Strings","octaves":[0,-12],"gain":4.5},
   color: '#e8b08a',
   graph: x => { const m = leadAt(x); return m ? 1.1 + (m.n + 5) * 0.0559 : null },
   midi: x => { const m = leadAt(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
@@ -233,6 +234,7 @@ const track0 = {
 
 // ---- depthchoir --------------------------------------------------------------------------------
 const track1 = {
+  vst: {"plugin":"DSK ChoirZ","preset":"Magma depths — 4-DSK ChoirZ","octaves":[0,-12],"gain":3},
   color: '#e6c3ff',
   graph: x => { const m = lead2At(x); return m ? 1 + (m.n + 5) * 0.0559 : null },
   midi: x => { const m = lead2At(x); return m && m.u < 0.95 ? [60 + m.n] : [] },
@@ -253,6 +255,7 @@ const track1 = {
 
 // ---- stringsection counter ---------------------------------------------------------------------
 const track2 = {
+  vst: {"plugin":"DSK Strings","preset":"Magma depths — 3-DSK Strings","octaves":[0,-12],"gain":4.5},
   color: '#e8b08a',
   graph: x => { const m = counterAt(x); return m ? 0.8 + (m.n + 5) * 0.0471 : null },
   midi: x => { const m = counterAt(x); return m && m.u < 0.92 ? [60 + m.n] : [] },
@@ -270,6 +273,7 @@ const track2 = {
 
 // ---- fifthorgan --------------------------------------------------------------------------------
 const track3 = {
+  vst: {"plugin":"Church Organ","preset":"Magma depths — 1-Church Organ","gain":1.3},
   color: '#c9783a',
   graph: x => { const c = chordAt(x); return c && energy(x) >= 0 && x < END - 1 ? [c[2], c[2] + 12, c[2] + 19].map(n => -1 + (n - 28) / 22) : null },
   midi: x => { const c = chordAt(x); return c && energy(x) >= 0 && x < END - 1 && x - c[0] < c[1] - 0.05 ? [...new Set([c[2], c[2] + 12, c[2] + 19, ...c[3]])].sort((a, b) => a - b) : [] },
@@ -290,6 +294,7 @@ const track3 = {
 
 // ---- strings -----------------------------------------------------------------------------------
 const track4 = {
+  vst: {"plugin":"DSK Strings","preset":"Magma depths — 6-DSK Strings","gain":1},
   color: '#d9b8ff',
   graph: x => (padOn(x) ? chordAt(x)[3].map(n => -1.7 + (n - 48) / 30) : null),
   midi: x => (padOn(x) && mod(x, 4) < 3.9 ? chordAt(x)[3].map(n => n - 12 * (n > 64)) : []),
@@ -307,6 +312,7 @@ const track4 = {
 const track5 = (() => {
   const lowAt = x => { const c = chordAt(x); return c && energy(x) >= 0 && x < END - 1 ? { n: c[2], at: c[0], d: c[1] } : null }
   return {
+  vst: {"plugin":"DSK Strings","preset":"Magma depths — 6-DSK Strings","gain":1.7},
   color: '#b0703a',
   graph: x => (lowAt(x) ? -3 + (lowAt(x).n - 28) / 24 : null),
   midi: x => { const m = lowAt(x); return m && x - m.at < m.d - 0.1 ? [m.n, m.n - 12] : [] },
@@ -336,6 +342,7 @@ const track6 = (() => {
     return { n: c[2] + 24 + above(degOf(c[2]), FIG[mod(j, 16)]), at: j / 2, vel: mod(j, 4) === 0 ? 0.8 : 0.55, side: mod(j, 2) ? 0.4 : -0.4 }
   }
   return {
+  vst: {"plugin":"DSK World StringZ","preset":"Magma depths — 8-DSK World StringZ","gain":1},
   color: '#ffb36b',
   graph: x => { const m = arpAt(x); return m && x - m.at < 0.2 ? 0.3 + (m.n - 60) / 30 : null },
   midi: x => { const m = arpAt(x); return m && x - m.at < 0.45 ? [m.n] : [] },

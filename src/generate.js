@@ -678,6 +678,18 @@ export const STYLES = {
       [['врата', 8, 'intro', 1], ['глубины', 8, 'theme', 2], ['лавовый поток', 16, 'themeB', 2], ['пепельный хор', 8, 'bridge', 1], ['струны', 8, 'solo', 2], ['раскол', 4, 'build', 2], ['ядро', 16, 'final', 3], ['остывание', 8, 'outro', 1]],
     ],
     drums: {}, comp: {}, bassline: [[0, 'R', 3.9]], arpStep: 0.5, arpPoly: false,
+    // the user's own plugins with their settings from «Magma depths» (src/vst.js; presets imported by tools/als.mjs presets);
+    // gain: their levels against each other (measured with render.js)
+    vst: {
+      stringsection: { plugin: 'DSK Strings', preset: 'Magma depths — 3-DSK Strings', octaves: [0, -12], gain: 4.5 },
+      depthchoir: { plugin: 'DSK ChoirZ', preset: 'Magma depths — 4-DSK ChoirZ', octaves: [0, -12], gain: 3 },
+      choirpad: { plugin: 'DSK ChoirZ', preset: 'Magma depths — 5-DSK ChoirZ', gain: 0.75 },
+      piano: { plugin: 'DSK Virtuoso', preset: 'Magma depths — 2-DSK Virtuoso' },
+      fifthorgan: { plugin: 'Church Organ', preset: 'Magma depths — 1-Church Organ', gain: 1.3 },
+      bowedoctaves: { plugin: 'DSK Strings', preset: 'Magma depths — 6-DSK Strings', gain: 1.7 },
+      strings: { plugin: 'DSK Strings', preset: 'Magma depths — 6-DSK Strings', gain: 1 },
+      magmaarp: { plugin: 'DSK World StringZ', preset: 'Magma depths — 8-DSK World StringZ', gain: 1 },
+    },
   },
   // The North (in the spirit of a Skyrim score): men chanting the theme in octaves, horns, spiccato strings in 3 + 3 + 2,
   // low strings, a kantele's rolling figure, war drums (a great drum in 3 + 3 + 2, frame drums, a field snare), the
@@ -1536,6 +1548,17 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   if (club) T('kick', clubKickTrack({ need, kick: S.club.sound, gain: S.gains?.kick }))
   T('drums', KITS[S.kit]({ need, drums: S.drums, sound: S.kitSound, ...extra }))
   if (inst.texture) T(inst.texture, TEXTURES[inst.texture]({ need, ...extra }))
+  // the user's own plugins (src/vst.js): a style may name, per recipe, the VST plugin and the preset (from the user's sets, kept
+  // on their computer) its track is played through where that plugin is installed — the track's own sound stays for elsewhere
+  if (S.vst) {
+    const recipeOf = { [String(inst.lead)]: inst.lead, [inst.lead2 === inst.lead ? inst.lead2 + ' II' : inst.lead2]: inst.lead2, [counterVoice + ' counter']: counterVoice, [String(inst.chords)]: inst.chords, bass: inst.bass }
+    if (inst.pad) recipeOf[inst.pad === 'strings' ? 'strings' : inst.pad] = inst.pad
+    if (inst.arp) recipeOf[inst.arp + ' arp'] = inst.arp
+    for (const t of tracks) {
+      const v = S.vst[recipeOf[t.name]]
+      if (v) t.code = withField(t.code, `vst: ${JSON.stringify(v)},`)
+    }
+  }
 
   // unique keys
   const seen = {}
@@ -6011,6 +6034,13 @@ const TIMBRE = {
 }
 // a recipe by id, the style's resynthesised instruments included
 const recipe = (table, id, kind) => (String(id).startsWith('timbre:') ? TIMBRE[kind](id) : table[id])
+// a field into a track's code: `{ … }` gets it after its brace, `(() => { … return { … } })()` after its last `return {`
+function withField(code, field) {
+  const s = code.trimStart()
+  if (s.startsWith('{')) return code.replace('{', '{\n  ' + field)
+  const i = code.lastIndexOf('return {')
+  return i < 0 ? code : code.slice(0, i + 8) + '\n  ' + field + code.slice(i + 8)
+}
 // the kit of a style from a recording: its patterns (drumData) on drums tuned to what was measured — the kick's pitch and
 // length, the snare's brightness, the hats' length and brightness
 KITS.audio = o => {

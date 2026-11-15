@@ -9,10 +9,11 @@ import { pathToFileURL } from 'node:url'
 import { exportSong, plotPng, writeWav } from './src/engine.js'
 import { masterOffline, MASTER_DEFAULTS } from './src/master.js'
 import { lufs } from './src/loudness.js'
+import { vstStems } from './src/vst.js'
 
 const args = process.argv.slice(2), mi = args.indexOf('--master')
 const masterTarget = mi < 0 ? null : Number.isFinite(+args[mi + 1]) && args[mi + 1] !== '' ? +args[mi + 1] : -14
-const rest = args.filter((a, i) => i !== mi && !(mi >= 0 && i === mi + 1 && Number.isFinite(+a)))
+const rest = args.filter((a, i) => i !== mi && !(mi >= 0 && i === mi + 1 && Number.isFinite(+a)) && !a.startsWith('--'))
 const files = rest.length ? rest : fs.readdirSync('songs').filter(f => f.endsWith('.js')).map(f => path.join('songs', f))
 const dB = v => (v > 0 ? 20 * Math.log10(v) : -Infinity)
 const fmt = v => (Number.isFinite(v) ? v.toFixed(1) : '-inf').padStart(7)
@@ -21,7 +22,10 @@ for (const file of files) {
   const song = (await import(pathToFileURL(path.resolve(file)).href)).default
   const dir = path.resolve('out', song.name)
   const t0 = performance.now()
-  const { levels, seconds, mix } = exportSong(song, dir)
+  // tracks with a `vst` (and their plugin installed here) play through it: our VST host renders them first (--no-vst: their math sound)
+  const stems = args.includes('--no-vst') ? {} : await vstStems(song, { onError: (e, k) => console.warn(`vst ${k}: ${e.message}`) })
+  if (Object.keys(stems).length) console.log(`VST: ${Object.entries(song.tracks).filter(([k]) => stems[k]).map(([k, t]) => `${k} → ${t.vst.plugin}${t.vst.preset ? ` («${t.vst.preset}»)` : ''}`).join(', ')}`)
+  const { levels, seconds, mix } = exportSong(song, dir, { stems })
   plotPng(path.join(dir, 'graph.png'), song, { width: 1200, height: 300 })
   const loudest = Math.max(...Object.values(levels).map(l => dB(l.rms)))
   console.log(`\n${song.name}\ntrack          peak dB  rms dB`)

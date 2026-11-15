@@ -261,13 +261,20 @@ const activeTracks = song => Object.entries(song.tracks).filter(([, t]) => t)
 // and returns the function that is fed x in order (or null to skip the track).
 // ctx.sample(slot) is the WAV assigned to that slot via opts.samples (e.g. dropped onto the
 // Max device), or null.
-export function render(song, { tail = 2, samples = {} } = {}) {
+// opts.stems: tracks already rendered elsewhere (a VST plugin, src/vst.js) → { name: [L, R] } used instead of their audio()
+export function render(song, { tail = 2, samples = {}, stems: given = {} } = {}) {
   const spb = 60 / song.bpm
   const n = Math.ceil((song.length * spb + tail) * SR)
   const loaded = {}
   const ctx = { bpm: song.bpm, sample: slot => (samples[slot] ? (loaded[slot] ??= loadWav(samples[slot])) : null) }
   const stems = {}
   for (const [name, track] of activeTracks(song)) {
+    if (given[name]) {
+      const [gl, gr] = given[name], L = new Float32Array(n), R = new Float32Array(n)
+      L.set(gl.subarray(0, n)); R.set(gr.subarray(0, n))
+      stems[name] = [L, R]
+      continue
+    }
     const f = track.audio?.(ctx)
     if (!f) continue
     const L = new Float32Array(n), R = new Float32Array(n)

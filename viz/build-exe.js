@@ -15,6 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const EXE = path.join(ROOT, 'MathMusic.exe')
 
 export { icon } from './icon.js'
+import { buildHosts } from '../vst/build.js'
 
 // ---- the exe ------------------------------------------------------------------------------------------------
 export function compile(out = EXE) {
@@ -26,8 +27,11 @@ export function compile(out = EXE) {
     const ico = path.join(tmp, 'MathMusic.ico')
     fs.writeFileSync(ico, icon())
     const r = spawnSync(csc, ['/nologo', '/target:winexe', '/optimize', '/codepage:65001', `/win32icon:${ico}`, `/out:${out}`,
-      '/reference:System.Windows.Forms.dll', path.join(ROOT, 'viz', 'launcher.cs')], { encoding: 'utf8' })
+      '/reference:System.Windows.Forms.dll', '/reference:System.Web.Extensions.dll', path.join(ROOT, 'viz', 'launcher.cs')], { encoding: 'utf8' })
     if (r.status !== 0) throw new Error('csc failed:\n' + r.stdout + r.stderr)
+    // the VST hosts beside the exe (vst/vsthost.cs: 32- and 64-bit) — the exe plays the user's plugins through them
+    const hosts = buildHosts({ quiet: true })
+    for (const f of Object.values(hosts)) fs.copyFileSync(f, path.join(path.dirname(out), path.basename(f)))
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
   }

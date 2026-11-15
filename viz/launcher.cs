@@ -125,8 +125,8 @@ static class App {
     }
 
     // ---- the server ------------------------------------------------------------------------------------
-    class Res {
-        public int Code; public string Type = "text/plain; charset=utf-8"; public byte[] Body = new byte[0]; public string Mtime;
+    internal class Res {
+        public int Code; public string Type = "text/plain; charset=utf-8"; public byte[] Body = new byte[0]; public string Mtime, Samples;
         public Res(int code, string text) { Code = code; if (text != null) Body = Encoding.UTF8.GetBytes(text); }
     }
 
@@ -185,6 +185,7 @@ static class App {
         sb.Append("Content-Length: ").Append(r.Code == 204 ? 0 : r.Body.Length).Append("\r\n");
         sb.Append("Cache-Control: no-store\r\nConnection: close\r\n");
         if (r.Mtime != null) sb.Append("X-Mtime: ").Append(r.Mtime).Append("\r\n");
+        if (r.Samples != null) sb.Append("X-Samples: ").Append(r.Samples).Append("\r\n");
         sb.Append("\r\n");
         byte[] hd = Encoding.ASCII.GetBytes(sb.ToString());
         net.Write(hd, 0, hd.Length);
@@ -210,6 +211,11 @@ static class App {
             return p;
         }
         if (path == "/api/hello") { Res r = new Res(200, "{\"app\":\"mathmusic\"}"); r.Type = "application/json"; return r; }
+        if (path == "/api/vst" || path == "/api/vst/render") {
+            string mk;
+            if (!h.TryGetValue("x-mathmusic", out mk) || mk != "1") return new Res(403, "header");
+            return path == "/api/vst" ? (method == "GET" ? Vst.List() : new Res(405, null)) : (method == "POST" ? Vst.Render(body) : new Res(405, null));
+        }
         Match m = Api.Match(path);
         if (!m.Success) return new Res(404, "not found");
         string mark;
@@ -252,5 +258,187 @@ static class App {
             return new Res(204, null);
         }
         return new Res(405, null);
+    }
+}
+
+// ---- the user's VST plugins (as src/vst.js does for Node) --------------------------------------------------------------
+// GET /api/vst: the plugins in the usual VST folders (a jBridge stub — a few KB, its .txt names the original — leads to the
+// original DLL; 32-bit ones run in vsthost32.exe beside this program, no bridge needed), their programs, and the presets out of
+// the user's Ableton sets (tools/als.mjs presets → %USERPROFILE%\.mathmusic\vst-presets, local). POST /api/vst/render
+// { plugin, preset, program, notes: [[s, s, MIDI, vel]], seconds, sr }: the part through the plugin → float32 L then R.
+static class Vst {
+    class Plugin { public string Name, File; public int Bits; public bool Vst3; }
+    static readonly string Home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mathmusic");
+    static readonly string Presets = Path.Combine(Home, "vst-presets"), Cache = Path.Combine(Home, "vst-cache");
+    static readonly System.Web.Script.Serialization.JavaScriptSerializer Js = new System.Web.Script.Serialization.JavaScriptSerializer { MaxJsonLength = 1 << 30 };
+    static readonly Dictionary<string, string> Info = new Dictionary<string, string>();
+
+    static string[] Dirs() {
+        string pf = Environment.GetEnvironmentVariable("ProgramFiles") ?? @"C:\Program Files", pf86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)") ?? @"C:\Program Files (x86)";
+        List<string> d = new List<string>();
+        string extra = Environment.GetEnvironmentVariable("MATHMUSIC_VST_PATH");
+        if (!string.IsNullOrEmpty(extra)) d.AddRange(extra.Split(';'));
+        d.AddRange(new[] { Path.Combine(pf, "VSTPlugins"), Path.Combine(pf, "VSTPlugX"), Path.Combine(pf, @"Common Files\VST2"), Path.Combine(pf, @"Steinberg\VSTPlugins"),
+            Path.Combine(pf86, "VSTPlugins"), Path.Combine(pf86, @"Steinberg\VSTPlugins"), Path.Combine(pf, @"Common Files\VST3") });
+        return d.ToArray();
+    }
+    static int Bits(string f) {
+        try {
+            byte[] b = new byte[4096];
+            using (FileStream s = File.OpenRead(f)) s.Read(b, 0, b.Length);
+            if (b[0] != 'M' || b[1] != 'Z') return 0;
+            int pe = BitConverter.ToInt32(b, 0x3c);
+            if (pe + 6 >= b.Length) return 0;
+            int m = BitConverter.ToUInt16(b, pe + 4);
+            return m == 0x8664 ? 64 : m == 0x14c ? 32 : 0;
+        } catch { return 0; }
+    }
+    static string Original(string dll) {
+        string txt = Path.ChangeExtension(dll, ".txt");
+        try {
+            if (File.Exists(txt) && new FileInfo(dll).Length < 64 << 10) {
+                Match m = Regex.Match(File.ReadAllText(txt, Encoding.Default), "^\\s*\"([^\"]+\\.dll)\"", RegexOptions.IgnoreCase);
+                if (m.Success && File.Exists(m.Groups[1].Value)) return m.Groups[1].Value;
+            }
+        } catch { }
+        return dll;
+    }
+    static void Walk(string dir, int depth, List<string> found) {
+        try {
+            foreach (string f in Directory.GetFiles(dir)) if (f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) found.Add(f);
+            foreach (string d in Directory.GetDirectories(dir)) {
+                if (d.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase)) found.Add(d);
+                else if (depth > 0) Walk(d, depth - 1, found);
+            }
+        } catch { }
+    }
+    static List<Plugin> Scan() {
+        Dictionary<string, Plugin> found = new Dictionary<string, Plugin>(StringComparer.OrdinalIgnoreCase);
+        foreach (string dir in Dirs()) {
+            List<string> files = new List<string>();
+            Walk(dir, 4, files);
+            foreach (string f in files) {
+                string name = Path.GetFileNameWithoutExtension(f);
+                if (found.ContainsKey(name)) continue;
+                if (f.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase)) { found[name] = new Plugin { Name = name, File = f, Bits = 64, Vst3 = true }; continue; }
+                string o = Original(f);
+                int bits = Bits(o);
+                if (bits != 0) found[name] = new Plugin { Name = name, File = o, Bits = bits };
+            }
+        }
+        List<Plugin> list = new List<Plugin>(found.Values);
+        list.Sort(delegate (Plugin a, Plugin b) { return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase); });
+        return list;
+    }
+    static string HostExe(int bits) { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "vsthost" + bits + ".exe"); }
+    static string Run(string exe, string args, int ms, out int code) {
+        ProcessStartInfo si = new ProcessStartInfo(exe, args) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        using (Process p = Process.Start(si)) {
+            string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+            if (!p.WaitForExit(ms)) { try { p.Kill(); } catch { } code = -1; return "timeout"; }
+            code = p.ExitCode;
+            return o;
+        }
+    }
+    static string Q(string s) { return "\"" + s.Replace("\"", "") + "\""; }
+    static string PluginInfo(Plugin p) {
+        lock (Info) {
+            string have;
+            if (Info.TryGetValue(p.File, out have)) return have;
+            int code;
+            string o = File.Exists(HostExe(p.Bits)) ? Run(HostExe(p.Bits), "--info " + Q(p.File), 60000, out code) : null;
+            string line = null;
+            if (o != null) foreach (string l in o.Split('\n')) if (l.Trim().StartsWith("{")) line = l.Trim();
+            Info[p.File] = line;
+            return line;
+        }
+    }
+    static string Safe(string s) { foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); return s.Trim(); }
+
+    public static App.Res List() {
+        StringBuilder j = new StringBuilder("{\"host\":true,\"plugins\":[");
+        bool first = true;
+        foreach (Plugin p in Scan()) {
+            string info = p.Vst3 ? null : PluginInfo(p);
+            if (!first) j.Append(',');
+            first = false;
+            Dictionary<string, object> d = info != null ? Js.Deserialize<Dictionary<string, object>>(info) : null;
+            j.Append("{\"name\":").Append(Js.Serialize(p.Name)).Append(",\"kind\":\"").Append(p.Vst3 ? "vst3" : "vst2").Append("\",\"bits\":").Append(p.Bits)
+             .Append(",\"hosted\":").Append(d != null ? "true" : "false").Append(",\"programs\":").Append(d != null ? Js.Serialize(d["programs"]) : "[]")
+             .Append(",\"synth\":").Append(d != null ? Js.Serialize(d["synth"]) : "null").Append('}');
+        }
+        j.Append("],\"presets\":[");
+        first = true;
+        if (Directory.Exists(Presets)) foreach (string d in Directory.GetDirectories(Presets)) foreach (string f in Directory.GetFiles(d, "*.json")) {
+            try {
+                Dictionary<string, object> pr = Js.Deserialize<Dictionary<string, object>>(File.ReadAllText(f, Encoding.UTF8));
+                if (!first) j.Append(',');
+                first = false;
+                j.Append("{\"plugin\":").Append(Js.Serialize(pr["plugin"])).Append(",\"name\":").Append(Js.Serialize(pr["name"])).Append(",\"program\":").Append(Js.Serialize(pr["program"]))
+                 .Append(",\"set\":").Append(Js.Serialize(pr.ContainsKey("set") ? pr["set"] : null)).Append(",\"track\":").Append(Js.Serialize(pr.ContainsKey("track") ? pr["track"] : null)).Append('}');
+            } catch { }
+        }
+        App.Res r = new App.Res(200, j.Append("]}").ToString());
+        r.Type = "application/json";
+        return r;
+    }
+
+    public static App.Res Render(byte[] body) {
+        Dictionary<string, object> q = Js.Deserialize<Dictionary<string, object>>(Encoding.UTF8.GetString(body));
+        string name = (string)q["plugin"];
+        Plugin p = Scan().Find(delegate (Plugin x) { return string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase); });
+        if (p == null) return new App.Res(404, "плагин «" + name + "» не найден");
+        if (p.Vst3) return new App.Res(400, name + ": VST3 — хост пока играет только VST2");
+        double seconds = Convert.ToDouble(q["seconds"], CultureInfo.InvariantCulture);
+        int sr = q.ContainsKey("sr") && q["sr"] != null ? Convert.ToInt32(q["sr"], CultureInfo.InvariantCulture) : 44100;
+        byte[] chunk = null;
+        int program = q.ContainsKey("program") && q["program"] != null ? Convert.ToInt32(q["program"], CultureInfo.InvariantCulture) : int.MinValue;
+        string preset = q.ContainsKey("preset") ? q["preset"] as string : null;
+        if (preset != null) {
+            string pf = Path.Combine(Path.Combine(Presets, Safe(p.Name)), Safe(preset) + ".json");
+            if (File.Exists(pf)) {
+                Dictionary<string, object> pr = Js.Deserialize<Dictionary<string, object>>(File.ReadAllText(pf, Encoding.UTF8));
+                if (pr["chunk"] != null) chunk = Convert.FromBase64String((string)pr["chunk"]);
+                if (program == int.MinValue && pr["program"] != null) program = Convert.ToInt32(pr["program"], CultureInfo.InvariantCulture);
+            }
+        }
+        if (program == int.MinValue) program = chunk != null ? -1 : 0;
+        StringBuilder notes = new StringBuilder();
+        foreach (object o in (System.Collections.ArrayList)q["notes"]) {
+            System.Collections.ArrayList e = (System.Collections.ArrayList)o;
+            double t = Convert.ToDouble(e[0], CultureInfo.InvariantCulture), d = Math.Max(0.005, Convert.ToDouble(e[1], CultureInfo.InvariantCulture));
+            double n = Convert.ToDouble(e[2], CultureInfo.InvariantCulture), v = e.Count > 3 && e[3] != null ? Convert.ToDouble(e[3], CultureInfo.InvariantCulture) : 0.8;
+            notes.Append(t.ToString("0.00000", CultureInfo.InvariantCulture)).Append(' ').Append(d.ToString("0.00000", CultureInfo.InvariantCulture)).Append(' ')
+                 .Append(Math.Round(n).ToString(CultureInfo.InvariantCulture)).Append(' ').Append(Math.Max(1, Math.Min(127, (int)Math.Round(v * 127)))).Append('\n');
+        }
+        Directory.CreateDirectory(Cache);
+        string key;
+        using (System.Security.Cryptography.SHA1 sha = System.Security.Cryptography.SHA1.Create()) {
+            byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(p.File + "|" + File.GetLastWriteTimeUtc(p.File).Ticks + "|" + (chunk != null ? Convert.ToBase64String(chunk) : "") + "|" + program + "|" + seconds.ToString("0.000", CultureInfo.InvariantCulture) + "|" + sr + "|" + notes));
+            key = "exe-" + BitConverter.ToString(hash).Replace("-", "").Substring(0, 20).ToLowerInvariant();
+        }
+        string wav = Path.Combine(Cache, key + ".wav");
+        if (!File.Exists(wav)) {
+            string nf = Path.Combine(Cache, key + ".notes"), cf = Path.Combine(Cache, key + ".chunk");
+            File.WriteAllText(nf, notes.ToString());
+            if (chunk != null) File.WriteAllBytes(cf, chunk);
+            int code;
+            string o = Run(HostExe(p.Bits), Q(p.File) + " " + (chunk != null ? Q(cf) : "-") + " " + program + " " + Q(nf) + " " + seconds.ToString("0.000", CultureInfo.InvariantCulture) + " " + Q(wav) + " " + sr, 600000, out code);
+            try { File.Delete(nf); File.Delete(cf); } catch { }
+            if (code != 0 || !File.Exists(wav)) return new App.Res(500, p.Name + ": " + o.Trim());
+        }
+        // the host's WAV: 32-bit float stereo, the samples after its 44-byte header → L then R
+        byte[] w = File.ReadAllBytes(wav);
+        int total = (w.Length - 44) / 8, n2 = Math.Min(total, (int)Math.Ceiling(seconds * sr));
+        byte[] outb = new byte[n2 * 8];
+        for (int i = 0; i < n2; i++) {
+            Buffer.BlockCopy(w, 44 + i * 8, outb, i * 4, 4);
+            Buffer.BlockCopy(w, 44 + i * 8 + 4, outb, (n2 + i) * 4, 4);
+        }
+        App.Res r = new App.Res(200, null);
+        r.Type = "application/octet-stream";
+        r.Body = outb;
+        r.Samples = n2.ToString(CultureInfo.InvariantCulture);
+        return r;
     }
 }
