@@ -82,7 +82,7 @@ export const groupLead = (layers, { color = '#ffd6a5', gain = 1, dn = 0, in: pla
 // up: semitones the notes sound above the written ones (12 = a music box an octave up), also: a second strike that far
 // above at that level, e.g. [12, 0.35]
 export const keysLead = (tone, { color = '#fdfcdc', gain = 1, in: place = 'hall', wet, echo = 0, release = 0.35, life = 7, up = 0, also = null, width = 0.5, soft = 0, formula } = {}) => o => {
-  o.need('instruments', 'polyWide', ...(/^[a-zA-Z]+$/.test(tone) ? [tone] : []))
+  o.need('instruments', 'polyWide', ...(/^[A-Za-z_]\w*$/.test(tone) ? [tone] : []))
   return `{
   color: '${color}',
   graph: x => { const m = ${o.at}(x); return m ? ${o.lane[0]} + (m.n + 5) * ${round((o.lane[1] - o.lane[0]) / 34)} : null },
@@ -172,7 +172,7 @@ export const sectionChords = (layers, { color = '#ffc6ff', gain = 1, in: place =
 // the chords struck on the style's comping pattern (S.comp): keysComp('grandTone', { roll: seconds between the notes }).
 // low: the bass note an octave under the voicing joins on the bar's first stroke at that level
 export const keysComp = (tone, { color = '#f1e3d3', gain = 1, in: place = 'hall', wet, release = 0.3, life = 6, roll = 0.012, low = 0, soft = 0, echo = 0, formula } = {}) => o => {
-  o.need('instruments', 'polyWide', ...(/^[a-zA-Z]+$/.test(tone) ? [tone] : []))
+  o.need('instruments', 'polyWide', ...(/^[A-Za-z_]\w*$/.test(tone) ? [tone] : []))
   return `(() => {
   ${compHit(o.comp)}
   return {
@@ -244,7 +244,7 @@ export const bowedBass = ({ color = '#7f5539', gain = 1, in: place = 'hall', wet
 }
 // a struck or plucked bass: a tone for poly on the bass line (the piano's low strings, a plucked double bass…)
 export const tonedBass = (tone, { color = '#8d6e63', gain = 1, in: place = 'room', wet, cut = 0.92, release = 0.12, life = 4, formula } = {}) => o => {
-  o.need('instruments', ...(/^[a-zA-Z]+$/.test(tone) ? [tone] : []))
+  o.need('instruments', ...(/^[A-Za-z_]\w*$/.test(tone) ? [tone] : []))
   return `(() => {
   ${bassData(o.line)}
   return {
@@ -267,7 +267,7 @@ export const tonedBass = (tone, { color = '#8d6e63', gain = 1, in: place = 'room
 // ---- an arpeggio of the chord on a struck tone: tonedArp('harpTone', { pattern, rate (notes a beat), … }) ----------------
 // pattern: indices into the voicing, bottom up (4 = the bottom note an octave higher…); roles / from: where it plays
 export const tonedArp = (tone, { color = '#caffbf', gain = 1, in: place = 'hall', wet, echo = 0, pattern = [0, 1, 2, 3, 2, 1], rate = 2, up = 12, roles = ['intro', 'bridge', 'break', 'final', 'solo', 'themeB'], from = 0, life = 3, release = 0.3, hold = 0.9, accent = 4, spread = 0.5, formula } = {}) => o => {
-  o.need('instruments', ...(/^[a-zA-Z]+$/.test(tone) ? [tone] : []))
+  o.need('instruments', ...(/^[A-Za-z_]\w*$/.test(tone) ? [tone] : []))
   return `(() => {
   const PATTERN = ${J(pattern)}
   const arpAt = x => {

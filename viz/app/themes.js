@@ -51,6 +51,7 @@ export const STYLE_THEME = {
   nightstorm: 'storm', heaven: 'heaven', hell: 'hell', magma: 'magma', nordic: 'snow', artifact: 'java', zunpet: 'ink', oldzun: 'chip', fight: 'arena', babushka: 'synth',
   podskazka: 'chip', hardstyle: 'phonk', phonk: 'phonk', breakcore: 'dnb',
   fight2: 'arena', prime2: 'void', brinstar2: 'jungle', zunpet2: 'ink', oldzun2: 'chip', podskazka2: 'chip',
+  synthwave2: 'synth', phonk2: 'phonk', breakcore2: 'dnb',
 }
 // a song that says nothing of its style (a project, a song of your own) gets the dark studio — not a style's landscape
 export function themeFor(song) {
