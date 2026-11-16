@@ -68,6 +68,7 @@ import './gen/magma.js'
 // the second generation: styles written one a file (src/gen/define.js) on the studio's instruments (src/gen/studio.js)
 import './gen/v2-fight.js'
 import './gen/v2-metroid.js'
+import './gen/v2-touhou.js'
 import { generateFugue } from './gen/fugue-song.js'
 import { generateMaqam } from './gen/maqam-song.js'
 import { generateRaga } from './gen/raga-song.js'

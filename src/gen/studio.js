@@ -383,14 +383,14 @@ export const ambience = ({ color = '#8d99ae', in: place = 'space', wet = 0.45, d
 
 // ---- the instruments every «2» style may use, under their names --------------------------------------------------------
 Object.assign(LEADS, {
-  violin2: soloLead('violins', { color: '#ffd166', scoop: 10, gain: 1.15 }),
-  cello2: soloLead('celli', { color: '#c9843b', dn: -12, scoop: 8, gain: 1.25 }),
-  flute2: soloLead('flute', { color: '#e8f4ff', gain: 1.2 }),
-  oboe2: soloLead('oboe', { color: '#e9c46a', gain: 0.95 }),
-  clarinet2: soloLead('clarinet', { color: '#cdb4db', gain: 1.1 }),
-  horn2: soloLead('horns', { color: '#f4a261', accent: 0.25, gain: 1.25, in: 'big' }),
-  trumpet2: soloLead('trumpets', { color: '#ffb703', accent: 0.35, scoop: 18, gain: 0.95 }),
-  sax2: soloLead('sax', { color: '#e09f3e', accent: 0.2, scoop: 28, glide: 0.05, gain: 1.05, in: 'club', wet: 0.26 }),
+  violin2: soloLead('violins', { color: '#ffd166', scoop: 10, gain: 2.5 }),
+  cello2: soloLead('celli', { color: '#c9843b', dn: -12, scoop: 8, gain: 2.6 }),
+  flute2: soloLead('flute', { color: '#e8f4ff', gain: 2.4 }),
+  oboe2: soloLead('oboe', { color: '#e9c46a', gain: 2 }),
+  clarinet2: soloLead('clarinet', { color: '#cdb4db', gain: 2.3 }),
+  horn2: soloLead('horns', { color: '#f4a261', accent: 0.25, gain: 2.6, in: 'big' }),
+  trumpet2: soloLead('trumpets', { color: '#ffb703', accent: 0.35, scoop: 18, gain: 2.2 }),
+  sax2: soloLead('sax', { color: '#e09f3e', accent: 0.2, scoop: 28, glide: 0.05, gain: 2.3, in: 'club', wet: 0.26 }),
   voice2: soloLead('aah', { color: '#ffc8dd', scoop: 14, unison: 0.6, gain: 2.2, in: 'big' }),
   softlead: soloLead('sine', { color: '#a0e7e5', glide: 0.06, echo: 0.26, gain: 3.6, in: 'big' }),
   sawlead2: soloLead('saw', { color: '#ff7eb6', unison: 0.8, echo: 0.2, gain: 1.9, in: 'big' }),
