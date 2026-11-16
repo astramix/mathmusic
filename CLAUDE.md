@@ -832,6 +832,12 @@ labels and descriptions, Enter = the first found; a style with `of: '<id>', ver:
 the first. The menu keeps «Ещё «…»», «Случайный стиль» and one submenu «Стили по семействам». «Все песни» (gallery.js): a search (name,
 style, family, key, tempo), nine orders, chips by family that open into their styles (`mm.gallery` in localStorage).
 
+**Icons** (viz/app/icons.js): the interface is written with emoji in its strings; `watchIcons()` (main.js) turns every one into one of
+MathMusic's own drawings — `ICONS` (113 line drawings on a 24 × 24 grid, stroke 1.7, currentColor), `EMOJI` (sign → drawing) — wherever it
+appears, now and later (a MutationObserver; not in the code editor, inputs, KaTeX; an <option> just loses its emoji). A new sign in a
+string needs an entry in EMOJI (and a drawing); `icon(name)` gives the element outright. Checked in headless Chrome: no emoji left
+in the page's text with every panel and menu open.
+
 ## Patterns to copy (from existing songs)
 - Struck/plucked notes: `poly` + `trigger` keyed on note start (lofi `rhodes`, bossa `vibes`).
 - Sustained melody: `notesAt` per section, continuous instrument with an `on` flag (lofi `flute`).

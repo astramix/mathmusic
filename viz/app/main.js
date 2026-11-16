@@ -2,6 +2,7 @@
 // live formulas, the drawing loop. Feature modules (editor, piano roll, generator, export, video,
 // gallery) load on first use.
 import { app } from './app.js'
+import { watchIcons } from './icons.js'
 import { $, h, esc, menubar, toast, modal, ask, closeMenus } from './ui.js'
 import { Player } from './player.js'
 import { makeRuntime, trackList, SR, errorLine, guard } from './runtime.js'
@@ -13,6 +14,7 @@ import { formulaOf, formulaHTML, substitute, tex, formulaImage } from './formula
 import { songKey, spell, keyLabel, freq, tonicName, pc, keyAt } from './theory.js'
 import { keyWithMode, MODES } from './modes.js'
 
+watchIcons() // every emoji in the interface becomes one of MathMusic's own drawings (icons.js)
 const SRC = MM.SRC
 app.SRC = SRC
 app.rt = makeRuntime(SRC)
