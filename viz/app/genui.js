@@ -2,6 +2,7 @@
 // arrangement / new instruments, everything else kept), the endless radio and the generation
 // dialog. Generated songs land in "Сгенерированные" (files in generated/, the last 20); Ctrl+S moves one to my_songs/.
 import { app } from './app.js'
+import { guard } from './runtime.js'
 import { h, esc, toast, modal, seg } from './ui.js'
 import { generate, STYLES, STYLE_LIST, describe, METER_LIST, styleGroups, familyOf } from './generate.js'
 import { MELODIES } from './melodies.js'
@@ -37,7 +38,10 @@ async function tidy(entry) {
   app.refreshSongList()
 }
 
-async function create(opts,{ save = true, quiet = false, from = 0 } = {}) {
+// derived: the options come from the open song (a mutation, the same music in another mode, a melody from its piano roll,
+// its own audio style) — when that song is foreign, so is the new one (sandbox.js); a fresh 🎲 song is always yours
+async function create(opts,{ save = true, quiet = false, from = 0, derived = false } = {}) {
+  const foreign = derived && guard.ambientNow()
   // the tonality chosen in «Лады» / the key menu, unless the call brings its own key (a mutation keeps the song's)
   if (app.tonality && !('key' in opts)) opts = { ...opts, key: keyFor(app.tonality.tonic, app.tonality.mode), mode: app.tonality.mode }
   // the tuning chosen in «Строй», unless the call brings its own (a mutation keeps the song's)
@@ -56,9 +60,9 @@ async function create(opts,{ save = true, quiet = false, from = 0 } = {}) {
     return
   }
   const { source, meta } = res
-  let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta, pristine: true }
+  let entry = { id: 'radio:' + Date.now().toString(36), name: meta.title, source, kind: 'generated', meta, pristine: true, ...(foreign ? { foreign } : {}) }
   if (save) {
-    entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta, pristine: true }, { pick: !quiet })
+    entry = await app.lib.save({ name: meta.title, source, kind: 'generated', meta, pristine: true, foreign }, { pick: !quiet })
     await tidy(entry)
   }
   await app.open(entry, from)
@@ -72,14 +76,14 @@ export async function mutate(which) {
   const seeds = { ...g.seeds, [which]: newSeed() }
   const label = { melody: '🔁 новые мелодии', arrangement: '🎚 новая аранжировка', instruments: '🎻 новые инструменты' }[which]
   toast(label + '…', { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...(g.styleDef ? { styleDef: g.styleDef } : {}), ...seeds })
+  return create({ style: g.style, seed: g.seed, length: g.length, key: g.key ?? null, mode: g.mode ?? null, micro: g.micro ?? null, temperament: g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...(g.styleDef ? { styleDef: g.styleDef } : {}), ...seeds }, { derived: true })
 }
 // the current generated song again — the same seeds, in another tonic and mode
 export function regenerate(t, { from = 0 } = {}) {
   const g = genOf()
   if (!g) return toast('пересочинить можно только сгенерированную песню — 🎲 «Новая песня в этом ладу»')
   toast(`↻ ${g.style} · seed ${g.seed} → ${t.tonic} …`, { ms: 1500 })
-  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...(g.styleDef ? { styleDef: g.styleDef } : {}) }, { from })
+  return create({ style: g.style, seed: g.seed, length: g.length, ...g.seeds, key: keyFor(t.tonic, t.mode), mode: t.mode, micro: g.micro ?? null, temperament: 'temperament' in t ? t.temperament : g.temperament ?? null, modulations: g.modulations ?? false, meter: g.meter ?? null, ...(g.userTheme ? { userTheme: g.userTheme } : {}), ...(g.styleDef ? { styleDef: g.styleDef } : {}) }, { from, derived: true })
 }
 // the music playing now, in another tonic and mode, going on from the same beat (paused stays paused): a generated
 // song is made again from its seeds; any other — a built-in one too — becomes a retuned copy (src/retune.js: every
@@ -110,7 +114,7 @@ export async function sameIn(t) {
 }
 // a new song in a tonality: the style of the current generated song, else the last one used
 // a melody played or drawn in the piano roll → a whole song in a style, the melody as theme A (harmonized)
-export const fromMelody = (notes, style, title) => create({ style, userTheme: { notes, title } })
+export const fromMelody = (notes, style, title) => create({ style, userTheme: { notes, title } }, { derived: true })
 export const createIn = t => create({ style: genOf()?.style ?? last.style, key: keyFor(t.tonic, t.mode), mode: t.mode })
 // the same music in another tuning: a target with the song's own tonic and mode (modesui.js) and a temperament
 
@@ -118,7 +122,7 @@ async function radioNext() {
   const g = genOf()
   // radio.style: 'same' (the playing song's style), 'all', or a style's id (the organ radio)
   const style = STYLES[radio.style] ? radio.style : radio.style === 'all' || !g ? STYLE_LIST[Math.floor(Math.random() * STYLE_LIST.length)].id : g.style
-  const meta = await create(radio.style !== 'all' && g?.styleDef ? { styleDef: g.styleDef } : { style }, { save: false, quiet: true })
+  const meta = await create(radio.style !== 'all' && g?.styleDef ? { styleDef: g.styleDef } : { style }, { save: false, quiet: true, derived: radio.style !== 'all' && !!g?.styleDef })
   if (meta) toast(`📻 ${describe(meta)}`, { ms: 6000 })
 }
 function toggleRadio(style) {

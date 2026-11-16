@@ -808,6 +808,30 @@ except one with a draft; an edit alone (no Ctrl+S) leaves a song in generated/.
 Test it in a real browser: Chrome headless over the DevTools protocol (Node's WebSocket, no puppeteer needed)
 or puppeteer-core + the installed Chrome (`--autoplay-policy=no-user-gesture-required`).
 
+## Songs from elsewhere: the sandbox (viz/app/sandbox.js, guard.js)
+A song file is a program; one that did not come from this app is **foreign** (`entry.foreign`, kept in library.json): opened by
+Песня → «Открыть файл песни…» or dropped onto the window (main.js `importSong`), or a file in my_songs/ that library.json does not
+know while it knows others (library.js `fromFile`; no library.json at all = an old folder, the user's). A foreign song's code runs
+only inside an `<iframe sandbox="allow-scripts">` (opaque origin: no storage, no folder handle; CSP `default-src 'none'`, scripts from
+blob: only — no network): the audio workers there (`SandboxWorker`: worker.js handed a MessagePort) and a probe that loads the song once
+and returns plain data — the fields without functions, graph() sampled 32 × a beat, midi() as runs at 96 × a beat. `proxySong` makes the
+page's stand-in from it (`song.__sandbox`; strings lose < > & " ' `, colours and numbers checked, a track with an odd name left out,
+`vst` dropped); the player uses a sandboxed worker pool for such a song, `renderSong` (exports, video, the full check) too.
+`guard` (guard.js, no imports — library.js is loaded by tests in Node): `rt.load(source, { own })` — the page's only way to run a song
+— refuses a source the sandbox has seen and everything while the open song is foreign, unless the caller passes `own: true` for an
+entry that is not foreign (main.js loadModule, the gallery). A song saved while a foreign one is open is foreign too (`lib.save`:
+copies, mutations, «эта же музыка в …» — genui `create(…, { derived: true })`); a fresh 🎲 song, a new project, a new song from the
+template say `foreign: false`. The toast's «Доверять…» / Песня → «Доверять этой песне…» (`trustSong`) makes it the user's own.
+In the sandbox there are no VST plugins, no «Аранжировка под мелодию», no melodies in a style (projectui `made` needs rt.load).
+The servers (serve.js, launcher.cs, Server.java) refuse a request whose Origin is not the app's own page (the sandbox's is "null").
+Sharing: Песня → «Поделиться: файл песни…» = the source into exports/code. Checked in headless Chrome with a hostile song (sync XHR
+GET / DELETE / PUT with the header, importScripts, IndexedDB, localStorage, document, caches — all blocked; it plays; a copy stays
+foreign); test/library.test.js: the flag and the guard; test/serve.test.js: the Origin check on all three servers.
+**The 🎲 menu and the gallery**: 🎲 → «Выбрать стиль…» (genui `stylePicker`): every style on one screen, family by family, a search over
+labels and descriptions, Enter = the first found; a style with `of: '<id>', ver: 2` (a later version of a style) is a small «2» beside
+the first. The menu keeps «Ещё «…»», «Случайный стиль» and one submenu «Стили по семействам». «Все песни» (gallery.js): a search (name,
+style, family, key, tempo), nine orders, chips by family that open into their styles (`mm.gallery` in localStorage).
+
 ## Patterns to copy (from existing songs)
 - Struck/plucked notes: `poly` + `trigger` keyed on note start (lofi `rhodes`, bossa `vibes`).
 - Sustained melody: `notesAt` per section, continuous instrument with an `on` flag (lofi `flute`).

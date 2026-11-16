@@ -27,6 +27,9 @@ async function check(root, port) {
     // (fetch won't send another Host: a plain request, as a page of evil.example → 127.0.0.1 would)
     const status = await new Promise(r => http.get({ port: port, host: '127.0.0.1', path: '/api/mine', headers: { ...H, host: 'evil.example' } }, res => { res.resume(); r(res.statusCode) }))
     assert.equal(status, 403)
+    // a request from an opaque origin (the sandbox of a foreign song) or from another site, even with the app's header
+    for (const origin of ['null', 'https://evil.example']) assert.equal((await fetch(base + '/api/mine', { headers: { ...H, origin } })).status, 403)
+    assert.equal((await fetch(base + '/api/mine', { headers: { ...H, origin: base } })).status, 200)
 
     // the library on the server's folder: save, rename, remove — files in my_songs/
     const SONG = "export default { name: 'rain', bpm: 80, length: 16, tracks: {} }"

@@ -210,3 +210,30 @@ test('every generator style has its scene; a song without a style gets the dark 
   assert.equal(themeFor({ theme: 'hell', style: 'heaven' }).id, 'hell')
   for (const song of [{ name: 'Мой проект', style: 'project' }, { name: 'песня' }, {}]) assert.equal(themeFor(song).id, 'dark') // the dark studio
 })
+
+// ---- songs from elsewhere (viz/app/sandbox.js, guard.js) ----------------------------------------------------------------
+test('a foreign song: library.json says so, or does not know a file put in by hand; the page refuses to run it', async () => {
+  const { fromFile } = await import('../viz/app/library.js')
+  const { guard } = await import('../viz/app/guard.js')
+  const src = "export default { name: 'x', bpm: 100, length: 8, tracks: {} }\n"
+  // a folder from before library.json: the songs are the user's
+  assert.equal(fromFile('a.js', src, 1, {}).foreign, undefined)
+  // library.json knows other songs, not this file: somebody put it there
+  assert.equal(fromFile('gift.js', src, 1, { 'a.js': { id: 'user:1' } }).foreign, true)
+  assert.equal(fromFile('a.js', src, 1, { 'a.js': { id: 'user:1' } }).foreign, undefined)
+  assert.equal(fromFile('b.js', src, 1, { 'b.js': { id: 'user:2', foreign: true } }).foreign, true)
+  // the guard: a tainted source, or anything while a foreign song is open — unless it is one of the user's own entries
+  assert.equal(guard.needs(src), false)
+  guard.taint(src, 'user:2')
+  assert.equal(guard.needs(src), true)
+  assert.equal(guard.needs(src, true), false)
+  guard.untaint('user:2')
+  assert.equal(guard.needs(src), false)
+  let open = true
+  guard.ambient(() => open)
+  assert.equal(guard.needs('anything'), true)
+  assert.equal(guard.ambientNow(), true)
+  open = false
+  assert.equal(guard.needs('anything'), false)
+  guard.ambient(() => false)
+})

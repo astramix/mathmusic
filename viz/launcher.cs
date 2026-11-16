@@ -33,6 +33,7 @@ static class App {
     const string TITLE = "MathMusic";
     static string root, page;
     static readonly Regex Host = new Regex(@"^(localhost|127\.0\.0\.1)(:\d+)?$");
+    static readonly Regex Origin = new Regex(@"^https?://(localhost|127\.0\.0\.1)(:\d+)?$");
     static readonly Regex Api = new Regex(@"^/api/(mine|gen|songs|export/(?:mp3|wav|ogg|midi|stems|tuning|musicxml|code|video))(?:/([^/]+))?$");
     static readonly Regex SongFile = new Regex(@"^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.js$");
 
@@ -202,6 +203,9 @@ static class App {
     static Res Route(string method, string target, Dictionary<string, string> h, byte[] body) {
         string host;
         if (!h.TryGetValue("host", out host) || !Host.IsMatch(host)) return new Res(403, "host");
+        // (a request that names its origin must come from the app's own page: not another site, not a foreign song's sandbox — "null")
+        string origin;
+        if (h.TryGetValue("origin", out origin) && origin.Length > 0 && !Origin.IsMatch(origin)) return new Res(403, "origin");
         string path = target.Split('?')[0];
         if (path == "/" && method == "GET") {
             if (!File.Exists(page)) return new Res(404, "no MathMusic Live.html");

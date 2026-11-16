@@ -7,6 +7,8 @@
 // default` assigns __default. Each replacement keeps its line count, so error line numbers still
 // point into the song source (minus the 2 header lines `new Function` adds).
 import * as acorn from './acorn.js'
+import { guard } from './guard.js'
+export { guard }
 
 export const SR = 44100
 export const TAIL = 3 // seconds rendered after the last beat (reverb tails)
@@ -92,13 +94,19 @@ export function instantiate(bodies) {
   return mods
 }
 
+// (guard: a song from elsewhere never runs in the page — guard.js, sandbox.js)
 export function makeRuntime(SRC) {
   const lib = [['engine', compile(SRC.engine, 'engine.js')], ['instruments', compile(SRC.instruments, 'instruments.js')]]
   const base = instantiate(lib)
   return {
     lib, // [name, body] for the workers
     // a fresh instance of the song (module-level state starts over) → { song, body }
-    load(source) {
+    load(source, { own = false } = {}) {
+      if (guard.needs(source, own)) {
+        const e = new Error('чужая песня работает только в песочнице — «Песня → Доверять этой песне» снимет ограничение')
+        e.sandbox = true
+        throw e
+      }
       const body = compile(source)
       let mod
       try {

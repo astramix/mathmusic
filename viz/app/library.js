@@ -34,6 +34,7 @@ const songPart = source => Math.max(0, source.search(/export\s+default\s*(?:__(?
 const NAME = /\bname\s*:\s*(['"`])([^'"`\n]*)\1/
 
 // a song's display name from its source (export default { name: '…' }), or fallback
+import { guard } from './guard.js'
 export const nameIn = (source, fallback = 'song') => source.slice(songPart(source)).match(NAME)?.[2] || fallback
 
 // the song's style (export default { style: 'lofi' }), or null
@@ -66,14 +67,18 @@ export function fileName(name) {
 // an entry of my_songs/ (or generated/) from its file and what that folder's library.json says about it (a file
 // put there by hand gets an id from its name; a generator's song is known by its `generator:` field; a file in
 // generated/ is an untouched generated song)
+// foreign (a song from somewhere else — it only runs in the sandbox, viz/app/sandbox.js): library.json says so, or does
+// not know the file at all while it knows others — a file somebody put into the folder by hand. (No library.json yet:
+// a folder from before it existed, the songs are the user's.)
 export function fromFile(file, source, mtime, index = {}, shelf = 'mine') {
   const m = index[file] ?? {}, stem = file.replace(/\.js$/, ''), gen = shelf === 'gen'
+  const foreign = m.foreign === true || (!index[file] && Object.keys(index).length > 0)
   source = lf(source)
   return {
     id: m.id ?? (gen ? 'gen:' : 'mine:') + stem, file, name: nameIn(source, stem), source,
     kind: m.kind ?? (gen || /\bgenerator\s*:/.test(source.slice(songPart(source))) ? 'generated' : 'user'),
     pristine: m.pristine ?? gen, base: m.base, meta: m.meta,
-    created: m.created ?? mtime, updated: m.updated ?? mtime, where: 'disk', shelf,
+    created: m.created ?? mtime, updated: m.updated ?? mtime, where: 'disk', shelf, ...(foreign ? { foreign: true } : {}),
   }
 }
 // where a song lives: one the app made and nobody saved yet (pristine: a 🎲 song, a copy in another mode) in
@@ -202,7 +207,7 @@ class Shelf {
       files.delete(old)
       delete index[old]
     }
-    index[file] = { id: e.id, kind: e.kind, pristine: e.pristine, base: e.base, meta: e.meta, created: e.created, updated: e.updated, ...(versions.length ? { versions } : {}) }
+    index[file] = { id: e.id, kind: e.kind, pristine: e.pristine, base: e.base, meta: e.meta, created: e.created, updated: e.updated, ...(e.foreign ? { foreign: true } : {}), ...(versions.length ? { versions } : {}) }
     await this.writeIndex(index, files)
     const { where, ...rest } = e
     return { ...rest, file, where: 'disk', shelf: this.key }
@@ -447,6 +452,10 @@ export class Library {
     const now = Date.now()
     const e = { ...entry, id: entry.id && !entry.id.startsWith('builtin:') ? entry.id : 'user:' + now.toString(36) + Math.random().toString(36).slice(2, 6), created: entry.created ?? now, updated: now }
     e.source = lf(e.source) // as the editor has it: a file from Windows must not look edited at once
+    // a song made while a foreign one is open comes from it (a copy, a mutation, a retuned copy): foreign too, unless the
+    // caller knows better (foreign: false — a new empty song, a fresh 🎲 one)
+    if (e.foreign == null && guard.ambientNow()) e.foreign = true
+    if (!e.foreign) delete e.foreign
     e.name = nameIn(e.source, e.name)
     let saved = null
     if (await this.connect({ pick })) {

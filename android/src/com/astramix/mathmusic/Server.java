@@ -28,6 +28,7 @@ public final class Server {
     public interface Page { byte[] bytes() throws IOException; }
 
     static final Pattern HOST = Pattern.compile("^(localhost|127\\.0\\.0\\.1)(:\\d+)?$");
+    static final Pattern ORIGIN = Pattern.compile("^https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?$");
     static final Pattern API = Pattern.compile("^/api/(mine|gen|songs|export/(?:mp3|wav|ogg|midi|stems|tuning|musicxml|code|video))(?:/([^/]+))?$");
     static final Pattern SONG_FILE = Pattern.compile("^[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.js$");
     static final Pattern EXPORT_FILE = Pattern.compile("^[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.(mp3|wav|ogg|mid|zip|musicxml|js|mp4|webm)$");
@@ -133,6 +134,9 @@ public final class Server {
     Res route(String method, String target, Map<String, String> h, byte[] body) throws IOException {
         String host = h.get("host");
         if (host == null || !HOST.matcher(host).matches()) return new Res(403, "host");
+        // (a request that names its origin must come from the app's own page: not another site, not a foreign song's sandbox — "null")
+        String origin = h.get("origin");
+        if (origin != null && !origin.isEmpty() && !ORIGIN.matcher(origin).matches()) return new Res(403, "origin");
         int q = target.indexOf('?');
         String path = q < 0 ? target : target.substring(0, q), query = q < 0 ? "" : target.substring(q + 1);
         if (path.equals("/") && method.equals("GET")) {

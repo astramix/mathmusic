@@ -11,12 +11,15 @@
 //     the page maps them onto the song (vmap) and blends the loop's start over what would follow its end (23 ms);
 //   · A/B: the rendered audio of the last few versions is kept, so switching to the other one is instant — it
 //     cross-fades in at the same beat, matched in loudness if asked (trim).
-import { makeRuntime, compile, trackList, SR, TAIL } from './runtime.js'
+import { makeRuntime, compile, trackList, SR, TAIL, guard } from './runtime.js'
+import { SandboxWorker, sandboxLoad } from './sandbox.js'
 import { vstTracks, vstAudio, sliceOf } from './vstclient.js'
 
 export const CH = 8192 // samples per chunk
 let wurl = null
 const workerURL = () => (wurl ??= MM.blob(MM.APP['worker.js']))
+// an audio worker: in the page's own origin for the user's songs, inside the sandbox for a song from elsewhere (sandbox.js)
+const audioWorker = sandboxed => (sandboxed ? new SandboxWorker(MM.APP['worker.js']) : new Worker(workerURL()))
 export const BLOCK = 512 // level-meter resolution
 const FEED_AHEAD = 0.75 // seconds of audio queued in the worklet
 const RENDER_AHEAD = 90 // seconds rendered ahead of the playhead
@@ -94,12 +97,14 @@ export class Player extends EventTarget {
     return Math.max(1, Math.min(nTracks, 4, (navigator.hardwareConcurrency || 4) - 1))
   }
   spawn(k) {
-    if (this.workers.length === k && this.loads < 40) return
+    const sandboxed = !!this.song?.__sandbox // a foreign song never shares workers with the user's own
+    if (this.workers.length === k && this.loads < 40 && this.sandboxed === sandboxed) return
+    this.sandboxed = sandboxed
     for (const w of this.workers) w.w.terminate()
     this.workers = []
     this.loads = 0
     for (let i = 0; i < k; i++) {
-      const w = new Worker(workerURL())
+      const w = audioWorker(sandboxed)
       w.postMessage({ type: 'init', lib: this.rt.lib, SR, TAIL })
       const slot = { w, keys: [] }
       w.onmessage = e => this.fromWorker(slot, e.data)
@@ -513,8 +518,8 @@ export async function renderSongCached(SRC, source, opts = {}) {
 // Renders a whole song off-line (for export): fresh workers, all tracks in parallel →
 // { L, R } normalised to −1 dBFS like render.js, levels[block][track] for videos, keys.
 export async function renderSong(SRC, source, { muted = new Set(), only = null, gain = null, onProgress = () => {}, onProblem = () => {}, signal } = {}) {
-  const rt = makeRuntime(SRC)
-  const { song, body } = rt.load(source)
+  const rt = makeRuntime(SRC), sandboxed = guard.needs(source) // a song from elsewhere (or anything while one is open): in the sandbox
+  const { song, body } = sandboxed ? await sandboxLoad(rt.lib, source) : rt.load(source)
   const sec = 60 / song.bpm, keys = trackList(song).map(([k]) => k).filter(k => !only || only.includes(k))
   const end = Math.ceil((song.length * sec + TAIL) * SR), chunks = Math.ceil(end / CH)
   const k = Math.max(1, Math.min(keys.length, 6, (navigator.hardwareConcurrency || 4) - 1))
@@ -528,7 +533,7 @@ export async function renderSong(SRC, source, { muted = new Set(), only = null, 
   const L = new Float32Array(chunks * CH), R = new Float32Array(chunks * CH)
   const nt = keys.length, levels = new Float32Array(Math.ceil((chunks * CH) / BLOCK) * nt)
   const stats = Object.fromEntries(keys.map(k => [k, { peak: 0, sum: 0, nan: false }]))
-  const workers = groups.map(() => new Worker(workerURL()))
+  const workers = groups.map(() => audioWorker(sandboxed))
   let total = 0
   try {
     await Promise.all(workers.map((w, i) => new Promise((resolve, reject) => {

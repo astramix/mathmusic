@@ -4,7 +4,8 @@
 import { app } from './app.js'
 import { $, h, esc, menubar, toast, modal, ask, closeMenus } from './ui.js'
 import { Player } from './player.js'
-import { makeRuntime, trackList, SR, errorLine } from './runtime.js'
+import { makeRuntime, trackList, SR, errorLine, guard } from './runtime.js'
+import { sandboxLoad } from './sandbox.js'
 import { Library, nameIn, setName, cleanName, lf, shelfOf } from './library.js'
 import { Scene, GRID } from './view.js'
 import { THEMES, themeFor, applyUiTheme } from './themes.js'
@@ -15,6 +16,7 @@ import { keyWithMode, MODES } from './modes.js'
 const SRC = MM.SRC
 app.SRC = SRC
 app.rt = makeRuntime(SRC)
+guard.ambient(() => app.current?.entry?.foreign === true) // while a song from elsewhere is open nothing runs outside the sandbox
 app.lib = new Library(SRC)
 app.player = new Player(SRC)
 const player = app.player
@@ -127,9 +129,15 @@ async function loadFormulaImages() {
 }
 
 // Load a song module in the page; errors → { error, line }
-async function loadModule(source) {
+// (a foreign entry — a song from somewhere else — is loaded in the sandbox: the page gets a stand-in made of tables)
+async function loadModule(source, entry) {
   try {
-    return app.rt.load(source)
+    if (entry?.foreign) {
+      const r = await sandboxLoad(app.rt.lib, source, { id: entry.id, grid: GRID })
+      if (r.skipped.length) toast(`дорожки с недопустимыми именами пропущены: ${r.skipped.join(', ')}`, { kind: 'err', ms: 8000 })
+      return r
+    }
+    return app.rt.load(source, { own: true })
   } catch (err) {
     console.warn(err)
     return { error: err?.message ?? String(err), line: err?.line ?? errorLine(err)?.line ?? null }
@@ -137,13 +145,14 @@ async function loadModule(source) {
 }
 
 let opening = 0 // the latest open() wins when songs are switched quickly
+const saidForeign = new Set() // the sandbox notice, once a song
 // opts: { ab: switch the audio over at the same beat (A/B — playing or paused stays), source: this code, not the draft }
 async function open(idOrEntry, from = 0, opts = {}) {
   const entry = typeof idOrEntry === 'string' ? app.lib.get(idOrEntry) : idOrEntry
   if (!entry) return toast('нет такой песни', { kind: 'err' })
   const my = ++opening
   const source = opts.source ?? app.drafts.get(entry.id) ?? entry.source
-  const mod = await loadModule(source)
+  const mod = await loadModule(source, entry)
   if (my !== opening) return
   if (mod.error) {
     toast(`${entry.name}: ${mod.error}${mod.line ? ` (строка ${mod.line})` : ''}`, { kind: 'err', ms: 8000 })
@@ -185,6 +194,10 @@ async function open(idOrEntry, from = 0, opts = {}) {
     toast(entry.kind === 'builtin' ? `✎ «${entry.name}» открыта с твоими несохранёнными правками — сама встроенная песня не менялась` : `✎ «${entry.name}» открыта с несохранёнными правками`,
       { ms: 9000, action: { label: entry.kind === 'builtin' ? '↺ оригинал' : '↺ сохранённая', run: revertCurrent } })
   }
+  if (entry.foreign && !saidForeign.has(entry.id)) {
+    saidForeign.add(entry.id)
+    toast(`🛡 «${entry.name}» — чужая песня: играет в песочнице, без доступа к вашим файлам и сети`, { ms: 12000, action: { label: 'Доверять…', run: trustSong } })
+  }
   app.editor?.load(app.current)
   app.pianoroll?.load?.(app.current)
   if (app.scoreview?.visible) app.scoreview.load(app.current)
@@ -201,7 +214,7 @@ async function apply(source, { of, id } = {}) {
   if (!cur) return { ok: false, error: 'нет песни' }
   const stale = { ok: false, stale: true, error: 'песня сменилась' }
   if ((of && of !== cur) || (id != null && cur.id !== id)) return stale
-  const mod = await loadModule(source)
+  const mod = await loadModule(source, cur.entry)
   if (app.current !== cur) return stale
   if (mod.error) return { ok: false, error: mod.error, line: mod.line }
   const { song } = mod
@@ -453,26 +466,56 @@ async function saveToFolder(choose) {
   else toast(`📁 записано: ${r.where}\nrender.js и Ableton увидят песню после «npm run viz» / рендера`, { kind: 'ok', ms: 6000 })
 }
 // a new song in "Мои" under a name no other song has (the code's name is changed only if it must)
-async function addSong(source, fallbackName) {
+async function addSong(source, fallbackName, foreign = false) {
   const name = app.lib.uniqueName(nameIn(source, fallbackName))
   if (name !== nameIn(source, null)) source = setName(source, name)
-  const e = await app.lib.save({ name, source, kind: 'user' }, { pick: true })
+  const e = await app.lib.save({ name, source, kind: 'user', foreign }, { pick: true })
   if (e.where !== 'disk') savedNote(e, `«${e.name}» добавлена`)
   return e
 }
+// A song file from outside (Песня → «Открыть файл…», or a .js dropped onto the window): a song is a program, so one that
+// did not come from this app is foreign — it plays in the sandbox (sandbox.js) until you say you trust it.
+async function importSong(f) {
+  if (f.size > 4e6) return toast('файл больше 4 МБ — это не песня MathMusic', { kind: 'err' })
+  const source = lf(await f.text())
+  if (!/export\s+default/.test(source)) return toast(`${f.name}: это не песня MathMusic (нет export default)`, { kind: 'err' })
+  // the same file opened again: that song, not a second copy of it
+  const same = app.lib.list().find(e => e.source === source)
+  if (same) {
+    toast(`эта песня уже есть: ${same.name}`)
+    return open(same)
+  }
+  await open(await addSong(source, f.name.replace(/\.js$/, ''), true))
+}
+// the foreign song becomes one of yours: its code may then do what any song of yours may
+async function trustSong() {
+  const cur = app.current, e = cur?.entry
+  if (!e?.foreign) return toast('эта песня и так ваша', { ms: 2500 })
+  const yes = await ask('Доверять песне «' + esc(e.name) + '»?',
+    `<p>Песня — это программа. Сейчас она работает в <b>песочнице</b>: звук, график и ноты есть, но её код не видит ваши файлы, сеть и память приложения.</p>
+<p>Если доверить, её код будет выполняться как код ваших песен — он сможет читать и менять файлы в my_songs/ и generated/. Доверяйте только тому, что прочитали (<b>E</b> — код песни) или получили от человека, которому верите.</p>
+<p class="dim">В песочнице недоступны: VST-плагины, «Аранжировка под мелодию» и мелодии в стиле.</p>`,
+    [{ label: 'Оставить в песочнице', value: false, primary: true }, { label: 'Доверять', value: true }])
+  if (!yes || app.current !== cur) return
+  guard.untaint(e.id)
+  const saved = await app.lib.save({ ...(app.lib.get(e.id) ?? e), foreign: false })
+  cur.entry = saved
+  await open(saved.id, player.x)
+  toast(`«${saved.name}» теперь ваша песня`, { kind: 'ok' })
+}
+// a .js dropped anywhere onto the window
+addEventListener('dragover', e => { if ([...(e.dataTransfer?.types ?? [])].includes('Files') && !e.target.closest?.('.modal')) e.preventDefault() })
+addEventListener('drop', e => {
+  if (e.target.closest?.('.modal')) return
+  const f = [...(e.dataTransfer?.files ?? [])].find(f => /\.js$/i.test(f.name))
+  if (!f) return
+  e.preventDefault()
+  importSong(f)
+})
 function openFile() {
   const inp = h('input', { type: 'file', accept: '.js,text/javascript' })
   inp.onchange = async () => {
-    const f = inp.files[0]
-    if (!f) return
-    const source = lf(await f.text())
-    // the same file opened again: that song, not a second copy of it
-    const same = app.lib.list().find(e => e.source === source)
-    if (same) {
-      toast(`эта песня уже есть: ${same.name}`)
-      return open(same)
-    }
-    open(await addSong(source, f.name.replace(/\.js$/, '')))
+    if (inp.files[0]) importSong(inp.files[0])
   }
   inp.click()
 }
@@ -740,7 +783,9 @@ menubar($('menus'), [
       { icon: '🔁', label: 'Переписать мелодию', disabled: () => app.pianoroll?.current?.()?.kind !== 'project', action: () => lazy('projectui.js').then(m => m.rewrite(app.pianoroll.current().id)), note: 'выбранная дорожка пианоролла — заново в её стиле' },
       { icon: '🎼', label: 'Аранжировка под мелодию…', disabled: () => !app.current?.song, action: () => togglePianoRoll(true).then(() => lazy('projectui.js')).then(m => m.arrangeDialog()), note: 'все партии стиля или одна дорожка — под мелодию другой' },
       { icon: '✚', label: 'Новая песня из шаблона (код)', action: newSong },
-      { icon: '📂', label: 'Открыть файл .js…', action: openFile },
+      { icon: '📂', label: 'Открыть файл песни…', action: openFile, note: 'чужая песня (.js) играет в песочнице — без доступа к вашим файлам; можно и перетащить файл в окно' },
+      ...(app.current?.entry?.foreign ? [{ icon: '🛡', label: 'Доверять этой песне…', action: trustSong, note: 'сейчас она в песочнице' }] : []),
+      { icon: '📤', label: 'Поделиться: файл песни…', disabled: () => !app.current, action: () => lazy('export.js').then(m => m.exportSource()), note: 'файл .js в exports/code — у получателя он откроется в песочнице' },
       { icon: '💾', label: 'Сохранить в my_songs', kbd: 'Ctrl+S', action: saveCurrent },
       { icon: '🕘', label: 'Прошлые версии…', action: versionsDialog, disabled: () => !app.current, note: 'каждое сохранение поверх оставляет прошлую версию; у встроенной — её оригинал' },
       { icon: '⧉', label: 'Дублировать', action: () => duplicateSong(), disabled: () => !app.current, note: 'копия под новым именем — с правками, как сейчас в коде' },

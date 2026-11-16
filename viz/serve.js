@@ -30,6 +30,9 @@ export function serve({ port = PORT, root = ROOT, html = () => build({ quiet: tr
     try {
       // only http://localhost:<port> / 127.0.0.1 (a page of another site pointed here by DNS won't match)
       if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host ?? '')) return send(403, 'host')
+      // a request that says where it comes from must come from the app's own page: not another site, not the sandbox a
+      // foreign song runs in (viz/app/sandbox.js — its origin is "null")
+      if (req.headers.origin && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.origin)) return send(403, 'origin')
       const url = new URL(req.url, 'http://localhost')
       if (url.pathname === '/' && req.method === 'GET') return send(200, fs.readFileSync(await html()), 'text/html; charset=utf-8')
       if (url.pathname === '/api/hello') return send(200, JSON.stringify({ app: 'mathmusic' }), 'application/json')

@@ -8,6 +8,7 @@ import { themeFor } from './themes.js'
 import { songKey, keyLabel, tonicName } from './theory.js'
 import { MODES } from './modes.js'
 import { trackList } from './runtime.js'
+import { sandboxLoad } from './sandbox.js'
 import { styleIn, shelfOf } from './library.js'
 import { STYLE_LIST, STYLE_FAMILIES, familyOf } from './generate.js'
 
@@ -154,7 +155,7 @@ export function closeGallery() {
   removeEventListener('keydown', onKey, true)
 }
 
-function card(entry) {
+function card(entry, made = null) {
   const cv = h('canvas', { width: 520, height: 240 })
   const meta = h('div', { class: 'meta' })
   const c = h('div', { class: 'card', title: entry.name }, cv, meta)
@@ -180,9 +181,16 @@ function card(entry) {
       { icon: '🗑', label: 'Удалить', disabled: !mine, action: () => app.songs.remove(entry.id), note: mine ? (entry.file ? `и файл ${shelfOf(entry) === 'gen' ? 'generated' : 'my_songs'}/${entry.file}` : null) : 'встроенные песни живут в папке songs/' },
     ], ev.clientX, ev.clientY)
   }
-  let song = null
+  // a song from somewhere else never runs in the page: its card waits for the sandbox (sandbox.js) and is drawn from its tables
+  if (entry.foreign && !made) {
+    meta.innerHTML = `<b>${esc(entry.name)}</b><span class="tag">🛡 чужая</span><div class="d">в песочнице…</div>`
+    sandboxLoad(app.rt.lib, entry.source, { id: entry.id }).then(r => { if (c.isConnected) c.replaceWith(card(entry, r.song)) },
+      e => { meta.innerHTML = `<b>${esc(entry.name)}</b><span class="tag">🛡 чужая</span><div class="d" style="color:var(--danger)">ошибка: ${esc(e.message)}</div>` })
+    return c
+  }
+  let song = made
   try {
-    song = app.rt.load(entry.source).song
+    song ??= app.rt.load(entry.source, { own: true }).song
   } catch (e) {
     meta.innerHTML = `<b>${esc(entry.name)}</b><div class="d" style="color:var(--danger)">ошибка: ${esc(e.message)}</div>`
     return c
@@ -194,7 +202,7 @@ function card(entry) {
   c.dataset.bpm = song.bpm
   c.dataset.secs = Math.round(secs)
   c.dataset.text = `${song.name} ${entry.name} ${st.label} ${FAMS.find(f => f[0] === c.dataset.fam)?.[1] ?? ''} ${keyText} ${song.bpm} bpm`.toLowerCase()
-  const tag = [entry.kind === 'generated' ? '🎲' : entry.kind === 'user' ? 'моя' : '', entry.where === 'pending' ? '⏳ не в папке' : '', st.id !== 'other' ? st.emoji : ''].filter(Boolean).join(' ')
+  const tag = [entry.foreign ? '🛡 чужая' : entry.kind === 'generated' ? '🎲' : entry.kind === 'user' ? 'моя' : '', entry.where === 'pending' ? '⏳ не в папке' : '', st.id !== 'other' ? st.emoji : ''].filter(Boolean).join(' ')
   meta.innerHTML = `<b>${esc(song.name)}</b>${tag ? `<span class="tag">${tag}</span>` : ''}<div class="d">${song.mode && MODES[song.mode] ? `${tonicName(key)} ${MODES[song.mode].name.replace(/^Натуральный /, '').toLowerCase()}` : keyLabel(key)}${song.tuning?.name ? ` · ${song.tuning.name}` : ''} · ${song.bpm} BPM · ${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')} · ${trackList(song).length} дорожек</div>`
   // sample every curve once
   const W = 520, H = 240, res = Math.max(1, Math.round(W * 3 / song.length))

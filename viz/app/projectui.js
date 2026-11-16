@@ -386,7 +386,7 @@ export function newProjectDialog() {
     { label: 'Создать', primary: true, action: async () => {
       const m = mode.value, key = keyFor(tonic.value, m), title = app.lib.uniqueName(name.value.trim() || 'Мой проект')
       const source = newProjectSource({ name: title, bpm: +bpm.value || 100, key, mode: m === 'major' || m === 'minor' ? null : m, bars: Math.max(1, +bars.value || 16), tracks: [{ id: 't1', name: INSTRUMENT[inst.value].label, inst: inst.value, vol: 1, pan: 0, notes: [] }] })
-      const e = await app.lib.save({ name: title, source, kind: 'user' }, { pick: true })
+      const e = await app.lib.save({ name: title, source, kind: 'user', foreign: false }, { pick: true })
       await app.open(e)
       await app.togglePianoRoll(true)
       app.pianoroll?.want?.('p:t1')
