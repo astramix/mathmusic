@@ -65,6 +65,8 @@ import './gen/internet.js'
 import './gen/storm.js'
 import './gen/beyond.js'
 import './gen/magma.js'
+// the second generation: styles written one a file (src/gen/define.js) on the studio's instruments (src/gen/studio.js)
+import './gen/v2-fight.js'
 import { generateFugue } from './gen/fugue-song.js'
 import { generateMaqam } from './gen/maqam-song.js'
 import { generateRaga } from './gen/raga-song.js'

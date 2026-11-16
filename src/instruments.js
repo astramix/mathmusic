@@ -1706,3 +1706,467 @@ export function magmaHitTone(f, t, vel = 0.8) {
   }
   return 0.06 * vel * open * y
 }
+
+// ================================================================================================================
+// The studio — the second generation of sounds (the styles marked «2»).
+//
+// What made the first generation sound cheap: saws with their −6 dB/octave of harmonics straight into a static
+// low-pass, one oscillator a note, a vibrato that never stops, Freeverb's short metallic tail. Here instead:
+//   · hall()      a room worth the name: 8 delay lines in a feedback matrix (Hadamard), four of them slowly modulated
+//                 (no metallic ring), the highs dying sooner, early reflections, a pre-delay, a decay time in seconds;
+//   · ensemble()  the string machine's chorus: three delay taps 120° apart on a slow and a fast LFO;
+//   · TIMBRES     instruments as spectra: each harmonic's level = the source's slope × the body's resonances at that
+//                 harmonic's own frequency (a violin's 290 Hz air and 2.6 kHz bridge hill, a horn's formant near 420 Hz,
+//                 a voice's vowel), a soft and a loud version, made into band-limited wavetables per note — no aliasing,
+//                 no filter needed, the formants stay where they are while the pitch moves;
+//   · section()   a group of players on every note: each a few cents off and drifting, with its own vibrato that
+//                 starts late, its own moment to begin, its place in the room (louder in the near ear and up to
+//                 0.45 ms sooner); louder = brighter (the loud table);
+//   · soloist()   one player with a breath: legato glides, a scoop into the note, vibrato after a while, brightness
+//                 following the dynamics;
+//   · piano()     a struck string as it is: up to 28 partials stretched by the string's stiffness, every one a pair
+//                 that beats (two-stage decay: the prompt sound and the aftersound), a hammer that is harder when it
+//                 hits harder, its knock; polyWide() spreads the notes across the keyboard's width.
+// ================================================================================================================
+
+// ---- a concert hall ---------------------------------------------------------------------------------------------
+// hall({ size, decay (s, RT60), damp (Hz: above it the tail dies sooner), pre (s), mod, wet, dry, width, early }) → (l, r) ⇒ [l, r]
+const HALL_LEN = [1687, 1931, 2053, 2251, 2437, 2647, 2857, 3089], HALL_RATE = [0.31, 0.47, 0.59, 0.73]
+const HALL_EARLY = [[0.0071, 0.0113, 0.0179, 0.0233, 0.0317, 0.0413], [0.0083, 0.0131, 0.0197, 0.0269, 0.0341, 0.0437]]
+export function hall({ size = 1, decay = 2.6, damp = 5200, pre = 0.018, mod = 1, wet = 0.3, dry = 1, width = 1, early = 0.6 } = {}) {
+  const len = HALL_LEN.map(n => Math.round(n * size)), M = len.map(n => n + 64)
+  const buf = M.map(n => new Float32Array(n)), w = new Int32Array(8)
+  const g = len.map(n => 10 ** ((-3 * n) / (SR * decay * 1.35))), kd = 1 - exp((-TAU * damp) / SR), kl = 1 - exp((-TAU * 90) / SR)
+  const lp = new Float64Array(8), lo = new Float64Array(8), o = new Float64Array(8), v = new Float64Array(8)
+  const ap = [[142, 107, 379, 277], [151, 113, 389, 283]].map(set => set.map(n => ({ b: new Float32Array(Math.round(n * size)), i: 0 })))
+  const diffuse = (side, x) => {
+    for (const a of ap[side]) {
+      const d = a.b[a.i], y = d - 0.62 * x
+      a.b[a.i] = x + 0.62 * y
+      if (++a.i === a.b.length) a.i = 0
+      x = y
+    }
+    return x
+  }
+  const PN = Math.ceil((pre + 0.05 * size) * SR) + 8, pl = new Float32Array(PN), pr = new Float32Array(PN)
+  const taps = HALL_EARLY.map(set => set.map(t => Math.round((pre * 0.5 + t * size) * SR))), preN = Math.max(1, Math.round(pre * SR))
+  let pw = 0, ph = 0
+  const depth = 9 * mod, norm = 0.36 / Math.sqrt(Math.max(0.3, decay)), s8 = 1 / Math.sqrt(8)
+  return (l, r) => {
+    pl[pw] = l
+    pr[pw] = r
+    // early reflections: a few echoes of each side, the later ones crossing over
+    let el = 0, er = 0, gain = 0.7
+    for (let i = 0; i < 6; i++) {
+      let a = pw - taps[0][i], b = pw - taps[1][i]
+      if (a < 0) a += PN
+      if (b < 0) b += PN
+      if (i & 1) { el += gain * pr[b]; er += gain * pl[a] } else { el += gain * pl[a]; er -= gain * pr[b] }
+      gain *= 0.78
+    }
+    let q = pw - preN
+    if (q < 0) q += PN
+    const inL = diffuse(0, pl[q] + 0.3 * el), inR = diffuse(1, pr[q] + 0.3 * er)
+    if (++pw === PN) pw = 0
+    ph += 1 / SR
+    // the delay lines' outputs (the first four read at a place that wanders: the tail's modes never stand still)
+    for (let j = 0; j < 8; j++) {
+      const n = M[j]
+      if (j < 4) {
+        const d = len[j] - 12 + depth * sin(TAU * HALL_RATE[j] * ph + j)
+        let p = w[j] - d
+        if (p < 0) p += n
+        const i = p | 0, f = p - i, i1 = i + 1 === n ? 0 : i + 1
+        o[j] = buf[j][i] + f * (buf[j][i1] - buf[j][i])
+      } else {
+        let p = w[j] - len[j]
+        if (p < 0) p += n
+        o[j] = buf[j][p]
+      }
+      lp[j] += kd * (o[j] - lp[j])
+      lo[j] += kl * (lp[j] - lo[j])
+      v[j] = g[j] * (lp[j] - 0.35 * lo[j])
+    }
+    // Hadamard: every line feeds every other, energy kept
+    for (let h = 1; h < 8; h <<= 1) for (let i = 0; i < 8; i += h << 1) for (let j = i; j < i + h; j++) { const a = v[j], b = v[j + h]; v[j] = a + b; v[j + h] = a - b }
+    for (let j = 0; j < 8; j++) {
+      buf[j][w[j]] = s8 * v[j] + (j & 1 ? inR : inL)
+      if (++w[j] === M[j]) w[j] = 0
+    }
+    let wl = norm * (o[0] - o[2] + o[4] - o[6]) + early * 0.5 * el, wr = norm * (o[1] - o[3] + o[5] - o[7]) + early * 0.5 * er
+    if (width !== 1) { const m = 0.5 * (wl + wr), s = 0.5 * (wl - wr) * width; wl = m + s; wr = m - s }
+    return [dry * l + wet * wl, dry * r + wet * wr]
+  }
+}
+
+// ---- the string machine's chorus --------------------------------------------------------------------------------
+// ensemble({ depth, mix }) → (l, r) ⇒ [l, r]: three taps 120° apart, a slow LFO (0.63 Hz) and a fast one (6.1 Hz) on each
+export function ensemble({ depth = 1, mix = 0.5, base = 0.011 } = {}) {
+  const N = Math.ceil((base + 0.006) * SR) + 8, bl = new Float32Array(N), br = new Float32Array(N)
+  let w = 0, t = 0
+  const tap = (b, d) => {
+    let p = w - d * SR
+    if (p < 0) p += N
+    const i = p | 0, f = p - i
+    return b[i] + f * (b[i + 1 === N ? 0 : i + 1] - b[i])
+  }
+  return (l, r) => {
+    bl[w] = l
+    br[w] = r
+    t += 1 / SR
+    let yl = 0, yr = 0
+    for (let k = 0; k < 3; k++) {
+      const a = (TAU * k) / 3, d = base + depth * (0.0021 * sin(TAU * 0.63 * t + a) + 0.00028 * sin(TAU * 6.1 * t + 2 * a))
+      const sl = tap(bl, d), sr = tap(br, d)
+      // each tap leans to its own side
+      yl += (k === 0 ? 0.9 : k === 1 ? 0.25 : 0.55) * sl
+      yr += (k === 0 ? 0.25 : k === 1 ? 0.9 : 0.55) * sr
+    }
+    if (++w === N) w = 0
+    return [l * (1 - 0.5 * mix) + 0.62 * mix * yl, r * (1 - 0.5 * mix) + 0.62 * mix * yr]
+  }
+}
+
+// ---- instruments as spectra ---------------------------------------------------------------------------------------
+const WT = 2048, WTM = WT - 1, WSINE = Float32Array.from({ length: WT }, (_, i) => Math.sin((TAU * i) / WT))
+const reson = (F, c, bw) => 1 / (1 + ((F - c) / bw) ** 2) // a resonance of the body at c Hz, half-width bw
+const roll = (F, fc, n) => 1 / (1 + (F / fc) ** n) // the highs falling away above fc
+// a vowel: the glottal source (−10 dB / octave) through the formants; d = 0 soft … 1 loud (a harder voice: a flatter source)
+const vowel = (F1, F2, F3, a2, a3) => (k, F, d) => (0.05 + reson(F, F1, 70 + 0.06 * F1) + a2 * reson(F, F2, 90 + 0.05 * F2) + a3 * reson(F, F3, 190) + 0.5 * a3 * reson(F, 3500, 260)) / k ** (1.75 - 0.5 * d) * roll(F, 5200, 4)
+// name → { amp(k, F, d): the level of harmonic k (at F Hz) at dynamic d ∈ [0, 1] — the soft and the loud table are d = 0.15 and 0.9;
+//   attack, release (s); vib: [rate Hz, depth ¢, delay s]; detune ¢ (how far the players sit apart); breath (noise) }
+export const TIMBRES = {
+  // bowed strings: a saw-like source, the body's air and wood resonances, the bridge hill, then the roll-off
+  violins: { amp: (k, F, d) => (0.3 + 1.1 * reson(F, 290, 60) + reson(F, 520, 110) + 0.5 * reson(F, 1000, 260) + 1.5 * reson(F, 2700, 800)) / k ** (1.2 - 0.45 * d) * roll(F, 3000 + 3200 * d, 3), attack: 0.16, release: 0.32, vib: [5.6, 16, 0.22], detune: 7, breath: 0.012 },
+  violas: { amp: (k, F, d) => (0.3 + 1.1 * reson(F, 230, 50) + reson(F, 420, 90) + 0.55 * reson(F, 850, 220) + 1.2 * reson(F, 2200, 650)) / k ** (1.2 - 0.4 * d) * roll(F, 2500 + 2500 * d, 3), attack: 0.18, release: 0.34, vib: [5.3, 15, 0.24], detune: 7, breath: 0.012 },
+  celli: { amp: (k, F, d) => (0.3 + reson(F, 100, 25) + 1.1 * reson(F, 178, 38) + 0.9 * reson(F, 270, 60) + 0.8 * reson(F, 520, 140) + 0.8 * reson(F, 1500, 520)) / k ** (1.15 - 0.35 * d) * roll(F, 2000 + 1900 * d, 3), attack: 0.2, release: 0.4, vib: [5.1, 14, 0.26], detune: 6, breath: 0.01 },
+  basses: { amp: (k, F, d) => (0.35 + reson(F, 70, 18) + reson(F, 112, 26) + 0.8 * reson(F, 200, 50) + 0.5 * reson(F, 450, 140)) / k ** (1.3 - 0.3 * d) * roll(F, 1100 + 900 * d, 3), attack: 0.24, release: 0.45, vib: [4.8, 9, 0.3], detune: 5, breath: 0.008 },
+  // brass: the harder it is blown the more harmonics; each instrument's bell formant
+  horns: { amp: (k, F, d) => (0.5 + reson(F, 420, 190)) / k ** (0.9 - 0.4 * d) * roll(F, 520 + 1500 * d * d, 2.6), attack: 0.09, release: 0.22, vib: [5.2, 6, 0.4], detune: 5, breath: 0.004 },
+  trumpets: { amp: (k, F, d) => (0.35 + 1.2 * reson(F, 1300, 480) + 0.5 * reson(F, 2500, 900)) / k ** (0.75 - 0.4 * d) * roll(F, 1300 + 3800 * d, 3), attack: 0.045, release: 0.14, vib: [5.6, 9, 0.3], detune: 5, breath: 0.004 },
+  trombones: { amp: (k, F, d) => (0.45 + 1.1 * reson(F, 520, 210) + 0.3 * reson(F, 1500, 500)) / k ** (0.85 - 0.4 * d) * roll(F, 480 + 1900 * d * d, 2.6), attack: 0.07, release: 0.2, vib: [5, 5, 0.45], detune: 5, breath: 0.004 },
+  // woodwinds
+  flute: { amp: (k, F, d) => roll(F, 2400 + 1800 * d, 4) / k ** (2.6 - 0.8 * d), attack: 0.07, release: 0.16, vib: [5.2, 12, 0.3], detune: 4, breath: 0.05 },
+  clarinet: { amp: (k, F, d) => (k % 2 ? 1 : Math.min(1, 0.06 + F / 3200)) / k ** (1 - 0.2 * d) * (0.6 + 0.6 * reson(F, 1650, 500)) * roll(F, 2600 + 1400 * d, 3.5), attack: 0.05, release: 0.14, vib: [5, 4, 0.5], detune: 3, breath: 0.012 },
+  oboe: { amp: (k, F, d) => (0.22 + 1.25 * reson(F, 1100, 330) + 0.85 * reson(F, 2800, 520)) / k ** 0.35 * roll(F, 4200, 4), attack: 0.04, release: 0.12, vib: [5.4, 9, 0.35], detune: 3, breath: 0.008 },
+  bassoon: { amp: (k, F, d) => (0.3 + 1.2 * reson(F, 480, 150) + 0.4 * reson(F, 1200, 300)) / k ** 0.85 * roll(F, 2000 + 800 * d, 3), attack: 0.05, release: 0.15, vib: [5, 6, 0.4], detune: 3, breath: 0.008 },
+  // a saxophone: the tenor's formants 600 / 1700 / 2900 Hz
+  sax: { amp: (k, F, d) => (0.3 + 1.1 * reson(F, 600, 220) + 0.7 * reson(F, 1700, 450) + 0.45 * reson(F, 2900, 600)) / k ** (0.95 - 0.45 * d) * roll(F, 1900 + 3200 * d, 3), attack: 0.035, release: 0.12, vib: [5, 14, 0.28], detune: 4, breath: 0.03 },
+  // voices
+  aah: { amp: vowel(790, 1180, 2750, 0.5, 0.2), attack: 0.22, release: 0.5, vib: [5.3, 18, 0.3], detune: 9, breath: 0.02 },
+  ooh: { amp: vowel(360, 780, 2500, 0.22, 0.04), attack: 0.26, release: 0.55, vib: [5.1, 14, 0.35], detune: 9, breath: 0.015 },
+  mm: { amp: vowel(270, 1000, 2400, 0.05, 0.015), attack: 0.3, release: 0.6, vib: [5, 9, 0.4], detune: 8, breath: 0.006 },
+  // synthesizers, as their oscillators sound after a gentle filter
+  warm: { amp: (k, F, d) => roll(F, 700 + 2600 * d * d, 2) / k ** 1.25, attack: 0.5, release: 0.9, vib: [0.35, 4, 0], detune: 11, breath: 0 },
+  saw: { amp: (k, F, d) => roll(F, 1200 + 5200 * d * d, 2) / k, attack: 0.02, release: 0.2, vib: [5.5, 7, 0.25], detune: 9, breath: 0 },
+  square: { amp: (k, F, d) => (k % 2 ? 1 : 0.04) * roll(F, 1200 + 4800 * d * d, 2) / k, attack: 0.015, release: 0.15, vib: [5.5, 7, 0.25], detune: 6, breath: 0 },
+  glass: { amp: (k, F, d) => ([0, 1, 0.42, 0.16, 0.24, 0.05, 0.1, 0.02, 0.05][k] ?? 0) * (k < 3 ? 1 : 0.4 + 0.6 * d), attack: 0.3, release: 1.1, vib: [0.4, 3, 0], detune: 8, breath: 0 },
+  sine: { amp: (k, F, d) => (k === 1 ? 1 : k === 2 ? 0.06 + 0.1 * d : k === 3 ? 0.03 * d : 0), attack: 0.2, release: 0.6, vib: [4.5, 5, 0.4], detune: 5, breath: 0 },
+  organ: { amp: (k, F, d) => ([0, 1, 0.55, 0.3, 0.42, 0, 0.16, 0, 0.2][k] ?? 0) * roll(F, 5000, 3), attack: 0.03, release: 0.12, vib: [6.2, 3, 0], detune: 2, breath: 0.003 },
+}
+const tables = new Map()
+// the wavetable of a timbre at MIDI note n and dynamic layer (0 soft, 1 loud): harmonics up to 16 kHz, at fixed scattered phases
+function wavetable(name, n, layer) {
+  const key = name + n + layer
+  let t = tables.get(key)
+  if (t) return t
+  const T = TIMBRES[name], f0 = 440 * 2 ** ((n - 69) / 12), K = Math.max(1, Math.min(360, Math.floor(16000 / f0))), d = layer ? 0.9 : 0.15
+  const sum = new Float64Array(WT)
+  let e = 0
+  for (let k = 1; k <= K; k++) {
+    const a = T.amp(k, k * f0, d)
+    if (!(a > 2e-5)) continue
+    const p = Math.floor(hash(k, 77) * WT)
+    for (let i = 0; i < WT; i++) sum[i] += a * WSINE[(k * i + p) & WTM]
+    e += 0.5 * a * a
+  }
+  t = new Float32Array(WT + 1)
+  // every table as loud as the next (RMS 0.2), the loud layer 5 dB above the soft one
+  const g = (layer ? 0.26 : 0.15) / Math.sqrt(e || 1)
+  for (let i = 0; i < WT; i++) t[i] = g * sum[i]
+  t[WT] = t[0]
+  tables.set(key, t)
+  return t
+}
+const noteOf = f => Math.max(12, Math.min(120, Math.round(69 + 12 * Math.log2(f / 440))))
+const CTRL = 16 // samples between updates of vibrato and drift
+
+// section(name, { players, attack, release, spread (0…1 across the room), centre (−1…1), vib, detune, max notes, seed })
+//   → s(freqs: Hz[], level = 0.7) ⇒ [l, r] — a group of players on every note; level: soft 0 … loud 1 (brighter and louder)
+export function section(name, { players = 5, attack, release, spread = 0.8, centre = 0, vib = 1, detune, max = 12, gain = 1, seed = 1 } = {}) {
+  const T = TIMBRES[name], att = attack ?? T.attack, rel = release ?? T.release, cents = detune ?? T.detune
+  const slots = Array.from({ length: max }, (_, s) => ({
+    f: 0, on: false, age: 0, env: 0, soft: null, loud: null,
+    p: Array.from({ length: players }, (_, i) => {
+      const u = s * 31 + i * 7 + seed * 101, where = players > 1 ? (2 * i) / (players - 1) - 1 : 0, pan = clamp(centre + spread * (0.75 * where + 0.5 * (hash(u, 1) - 0.5)), -1, 1)
+      return {
+        ph: hash(u, 2), env: 0, k: 1, late: 0.05 * hash(u, 3), slow: 0.7 + 0.7 * hash(u, 4), off: (2 * hash(u, 5) - 1) * cents,
+        d1: 0.11 + 0.23 * hash(u, 6), d2: 0.31 + 0.4 * hash(u, 7), vr: T.vib[0] * (0.92 + 0.16 * hash(u, 8)), vp: TAU * hash(u, 9), vd: T.vib[1] * vib * (0.6 + 0.8 * hash(u, 10)),
+        gl: Math.sqrt((1 - pan) / 2), gr: Math.sqrt((1 + pan) / 2), itd: 0.00045 * pan,
+      }
+    }),
+  }))
+  const up = 1 - exp(-1 / (SR * att)), down = 1 - exp(-1 / (SR * rel)), air = T.breath ? filter('hp') : null
+  let t = 0, tick = 0, bright = 0.5
+  const last = []
+  return (freqs, level = 0.7) => {
+    // which notes sound (looked at only when they change): a note that goes on keeps its players, a new one gets a free place
+    let same = freqs.length === last.length
+    for (let j = 0; same && j < freqs.length; j++) if (freqs[j] !== last[j]) same = false
+    if (!same) {
+      last.length = freqs.length
+      for (let j = 0; j < freqs.length; j++) last[j] = freqs[j]
+    }
+    for (const sl of slots) sl.want = same && sl.on
+    for (let j = 0; !same && j < freqs.length && j < max; j++) {
+      const f = freqs[j]
+      let sl = slots.find(s => s.on && Math.abs(s.f / f - 1) < 0.004)
+      if (!sl) {
+        sl = slots.find(s => !s.on && s.env < 1e-4) ?? slots.reduce((a, b) => (!b.on && b.env < a.env ? b : a), slots.find(s => !s.on) ?? slots[0])
+        if (sl.on) continue
+        const n = noteOf(f)
+        sl.f = f
+        sl.on = true
+        sl.age = 0
+        sl.soft = wavetable(name, n, 0)
+        sl.loud = wavetable(name, n, 1)
+      }
+      sl.want = true
+    }
+    for (const sl of slots) if (sl.on && !sl.want) sl.on = false
+    t += 1 / SR
+    bright += 0.0004 * (clamp(level, 0, 1) - bright)
+    const ctrl = tick-- <= 0
+    if (ctrl) tick = CTRL - 1
+    let l = 0, r = 0, loudness = 0
+    for (const sl of slots) {
+      if (!sl.on && sl.env < 1e-4) { sl.env = 0; continue }
+      sl.age += 1 / SR
+      let e = 0
+      const inc = sl.f / SR, soft = sl.soft, loud = sl.loud
+      for (const p of sl.p) {
+        const target = sl.on && sl.age >= p.late ? 1 : 0
+        p.env += (target > p.env ? up / p.slow : down) * (target - p.env)
+        if (p.env < 1e-5) continue
+        if (ctrl) {
+          // a few cents off, wandering; the vibrato comes in after a while and never two players alike
+          const v = sl.age > T.vib[2] ? Math.min(1, (sl.age - T.vib[2]) / 0.35) : 0
+          p.k = 2 ** ((p.off + 2.2 * sin(TAU * p.d1 * t + p.vp) + 1.4 * sin(TAU * p.d2 * t + 2 * p.vp) + v * p.vd * sin(TAU * p.vr * t + p.vp)) / 1200)
+        }
+        p.ph += inc * p.k
+        if (p.ph >= 1) p.ph -= 1
+        // the left ear and the right: the same wave, the far ear's a moment later (itd · f of a cycle)
+        let q = p.ph + (p.itd > 0 ? 1 - p.itd * sl.f : 0), u = p.ph + (p.itd < 0 ? 1 + p.itd * sl.f : 0)
+        q -= q | 0
+        u -= u | 0
+        let x = q * WT, i = x | 0, fr = x - i
+        let a = soft[i] + fr * (soft[i + 1] - soft[i]), b = loud[i] + fr * (loud[i + 1] - loud[i])
+        l += p.gl * p.env * (a + bright * (b - a))
+        x = u * WT; i = x | 0; fr = x - i
+        a = soft[i] + fr * (soft[i + 1] - soft[i]); b = loud[i] + fr * (loud[i + 1] - loud[i])
+        r += p.gr * p.env * (a + bright * (b - a))
+        if (p.env > e) e = p.env
+      }
+      sl.env = e
+      loudness += e
+    }
+    const k = gain / Math.sqrt(players)
+    if (air) {
+      // the bows' and the breaths' noise under the tone
+      const nz = T.breath * Math.min(1, loudness) * (0.4 + 0.6 * bright) * air(η(), 1800, 0.6)
+      return [k * l + nz * 0.7, k * r + nz * 0.7]
+    }
+    return [k * l, k * r]
+  }
+}
+
+// soloist(name, { vib, glide (s), scoop (¢ into each new note), accent, drift (¢: a slow wander round the note), gain }) → v(f, on, vel = 0.8) ⇒ sample — one player:
+// a held note that changes pitch glides (legato), a new one starts with its attack; the vibrato arrives late; the
+// dynamics open the tone (the loud table), an accent at the start for the brass
+export function soloist(name, { vib = 1, glide = 0.04, scoop = 0, accent = 0, drift = 1.5, gain = 1, seed = 5 } = {}) {
+  const T = TIMBRES[name], up = 1 - exp(-1 / (SR * T.attack)), down = 1 - exp(-1 / (SR * T.release)), kg = 1 - exp(-CTRL / (SR * Math.max(0.005, glide)))
+  const air = T.breath ? filter('bp') : null
+  let ph = hash(seed, 1), env = 0, age = 0, was = false, lf = 0, k = 1, t = 0, tick = 0, n = -1, soft = null, loud = null, osoft = null, oloud = null, xf = 1, oph = 0, v = 0.8, f0 = 440
+  return (f, on, vel = 0.8) => {
+    t += 1 / SR
+    if (on) {
+      if (!was) { age = 0; v = vel; if (env < 0.02) lf = Math.log2(f) }
+      const m = noteOf(f)
+      if (m !== n) {
+        // the table of the new note fades in over the old one (25 ms)
+        osoft = soft; oloud = loud; oph = ph; xf = soft ? 0 : 1
+        n = m
+        soft = wavetable(name, m, 0)
+        loud = wavetable(name, m, 1)
+      }
+      f0 = f
+    }
+    was = on
+    age += 1 / SR
+    env += (on ? up : down) * ((on ? 1 : 0) - env)
+    if (env < 1e-5 || !soft) return 0
+    if (tick-- <= 0) {
+      tick = CTRL - 1
+      lf += kg * (Math.log2(f0) - lf)
+      const late = age > T.vib[2] ? Math.min(1, (age - T.vib[2]) / 0.3) : 0
+      k = 2 ** (lf + (late * vib * T.vib[1] * sin(TAU * T.vib[0] * (1 + 0.04 * sin(0.7 * t)) * t) - scoop * exp(-age / 0.045) + drift * sin(TAU * 0.23 * t)) / 1200)
+    }
+    const inc = k / SR
+    ph += inc
+    if (ph >= 1) ph -= 1
+    // brightness: the dynamics, the swell of the envelope, the attack's edge
+    const b = clamp((0.15 + 0.85 * v) * (0.55 + 0.45 * env) + accent * exp(-age / 0.07), 0, 1)
+    let x = ph * WT, i = x | 0, fr = x - i
+    let y = (1 - b) * (soft[i] + fr * (soft[i + 1] - soft[i])) + b * (loud[i] + fr * (loud[i + 1] - loud[i]))
+    if (xf < 1) {
+      oph += inc
+      if (oph >= 1) oph -= 1
+      x = oph * WT; i = x | 0; fr = x - i
+      const z = (1 - b) * (osoft[i] + fr * (osoft[i + 1] - osoft[i])) + b * (oloud[i] + fr * (oloud[i + 1] - oloud[i]))
+      y = xf * y + (1 - xf) * z
+      xf = Math.min(1, xf + 1 / (0.025 * SR))
+    }
+    y *= env * (0.45 + 0.55 * v)
+    if (air) y += T.breath * env * (0.5 + 0.8 * exp(-age / 0.05)) * air(η(), Math.min(9000, 2.5 * k), 1.2) * 2.5
+    return gain * y
+  }
+}
+
+// ---- the piano ---------------------------------------------------------------------------------------------------
+// piano({ bright, slope, stretch, knock, length }) → a tone for poly() / polyWide(): tone(f, t, vel), tone.voice(f, vel)
+// Each partial k: f_k = k f √(1 + B k²) (the string's stiffness; B grows up the keyboard), struck 1/8 along the string,
+// the hammer's felt a low-pass that opens with the velocity; two components a fraction of a cent apart — the prompt
+// sound dying fast and the aftersound five times slower (the strings of a unison trading energy): they beat as a piano does.
+export function piano({ bright = 1, stretch = 1, knock = 1, length = 1, slope = 0 } = {}) {
+  const partials = (f, vel) => {
+    const B = clamp(0.00022 * (f / 261.63) ** 1.4, 0.00005, 0.009) * stretch, N = Math.max(3, Math.min(28, Math.floor(9500 / f)))
+    const fc = (900 + 6200 * vel * vel) * bright * (0.75 + 0.25 * Math.min(2, f / 261.63)), tilt = 0.75 + slope + 1.1 * (1 - vel), norm = Math.sqrt(1 + B)
+    const tp = 0.95 * length * (261.63 / f) ** 0.5, ta = 5.2 * length * (261.63 / f) ** 0.62
+    const out = []
+    for (let k = 1; k <= N; k++) {
+      const fk = (k * f * Math.sqrt(1 + B * k * k)) / norm
+      if (fk > 0.45 * SR) break
+      const a = (Math.abs(Math.sin(k * PI * 0.123)) ** 0.6 / k ** tilt) / (1 + (fk / fc) ** 2)
+      const q = 1 + 0.2 * (k - 1), cents = 0.5 + 0.9 * hash(k, Math.round(f))
+      out.push([fk * 2 ** (-cents / 2400), 0.72 * a, tp / q, fk * 2 ** (cents / 2400), 0.28 * a, ta / (1 + 0.09 * (k - 1))])
+    }
+    return out
+  }
+  const level = f => 0.75 * (f / 261.63) ** 0.16
+  const tone = (f, t, vel) => {
+    let y = 0
+    for (const [f1, a1, t1, f2, a2, t2] of partials(f, vel)) y += a1 * exp(-t / t1) * sin(TAU * f1 * t) + a2 * exp(-t / t2) * sin(TAU * f2 * t)
+    return level(f) * vel * y
+  }
+  tone.voice = (f, vel) => {
+    const P = partials(f, vel), n = P.length, g = level(f) * vel
+    // every component a phasor turned a step at a time, its length shrinking: no sines in the loop
+    const c = new Float64Array(2 * n), s = new Float64Array(2 * n), cw = new Float64Array(2 * n), sw = new Float64Array(2 * n), dk = new Float64Array(2 * n)
+    P.forEach(([f1, a1, t1, f2, a2, t2], k) => {
+      s[2 * k] = 0; c[2 * k] = a1; s[2 * k + 1] = 0; c[2 * k + 1] = a2
+      cw[2 * k] = cos((TAU * f1) / SR); sw[2 * k] = sin((TAU * f1) / SR); dk[2 * k] = exp(-1 / (SR * t1))
+      cw[2 * k + 1] = cos((TAU * f2) / SR); sw[2 * k + 1] = sin((TAU * f2) / SR); dk[2 * k + 1] = exp(-1 / (SR * t2))
+    })
+    // the hammer's knock and the soundboard's thump: a burst of low noise, 25 ms
+    let t = 0, nz = 0, nz2 = 0
+    const kn = knock * 0.5 * vel * vel * Math.min(1.5, (f / 261.63) ** 0.3), kf = 1 - exp((-TAU * (700 + 1800 * vel)) / SR)
+    return () => {
+      let y = 0
+      for (let i = 0; i < 2 * n; i++) {
+        const x = (c[i] * cw[i] - s[i] * sw[i]) * dk[i]
+        s[i] = (c[i] * sw[i] + s[i] * cw[i]) * dk[i]
+        c[i] = x
+        y += s[i]
+      }
+      if (t < 0.06) {
+        nz += kf * (η() - nz)
+        nz2 += kf * (nz - nz2)
+        y += kn * nz2 * exp(-t / 0.012)
+      }
+      t += 1 / SR
+      return g * y
+    }
+  }
+  return tone
+}
+export const grandTone = piano()
+export const feltTone = piano({ bright: 0.4, slope: 0.6, knock: 1.6, length: 0.8 }) // an upright with the felt down: soft, close, a little knock
+
+// polyWide(tone, { life, release, width }) → p() ⇒ [l, r], p.hit(f, vel, durSec, delaySec) — poly() with every note at
+// its own place from left (low) to right (high), as the keys of a piano or the bars of a marimba lie
+export function polyWide(tone, { life = 8, release = 0.25, max = 28, width = 0.6 } = {}) {
+  const notes = []
+  const p = () => {
+    let l = 0, r = 0
+    for (let i = notes.length - 1; i >= 0; i--) {
+      const v = notes[i]
+      v.t += 1 / SR
+      if (v.t < 0) continue
+      const damp = v.t > v.dur ? exp(-(v.t - v.dur) / release) : 1
+      if (v.t > life || damp < 1e-3) { notes.splice(i, 1); continue }
+      const y = damp * (tone.voice ? (v.gen ??= tone.voice(v.f, v.vel, v.t))() : tone(v.f, v.t, v.vel))
+      l += v.gl * y
+      r += v.gr * y
+    }
+    return [l, r]
+  }
+  p.hit = (f, vel = 0.8, dur = Infinity, delay = 0) => {
+    const where = clamp(width * (Math.log2(f / 261.63) / 2.5), -1, 1)
+    notes.push({ f, vel, dur, t: -delay, gl: Math.sqrt((1 - where) / 2), gr: Math.sqrt((1 + where) / 2) })
+    if (notes.length > max) notes.shift()
+  }
+  return p
+}
+
+// ---- the studio's drums and plucked bass ----------------------------------------------------------------------------
+// cymbal2({ kind: 'hat' | 'open' | 'ride' | 'crash' | 'splash', tune }) → c(t s, on): bronze as it rings — noise through eight
+// narrow resonances at the plate's own inharmonic places (3.1 … 12.7 kHz) over a broad wash, the high ones dying later
+// on a ride, sooner on a closed hat; the stick's ping; the ride's bell (two partials 1 : 1.48 near 560 Hz)
+const CYM = { hat: [0.045, 0.6, 0.25, 0, 7000], open: [0.32, 0.7, 0.3, 0, 6000], ride: [1.4, 0.35, 0.55, 0.22, 4500], crash: [1.9, 1, 0.2, 0, 3500], splash: [0.6, 0.9, 0.2, 0, 5000] }
+const CYM_F = [3130, 4270, 5390, 6570, 7910, 9230, 10870, 12710]
+export function cymbal2({ kind = 'hat', tune = 1, seed = 211 } = {}) {
+  const [decay, wash, ping, bell, cut] = CYM[kind], nz = noise(seed), hp = filter('hp'), bands = CYM_F.map(() => filter('bp'))
+  const b1 = bell ? osc('sine') : null, b2 = bell ? osc('sine') : null
+  return (t, on = true) => {
+    const n = nz()
+    let y = 0
+    for (let i = 0; i < 8; i++) {
+      const band = bands[i](n, CYM_F[i] * tune, 9)
+      if (on) y += band * (0.6 + 0.4 * (i % 3)) * exp(-t / (decay * (kind === 'ride' ? 0.6 + 0.12 * i : 1.2 - 0.07 * i)))
+    }
+    const w = hp(n, cut)
+    if (!on) return 0
+    // the stick: the first milliseconds stand out
+    return 0.033 * y * (1 + 4 * ping * exp(-t / 0.006)) + 0.5 * wash * w * exp(-t / decay) + (bell ? bell * exp(-t / 0.5) * (b1(560 * tune) + 0.6 * b2(828 * tune)) : 0)
+  }
+}
+// kick2({ f, drop, decay, click, body }) → k(t s, on): a drum with a head — the pitch falls from f·drop to f in 20 ms, the shell's
+// second mode, the beater's click (a 3 ms burst near 3 kHz), a little air after it
+export function kick2({ f = 52, drop = 2.6, decay = 0.26, click = 0.5, body = 0.35, seed = 223 } = {}) {
+  const o = osc('sine'), o2 = osc('sine'), nz = noise(seed), bp = filter('bp'), lp = filter('lp')
+  let was = 9
+  return (t, on = true) => {
+    if (on && t < was) { o.reset(0); o2.reset(0) }
+    was = on ? t : 9
+    const n = nz()
+    if (!on) { o(f); o2(f * 1.6); bp(0, 3000, 1.5); lp(0, 400); return 0 }
+    const fr = f * (1 + (drop - 1) * exp(-t / 0.02))
+    const y = exp(-t / decay) * o(fr) + body * exp(-t / (0.5 * decay)) * o2(fr * 1.6)
+    return Math.tanh(1.5 * y) / 0.905 + click * exp(-t / 0.003) * bp(n, 3000, 1.5) + 0.08 * exp(-t / 0.05) * lp(n, 400)
+  }
+}
+// a plucked double bass for poly(): the fundamental long (1.1 s at E1), the harmonics gone sooner, the finger's thump,
+// a pitch that settles from 12 ¢ above in 40 ms (the string let go)
+export const pizzTone = (f, t, vel) => {
+  const w = TAU * f * (t - 0.00028 * exp(-t / 0.04)), d = 1.1 * (55 / f) ** 0.35
+  let y = 0
+  for (let k = 1; k <= 7; k++) y += (sin(k * w) / k ** (1.5 - 0.5 * vel)) * exp((-t * (0.6 + 0.9 * k)) / d) * (k % 2 ? 1 : 0.7)
+  return 0.7 * vel * (1 - exp(-t / 0.004)) * y + 0.25 * vel * exp(-t / 0.012) * sin(TAU * 85 * t)
+}
+// a soft synth pluck for poly(): two FM operators 1 : 2 whose brightness dies in 60 ms — a marimba made of glass
+export const softPluckTone = (f, t, vel) => vel * exp(-t / (0.5 + 110 / f)) * sin(TAU * f * t + (0.4 + 1.5 * vel) * exp(-t / 0.06) * sin(TAU * 2 * f * t)) * (1 - exp(-t / 0.002))
+// a glass bell for poly(): FM 1 : 3.5 at a low index, a second voice an octave up arriving 9 ms later
+export const glassBellTone = (f, t, vel) => {
+  const one = (g, u) => (u < 0 ? 0 : exp(-u / (1.6 + 200 / g)) * sin(TAU * g * u + 1.3 * vel * exp(-u / 0.25) * sin(TAU * 3.5 * g * u)) * (1 - exp(-u / 0.003)))
+  return 0.6 * vel * (one(f, t) + 0.3 * one(2 * f, t - 0.009))
+}

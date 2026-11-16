@@ -24,7 +24,8 @@ Open a source file only to change it or when something here is unclear.
   harmonic series' cents), space and 8D (test/spatial.test.js), audio styles (test/audiostyle.test.js: a synthetic band's tempo, key, chords and backbeat; a bar's
   partials, decays and a flute's vibrato measured back; resynthesis as loud as computed; a style's songs render, their
   formulas parse, a song made again from its generator field is byte for byte the same), harmonize (test/harmonize.test.js: key, chord tones, cadence; a song on your melody keeps it as written), retune (every song in two modes), theory, MIDI export, the song
-  library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js).
+  library's names/backup, the app build + syntax (acorn and `node --check`), microtones and tunings (test/micro.test.js),
+  the studio (test/studio.test.js: the «2» styles' instruments — tuning, the hall, width).
 - `node generate.js --style lofi [--seed 42 --key Dm --bpm 80 --length short|normal|long] [--theme id] [--render]
   [--mode rast] [--micro quarter|eighth] [--temperament werckmeister3] [--modulations] [--meter 7/8]`
   → `songs/<title>.js` (`--list` = styles and melodies; `--theme` picks theme A by its id). Same generator as
@@ -807,6 +808,43 @@ drops edits of a song no longer open. generated/ keeps the last 20 (genui `KEEP`
 except one with a draft; an edit alone (no Ctrl+S) leaves a song in generated/.
 Test it in a real browser: Chrome headless over the DevTools protocol (Node's WebSocket, no puppeteer needed)
 or puppeteer-core + the installed Chrome (`--autoplay-policy=no-user-gesture-required`).
+
+## The studio: the second generation of styles («2»)
+The user found many first-generation styles cheap and harsh (synthlead, choirpad: «без них получается куда круче — чище, эмбиентнее»)
+and asked for new versions **beside** the old ones («Test your fight» → «Test your fight 2»). So: the old styles and their seeds
+never change; a «2» style is a new id (`fight2`) with `of: 'fight', ver: 2` (the picker shows it as a «2» beside the first), written in
+its own file src/gen/v2-<name>.js with `defineStyle(id, { family, after, style, names, borrow: [theme ids of other styles], themes,
+leads, chords, pads, basses, arps, kits, textures, counter })` (src/gen/define.js: STYLES, the family, NAMES, MELODIES with only: id,
+the recipe tables, `relist()` — STYLE_LIST is refilled) and imported at the end of generate.js's part list; also a line in
+viz/app/themes.js STYLE_THEME. Aim of the sound: clean, wide, soft highs, one room for the whole band, few layers.
+**Instruments** (the «studio» block at the end of src/instruments.js; test/studio.test.js: every timbre in tune to 0.5 ¢, the hall's
+RT60, width): `hall({ size, decay s, damp Hz, pre, mod, wet, dry, width, early })` → (l, r) ⇒ [l, r] (8-line FDN, Hadamard, four lines
+modulated, early reflections; L/R correlation ≈ 0; use it instead of reverb()) · `ensemble({ depth, mix })` (three taps 120° apart) ·
+`TIMBRES` — instruments as spectra, `amp(k, F, d)` = source slope × body resonances at the harmonic's own frequency, soft and loud
+wavetables per MIDI note (band-limited, no filter): violins violas celli basses · horns trumpets trombones · flute clarinet oboe bassoon
+sax · aah ooh mm · warm saw square glass sine organ · `section(name, { players, attack, release, spread, centre, vib, detune, max })` →
+s(freqs[], level 0…1) ⇒ [l, r] (every player a few cents off and drifting, a late vibrato of its own, level and 0.45 ms of time to
+its side; level = brighter; pass the SAME array while the notes stay — it is compared by value) · `soloist(name, { vib, glide, scoop,
+accent, drift })` → v(f, on, vel) (legato glide, late vibrato, the table of a new note fades in 25 ms) · `piano({ bright, slope, stretch,
+knock, length })` → a tone with .voice for poly (≤ 28 partials f_k = kf√(1 + Bk²), each a pair — prompt sound and aftersound — as
+turning phasors; the fundamental exact), `grandTone`, `feltTone` · `polyWide(tone, { width })` → p() ⇒ [l, r] (low notes left) ·
+`cymbal2({ kind: hat open ride crash splash })` (noise through eight resonances 3.1 … 12.7 kHz), `kick2({ f, drop, decay, click })`,
+`pizzTone`, `softPluckTone`, `glassBellTone` (for poly).
+**Recipe makers** (src/gen/studio.js): `ROOMS` (dry room club hall big cathedral space — every track of a style in the same one) ·
+`soloLead(timbre, { dn, in, wet, echo, scoop, accent, vib, glide, octave, unison })` · `keysLead(tone, { up, also, echo, release })` ·
+`sectionPad(layers, { in, ens, always })` and `sectionChords(layers, { from, rhythm: { energy: '16 steps' }, gate })` with layers
+[[timbre, players, semitones, level, { bass, top, centre, spread, vib }]] · `keysComp(tone, { roll, low })` (needs S.comp) ·
+`subBass`, `bowedBass`, `tonedBass(tone)`, `synthBass(timbre, { accent, sub })` · `tonedArp(tone, { pattern, rate, up, roles, from, echo })`
+· `studioKit({ pieces: { name: [maker code, GM note, level, pan, room send, 'beat'?] }, body (stageHits), graph, in, wet, gain })`.
+Shared instances every «2» style may name: leads violin2 cello2 flute2 oboe2 clarinet2 horn2 trumpet2 sax2 voice2 softlead sawlead2
+squarelead2 grand felt glassbell softpluck; chords grandcomp feltcomp stringchords; pads warmpad glasspad airchoir choir2 stringpad;
+basses sub2 bowed2 pizz2 synthbass2; arps harp2 softarp glassarp. Levels were set from tools/style-check tables (lead ≈ −19…−22 dB
+RMS, bass 2–4 under, pad and chords ≈ −29, kit peaks lead the mix). **I cannot hear**: what is checked is tuning, levels, structure —
+the timbre itself is the user's to judge; ask before assuming a «2» sounds right.
+**fight2** (🥊 Test your fight 2, 126–140, `club` pump 0.3): softlead / glassbell, lead2 softpluck / felt, CHORDS.softstabs (three
+soft saws a note, rhythm by energy), BASSES.fightbass (synthBass saw + sub) / sub2, warmpad / glasspad, softarp, KITS.fight2 (studioKit:
+snare with ghosts, clap, bronze hats, rim, toms, crash; the club room), TEXTURES.arena2 (the old arena in the 9 s hall); themes
+fight-arena, fight-kombat (borrowed) + Neon Corridor (i – VI – III – VII, i – VI – iv – V).
 
 ## Songs from elsewhere: the sandbox (viz/app/sandbox.js, guard.js)
 A song file is a program; one that did not come from this app is **foreign** (`entry.foreign`, kept in library.json): opened by

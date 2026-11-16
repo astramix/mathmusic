@@ -50,6 +50,7 @@ export const STYLE_THEME = {
   darkecho: 'gothic', ishope: 'phonk', prime: 'void', brinstar: 'jungle', montagem: 'mystery', velora: 'favela', xperror: 'xp', keygen: 'keygen',
   nightstorm: 'storm', heaven: 'heaven', hell: 'hell', magma: 'magma', nordic: 'snow', artifact: 'java', zunpet: 'ink', oldzun: 'chip', fight: 'arena', babushka: 'synth',
   podskazka: 'chip', hardstyle: 'phonk', phonk: 'phonk', breakcore: 'dnb',
+  fight2: 'arena',
 }
 // a song that says nothing of its style (a project, a song of your own) gets the dark studio — not a style's landscape
 export function themeFor(song) {
