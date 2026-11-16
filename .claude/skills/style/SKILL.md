@@ -8,6 +8,10 @@ description: Add a new style to the song generator, e.g. "/style шугейз" o
 Several styles in one prompt: do them together, one checklist each. The user is a professional musician with absolute pitch:
 exact tuning, notes spelt for the key, chord tones on strong beats, real voice leading.
 
+**Where a new style goes now**: its own file src/gen/v2-<name>.js with `defineStyle(id, { … })` (src/gen/define.js) on the studio's
+recipe makers (src/gen/studio.js) — CLAUDE.md «The studio» lists them and the seventeen «2» styles to copy from; one import line in
+src/generate.js and one entry in viz/app/themes.js STYLE_THEME. The checklist below still holds for what a style needs.
+
 ## 0. Read little
 
 - CLAUDE.md: "The generator", "The stage" and the paragraph of the closest existing style. Do not read all of the generator

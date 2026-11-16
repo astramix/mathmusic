@@ -13,8 +13,9 @@ Open a source file only to change it or when something here is unclear.
   Long songs take 10–60 s: use `timeout: 600000`.
   `--master [-14]` also writes mix-mastered.wav (src/master.js to that LUFS, −1 dBTP) and prints its loudness.
 - Check the picture: Read `out/<name>/graph.png`.
-- `npm test` (~2 min, `timeout: 600000`): every song renders with no NaN and no `hot?` (quiet? = warning),
-  the generator (47 styles × 3 seeds: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
+- `npm test` (≈ 20 min now — 64 styles × 3 renders in one process; run it in the background, and for a change in one style
+  `node --test --test-name-pattern="<style>|families|valid code" test/generate.test.js` + formulas, project, library, build): every song renders with no NaN and no `hot?` (quiet? = warning),
+  the generator (64 styles × 3 seeds — 47 of the first generation and 17 «2» —: loads, renders, lead on its chords (a microtonal slide into a note counts as that note); every style in one family; 20 seeds of every style parse), formulas (test/formulas.test.js: every formula — instruments, songs/, the generator — parses in KaTeX), instruments (test/instruments.test.js: the plucked strings, the electric bass and the funk guitar in tune to 2 ¢), counterpoint (test/fugue.test.js: fugues in 8 keys and 4 church modes break no rule),
   maqam (test/maqam.test.js: every note in its maqam, the oud and qanun tuned to the cent on a quarter tone),
   raga (test/raga.test.js: the raga's notes, aroha up / avaroha down, tihais on the sam, the shrutis),
   gamelan (test/gamelan.test.js: pitches of the measured laras to the cent, colotomy, irama II, the ombak),
@@ -845,6 +846,58 @@ the timbre itself is the user's to judge; ask before assuming a «2» sounds rig
 soft saws a note, rhythm by energy), BASSES.fightbass (synthBass saw + sub) / sub2, warmpad / glasspad, softarp, KITS.fight2 (studioKit:
 snare with ghosts, clap, bronze hats, rim, toms, crash; the club room), TEXTURES.arena2 (the old arena in the 9 s hall); themes
 fight-arena, fight-kombat (borrowed) + Neon Corridor (i – VI – III – VII, i – VI – iv – V).
+
+**More makers and tones** (added with the later «2» styles): `groupLead(layers, { dn })` — the melody by a section (men's choir, first
+violins, horns + trombones) · `ambience({ drone, wind, windF, ping: { every, f, level }, swell, boom, in })` — the air of a place (needs
+`stage: true`: sectionEnd) · layers take `attack / release / detune` (spiccato: attack 0.012, release 0.07) · tones `fingerBassTone`
+(a round fingered bass), `cowbell2Tone` (the 808 cowbell with its squares a pure fifth apart: the machine's 1 : 1.48 is a fifth 23 ¢
+flat — what made phonk sour to the user's ear), `pizzTone`. In a KaTeX formula never write `%` (it starts a comment).
+**The core for them** (old styles untouched — 1599 outputs still byte for byte): `S.kinds: [{ kind, …fields }]` — a style of several
+kinds; `styleOf(id, { arrangement, kind, styleDef })` draws one with dice of its own (seed ^ 0x7a51) or takes `opts.kind`; the song's
+`generator.kind` keeps it (mutations pass it on; generatedRecipes / generatedPart use styleOf) · `S.soloTurns`: the second `solo`
+section is the first voice's turn with another improvisation (SOLO2).
+**The seventeen** (each `of` its first version, in its family right after it; themes of our own in the idiom — never the game's or
+the song's notes; I searched the web for the originals' facts, not their scores):
+- src/gen/v2-metroid.js — **prime2** (88–104): softlead / voice2, glassbell / crystal (celesta an octave up), glassswell, pulsebass,
+  chozochoir / chozoglass (always on), ARPS.echoarp (bells in eighths, a dotted echo), KITS.prime2 (deep toms 62 / 93 Hz far away),
+  TEXTURES.chozo (a sonar ping every 16 beats); themes Glass Drifts, Overworld Signal + prime's three. **brinstar2** (84–96; the sources:
+  «an atmospheric synth-heavy remix», the drum kit and a key change in the second half): ARPS.lairarp (a soft square in triplets, never
+  stops), lairpad, lairchoir, lairbass (square + sub, eighths), KITS.brinstar2 (silent below energy 2, then four on the floor), forms
+  with the final a tone up; themes The Lair Below, Secret Room.
+- v2-touhou.js — **zunpet2** (150–172): LEADS.zunpet2 (soloist trumpets: accent 0.45, scoop 22 ¢, vibrato ×1.4, a second trumpet
+  +2.3 ¢ — the SD-90 «Romantic Tp» as described), zunkeys (grand, 3 + 3 + 2 comp), ARPS.zunruns (sixteenths over two octaves in the
+  spell cards), zunbass2 (fingerBassTone in octaves: the user said the picked bass did not fit), KITS.zun2 (snare rolls into every phrase,
+  a crash on the next bar); themes Lantern Road, Border of Night + zunpet's two. **oldzun2** (kinds stage 126–144 / boss 148–168 /
+  title 100–118, each with its forms): opn patches fmsaw (two detuned pairs, feedback), fmorgan (algorithm 7), fmpipe, fmkoto, CHORDS.fmstrings
+  beside the old ones; themes Sakura Stage, Clockwork Mirage, Sealed Tower + two.
+- v2-undertale.js — **podskazka2**, kinds: bones (142–152: bonexylo / trumpet2, CHORDS.skachords — organ on every off-beat —, bonebass
+  root–octave–fifth, KITS.bones; Cool Skeleton, Spaghetti Trap), glamour (144–150: sawlead2, housepiano, showbass, KITS.glamour four on
+  the floor, keyUp 2; Fabulous Ratings, Quiz Show), waterfall (70–82, major: musicbox2 in a long echo, waterkeys (felt), droparp,
+  KITS.quietwater, TEXTURES.cavewater; Quiet Water, Echo Flowers).
+- v2-synth.js — **synthwave2** (84–108: sawlead2 / softlead, junochords, rollbass, KITS.synth2 with the snare 90 % into the big room,
+  nightdrive; Coast Road, After Hours), **phonk2** (120–134: LEADS.cowbell2, PADS.phonkchoir — a low «у» in a cathedral instead of
+  choirpad —, feltcomp, the old b808 and memphis, KITS.trap2; Fog Lights + two), **breakcore2** (164–184: KITS.amen2 — the classic
+  four bars `K-K-S--s-sKKS--s …` with the ride on every eighth, each bar its own eighths in one of CUTS, a roll at a phrase's end —,
+  felt / glassbell, hazepad, reese2; Pale Halo + two).
+- v2-screen.js — **epic2** (brassline = horns ×4 + trombones ×3 an octave below, violinsline, CHORDS.spiccato2 / tremolo2, bowed2, choir2,
+  KITS.epic2 — taiko left / centre / right over a 36 Hz boom —, braam2; Before the Charge + two), **ishope2** (cello2 / voice2 / brassline,
+  tremolo2, KITS.doom2 half time with a double kick, ashes2), **nordic2** (LEADS.menchoir = aah ×6 + ooh ×5 an octave apart in the
+  cathedral, horn2, ARPS.kantele2, KITS.nord2 3 + 3 + 2 at half speed, northwind).
+- v2-night.js — **jazz2** (104–152, swing 0.66, `soloTurns`: an 8-bar trio intro, piano solo then horn solo, trading fours; sax2 /
+  trumpet2, grand / vibes2, jazzkeys, pizz2 walking, KITS.jazz2 ding ding-a-ding; Lamplight, Sidewalk Blues, Rain on the Window + the
+  three old heads), **lofi2** (70–88: KITS.lofi2 — straight eighths, every second sixteenth at 58 %, the snare 0.03 beat late; the first
+  lofi swung only the eighths and left ghost sixteenths straight, which is what sounded out of step —, felt, lofikeys, lofisub; Window
+  Seat, Kettle On), **space2** (60–84: themes of its own in long notes — Slow Orbit, Weightless, Distant Signal —, starpad / starchoir
+  always on in the 9 s hall, glassarp / starseq, KITS.space2 a heart-like pulse, cosmos; no solo role), **romantic2** (violinsline /
+  cello2 / oboe2 / clarinet2, stringchords / nocturne2 (a rolled grand), PADS.windpad, harp2, KITS.orch2), **kawaii2** (148–176:
+  LEADS.jvocal, popkeys, popbass, stringpad, KITS.jpop2, forms intro – A-melo – B-melo (build) – sabi – … – last sabi a semitone up;
+  Hikari no Melody on IV – V – iii – vi, Kaerimichi).
+Example songs (one a style or kind, rendered): neon-dojo (fight2), chozo-ruins (prime2), sunken-lair (brinstar2), faithful-night
+(zunpet2), mystic-square (oldzun2), cool-heart / lost-puzzle / dazzling-spaghetti (podskazka2: bones / glamour / waterfall),
+distant-drive (synthwave2), silent-tunnel (phonk2), pale-angel (breakcore2), burning-legion (epic2), final-wall (ishope2),
+storm-throat (nordic2), quiet-walk (jazz2), foggy-balcony (lofi2), lunar-station (space2), distant-rhapsody (romantic2), first-wish
+(kawaii2). `node generate.js` writes songs/<title>.js without asking: check the title is free first (a «2» seed can have its first
+version's title — lunar-dream was nearly overwritten).
 
 ## Songs from elsewhere: the sandbox (viz/app/sandbox.js, guard.js)
 A song file is a program; one that did not come from this app is **foreign** (`entry.foreign`, kept in library.json): opened by
