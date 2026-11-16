@@ -24,6 +24,10 @@ const J = v => JSON.stringify(v)
 // how loud a part plays by the section's energy 0…3 (also how bright: the players' loud table)
 const DYN = [0.3, 0.45, 0.62, 0.85]
 
+const layerCode = (layers, seed = 20) => layers.map(([t, n, , , q = {}], i) => `section('${t}', { players: ${n}, centre: ${q.centre ?? 0}, spread: ${q.spread ?? 0.8}, vib: ${q.vib ?? 1}${q.attack != null ? `, attack: ${q.attack}` : ''}${q.release != null ? `, release: ${q.release}` : ''}${q.detune != null ? `, detune: ${q.detune}` : ''}, seed: ${seed + i} })`).join(', ')
+const layerNotes = layers => layers.map(([, , st, , q = {}]) => (q.bass ? `[hz(c[2] + ${st} - 60, C4)]` : `c[3]${q.top ? `.slice(-${q.top})` : ''}.map(n => hz(n + ${st} - 60, C4))`)).join(', ')
+const layerSum = layers => layers.map(([, , , g], i) => `{ const [a, b] = S[${i}](on ? F[${i}] : NONE, lv); l += ${g} * a; r += ${g} * b }`).join('\n      ')
+
 // ---- a solo voice on the melody: soloLead('violins', { … }) ------------------------------------------------------
 // dn: semitones (−12 = an octave down), octave: a second player an octave below at that level, unison: a second player
 // a few cents away at that level, echo: a dotted-eighth echo's wet, scoop / accent / vib / glide: the soloist's own
@@ -44,6 +48,31 @@ export const soloLead = (timbre, { color = '#ffd6a5', gain = 1, dn = 0, in: plac
       const on = !!m && m.u < 0.94, f = hz(n + ${dn}, C4)
       const y = ${round(gain * o.gain)} * (a(f, on, vel)${octave ? ` + ${octave} * b(f / 2, on, vel)` : ''}${unison ? ` + ${unison} * b(f * 1.0023, on, vel)` : ''})${pumpIf(o)}
       return verb(...${echo ? `echo(...pan(y, ${o.pan}))` : `pan(y, ${o.pan})`})
+    }
+  },
+}`
+}
+
+// ---- the melody played or sung by a group: groupLead([['aah', 6, -12, 1], ['ooh', 4, -24, 0.6]], { … }) ---------------------
+// layers as for the chords (below): [[timbre, players, semitones, level, { centre, spread, vib, attack, release }]]
+export const groupLead = (layers, { color = '#ffd6a5', gain = 1, dn = 0, in: place = 'hall', wet, formula } = {}) => o => {
+  o.need('instruments', 'section')
+  return `{
+  color: '${color}',
+  graph: x => { const m = ${o.at}(x); return m ? ${o.lane[0]} + (m.n + 5) * ${round((o.lane[1] - o.lane[0]) / 34)} : null },
+  midi: x => { const m = ${o.at}(x); return m && m.u < 0.92 ? [${60 + dn} + m.n] : [] },
+  formula: ${J(formula ?? ['G = \\Rev\\sum_{i=1}^{N} a_i\\,W_{d}\\big(f\\,2^{(\\delta_i + v_i(t))/1200}\\big)\\ \\text{— мелодию ведёт группа: каждый на несколько центов в стороне, со своим вибрато и местом}'])},
+  audio() {
+    const S = [${layerCode(layers, 70)}], NONE = [], verb = ${room(o, place, wet)}
+    let F = S.map(() => NONE), last = null, lv = 0.6
+    return x => {
+      const m = ${o.at}(x), on = !!m && m.u < 0.95
+      if (m && m.n !== last) { last = m.n; F = [${layers.map(([, , st]) => `[hz(m.n + ${st + dn}, C4)]`).join(', ')}] }
+      if (m) lv = 0.42 + 0.11 * Math.max(0, energy(x)) + 0.1 * hash(floor(2 * m.at), 5)
+      let l = 0, r = 0
+      ${layerSum(layers)}
+      const k = ${round(0.9 * gain * o.gain)}${pumpIf(o)}
+      return verb(k * l, k * r)
     }
   },
 }`
@@ -77,10 +106,7 @@ export const keysLead = (tone, { color = '#fdfcdc', gain = 1, in: place = 'hall'
 
 // ---- groups of players on the chords -------------------------------------------------------------------------------
 // layers: [[timbre, players, semitones, level, { bass: true (the bass note instead of the voicing), top: n (only the
-// top n notes), centre, spread, vib }]]. The parts fade in and out; louder sections are brighter.
-const layerCode = (layers, seed = 20) => layers.map(([t, n, , , q = {}], i) => `section('${t}', { players: ${n}, centre: ${q.centre ?? 0}, spread: ${q.spread ?? 0.8}, vib: ${q.vib ?? 1}, seed: ${seed + i} })`).join(', ')
-const layerNotes = layers => layers.map(([, , st, , q = {}]) => (q.bass ? `[hz(c[2] + ${st} - 60, C4)]` : `c[3]${q.top ? `.slice(-${q.top})` : ''}.map(n => hz(n + ${st} - 60, C4))`)).join(', ')
-const layerSum = layers => layers.map(([, , , g], i) => `{ const [a, b] = S[${i}](on ? F[${i}] : NONE, lv); l += ${g} * a; r += ${g} * b }`).join('\n      ')
+// top n notes), centre, spread, vib, attack, release, detune }]]. The parts fade in and out; louder sections are brighter.
 const PAD_FORMULA = ['Pd = \\Rev\\sum_{j}\\sum_{i=1}^{N} a_i\\,W_{d}\\big(f_j\\,2^{(\\delta_i + v_i(t))/1200}\\big),\\quad W_d = \\sum_k \\frac{B(kf)}{k^{p(d)}}\\sin(2\\pi kft + \\varphi_k)\\ \\text{— N исполнителей на каждой ноте, каждый на несколько центов в стороне, со своим вибрато и местом в зале}']
 
 // a pad under the sections that have one (padOn): sectionPad([['warm', 5, 0, 1]], { … })
@@ -320,6 +346,41 @@ export const studioKit = ({ color = '#ff9f1c', pieces, body, graph, in: place = 
 }})()`
 }
 
+// ---- the air of a place: ambience({ drone, wind, ping, swell, boom, in }) ---------------------------------------------
+// drone: level of a sine on the tonic three octaves under C4's octave and its fifth; wind: level of a wandering band of
+// noise between windF[0] and windF[1] Hz; ping: { every (beats), f (Hz), level } — a far signal with a long echo;
+// swell: noise rising through the last two beats before every section; boom: a sub impact where a loud section begins
+export const ambience = ({ color = '#8d99ae', in: place = 'space', wet = 0.45, drone = 0.05, droneAt = -36, fifth = 0.5, wind = 0.035, windF = [200, 900], ping = null, swell = 0.3, boom = 0, formula } = {}) => o => {
+  o.need('engine', 'noise', 'osc')
+  o.need('instruments', 'hall')
+  return `{
+  color: '${color}',
+  graph: x => {
+    if (x >= END) return null
+    const left = sectionEnd(x) - x
+    return left < 2 && x < END - 2 ? -2.9 + 1.2 * (1 - left / 2) ** 2 : -2.95 + 0.05 * sin(TAU * x / 8)
+  },
+  formula: ${J(formula ?? ['A = \\Rev\\Big[d\\big(\\sin 2\\pi f_T t + ' + fifth + '\\sin 2\\pi\\,1.5 f_T t\\big) + w\\,\\BP_{f_w(t)}\\eta + u^2\\,\\HP_{1.5\\text{к} + 5\\text{к}\\,u}\\eta\\Big]\\ \\text{— гул на тонике, ветер, подъём шума за две доли до каждого раздела; зал с долгим затуханием}'])},
+  audio({ bpm }) {
+    const sec = 60 / bpm, η = noise(61), wf = filter('bp'), sf = filter('hp'), bn = filter('lp'), d1 = osc('sine'), d2 = osc('sine'), pg = osc('sine'), bm = osc('sine'), level = smooth(900), verb = ${ROOMS[place].replace(/wet: [\d.]+/, 'wet: ' + wet)}${ping ? ', echo = delay({ time: sec * 1.5, feedback: 0.55, wet: 0.6 })' : ''}
+    let last = -1
+    return x => {
+      const [s, r, e] = x < END ? sectionOf(x) : [END, 'end', -1], t = x - s, n = η(), T = x * sec, a = level(x < END ? 1 : 0)
+      const fd = hz(SCALE[0] + ${droneAt}, C4), dr = ${drone} * (d1(fd) + ${fifth} * d2(fd * 1.5)) * (0.75 + 0.25 * sin((TAU * x) / 16))
+      const w = ${wind} * wf(n, ${windF[0]} * ${round(windF[1] / windF[0])} ** (0.5 + 0.5 * sin((TAU * T) / 17)), 2.5) * (0.6 + 0.4 * sin((TAU * T) / 11))
+      const left = x < END - 2 ? sectionEnd(x) - x : 9, u = left < 2 ? 1 - left / 2 : 0, sw = ${swell} * u * u * sf(n, 1500 + 5000 * u)
+      ${ping ? `const pt = mod(x, ${ping.every}) * sec, pv = e >= 0 && x < END - 4 ? ${ping.level} * exp(-pt / 0.3) * pg(${ping.f} * (1 + 0.015 * exp(-pt / 0.06))) : (pg(${ping.f}), 0)
+      const [pl, pr] = echo(pv, 0.4 * pv)` : 'const pl = 0, pr = 0'}
+      ${boom ? `if (e >= 2 && t < 0.01 && s !== last) (last = s), bm.reset()
+      const bt = e >= 2 ? t * sec : 9, im = bt < 2.5 ? ${boom} * (exp(-bt / 0.5) * bm(28 + 50 * exp(-bt / 0.09)) + 0.4 * exp(-bt / 0.06) * bn(n, 1500)) : (bm(28), bn(0, 1500), 0)` : 'const im = (bn(0, 1500), 0)'}
+      const y = a * (dr + w + sw)
+      const [l, rr] = verb(y + a * pl, y + a * pr)
+      return [l + im, rr + im]
+    }
+  },
+}`
+}
+
 // ---- the instruments every «2» style may use, under their names --------------------------------------------------------
 Object.assign(LEADS, {
   violin2: soloLead('violins', { color: '#ffd166', scoop: 10, gain: 1.15 }),
@@ -330,10 +391,10 @@ Object.assign(LEADS, {
   horn2: soloLead('horns', { color: '#f4a261', accent: 0.25, gain: 1.25, in: 'big' }),
   trumpet2: soloLead('trumpets', { color: '#ffb703', accent: 0.35, scoop: 18, gain: 0.95 }),
   sax2: soloLead('sax', { color: '#e09f3e', accent: 0.2, scoop: 28, glide: 0.05, gain: 1.05, in: 'club', wet: 0.26 }),
-  voice2: soloLead('aah', { color: '#ffc8dd', scoop: 14, unison: 0.6, gain: 1.05, in: 'big' }),
+  voice2: soloLead('aah', { color: '#ffc8dd', scoop: 14, unison: 0.6, gain: 2.2, in: 'big' }),
   softlead: soloLead('sine', { color: '#a0e7e5', glide: 0.06, echo: 0.26, gain: 3.6, in: 'big' }),
-  sawlead2: soloLead('saw', { color: '#ff7eb6', unison: 0.8, echo: 0.2, gain: 0.8, in: 'big' }),
-  squarelead2: soloLead('square', { color: '#9bf6ff', echo: 0.2, gain: 0.8, in: 'hall' }),
+  sawlead2: soloLead('saw', { color: '#ff7eb6', unison: 0.8, echo: 0.2, gain: 1.9, in: 'big' }),
+  squarelead2: soloLead('square', { color: '#9bf6ff', echo: 0.2, gain: 2.6, in: 'hall' }),
   grand: keysLead('grandTone', { color: '#fdfcdc', gain: 1.5 }),
   felt: keysLead('feltTone', { color: '#e6ccb2', gain: 1.7, soft: 0.08, in: 'room', wet: 0.24 }),
   glassbell: keysLead('glassBellTone', { color: '#b8f0ff', gain: 1.25, in: 'big', echo: 0.24, release: 0.8, life: 6 }),

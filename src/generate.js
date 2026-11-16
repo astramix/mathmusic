@@ -67,21 +67,31 @@ import './gen/beyond.js'
 import './gen/magma.js'
 // the second generation: styles written one a file (src/gen/define.js) on the studio's instruments (src/gen/studio.js)
 import './gen/v2-fight.js'
+import './gen/v2-metroid.js'
 import { generateFugue } from './gen/fugue-song.js'
 import { generateMaqam } from './gen/maqam-song.js'
 import { generateRaga } from './gen/raga-song.js'
 import { generateGamelan } from './gen/gamelan-song.js'
 import { generateAmbient } from './gen/ambient-song.js'
 
+// A style of several kinds (S.kinds: [{ kind: 'name', …the fields that differ }] — a battle, a disco, a waterfall under one
+// name): one is drawn by the arrangement seed with dice of its own (or asked for: opts.kind), and its fields replace the style's.
+export function styleOf(styleId, { arrangement, kind, styleDef } = {}) {
+  const S = styleDef ?? STYLES[styleId]
+  if (!S?.kinds) return S
+  const k = S.kinds.find(q => q.kind === kind) ?? pick(rng(((arrangement ?? 1) ^ 0x7a51) >>> 0), S.kinds)
+  return { ...S, ...k }
+}
 export function generate(opts = {}) {
   // opts.styleDef: a style made from a recording (src/audiostyle.js) — a STYLES entry of its own, carried in the song
-  const styleId = opts.styleDef?.id ?? (STYLES[opts.style] ? opts.style : 'lofi'), S = opts.styleDef ?? STYLES[styleId]
+  const styleId = opts.styleDef?.id ?? (STYLES[opts.style] ? opts.style : 'lofi')
   const seed = (opts.seed ?? 1) >>> 0
   const seeds = {
     arrangement: (opts.arrangement ?? seed) >>> 0,
     melody: (opts.melody ?? (seed * 7919 + 17)) >>> 0,
     instruments: (opts.instruments ?? (seed * 104729 + 3)) >>> 0,
   }
+  const S = styleOf(styleId, { arrangement: seeds.arrangement, kind: opts.kind, styleDef: opts.styleDef })
   // the fugue: its own composer (src/fugue.js) and writer
   if (styleId === 'fugue' || styleId === 'organ') return generateFugue(opts, S, seeds, styleId)
   if (styleId === 'maqam') return generateMaqam(opts, S, seeds)
@@ -234,6 +244,7 @@ export function generate(opts = {}) {
     else if (sec.role === 'bridge') { plans.lead.push([at, 'REST', 0, 1]); repeat(plans.lead2, 'BRIDGE', BR.length) }
     else if (sec.role === 'solo' && S.antiClimax) { plans.lead.push([at, 'REST', 0, 1]); plans.lead2.push([at, 'REST', 0, 1]) } // the anti-climax: the screech (TEXTURES.screech)
     else if (sec.role === 'solo' && styleId === 'boss') { plans.lead.push([at, 'SOLO', 0, 1]); plans.lead2.push([at, 'REST', 0, 1]) } // the hook sings the equation
+    else if (sec.role === 'solo' && S.soloTurns && form.slice(0, si).some(f => f.role === 'solo')) { plans.lead.push([at, 'SOLO2', 0, 1]); plans.lead2.push([at, 'REST', 0, 1]) } // the second solo: the first voice's turn, another improvisation
     else if (sec.role === 'solo') { plans.lead.push([at, 'REST', 0, 1]); plans.lead2.push([at, 'SOLO', 0, 1]) }
     else if (sec.role === 'trade') { plans.lead.push([at, 'REST', 0, 1]); plans.lead2.push([at, 'TRADE', 0, 1]) } // trading fours with the drums
     else if (sec.role === 'final') {
@@ -318,7 +329,7 @@ export function generate(opts = {}) {
   const title = `${pick(RA, names[0])}-${pick(RA, names[1])}${variant}`
   const meta = {
     style: styleId, seed, seeds, length: opts.length ?? 'normal', key: keyName(key), mode: modeIn ? opts.mode : null, modeName: modeIn?.name ?? null, bpm, title, form: form.map(f => f.name),
-    fixedKey: opts.key ?? null, micro: opts.micro ?? null, temperament: temperament?.id ?? null,
+    fixedKey: opts.key ?? null, micro: opts.micro ?? null, temperament: temperament?.id ?? null, ...(S.kind ? { kind: S.kind } : {}),
     meter: meter ? opts.meter : null,
     modulations: opts.modulations ? sectionInfo.filter(s => s.lk).map(s => ({ at: s.at, section: s.name, key: keyName(s.lk), type: s.modType })) : null,
     themes: { A: { from: melA.from, title: melA.title, how: A.how }, B: { from: melB.from, title: melB.title, how: B.how }, bridge: { rhythmFrom: melR.from } },
@@ -375,6 +386,7 @@ function emit(P) {
   const club = !!S.club, stage = club || !!S.stage, pumped = hard || club
   const extra = { variant: S.variant, pump: S.club?.pump, dark: S.variant === 'cave', r }
   const trade = sectionInfo.find(s => s.role === 'trade')
+  const solo2 = S.soloTurns ? sectionInfo.filter(s => s.role === 'solo')[1] ?? null : null
 
   // ---- data
   const H = harmony.map(h => `  [${h.at}, ${h.len}, ${round(h.bass)}, [${h.voicing.map(round).join(', ')}], '${h.symbol}', [${h.ivs.map(round).join(', ')}]],`).join('\n')
@@ -443,7 +455,12 @@ const TRADE = improvise({
   start: ${trade.at}, length: ${trade.beats}, rate: 2, seed: ${1 + Math.floor(r() * 999)}, swing: SW, lo: ${A.notes.reduce((a, e) => Math.min(a, e[1]), 99) - 60 - 2}, hi: ${A.notes.reduce((a, e) => Math.max(a, e[1]), 0) - 60 + 3},
   phrase: 8, rest: 0.15, hold: 0.25, scale: () => SCALE, chord: x => (chordAt(x)?.[3] ?? [0]).map(n => mod(n, 12)),
 }).filter(([b]) => floor((b - ${trade.at}) / 16) % 2 === 0).map(([b, n, d]) => [b - ${trade.at}, n, Math.min(d, 16 - mod(b - ${trade.at}, 16))])
-` : ''}const PHRASES = { A: THEME_A, B: THEME_B, BRIDGE, REST, SOLO${trade ? ', TRADE' : ''}${RUN ? ', RUN' : ''}${BL ? ', BL: THEME_BL' : ''}${LINKS.map(l => ', ' + l.name).join('')}${variants ? [...variants.keys()].filter(id => /_\d/.test(id)).map(id => ', ' + id).join('') : ''} }
+` : ''}${solo2 ? `// the second solo (the first voice's turn): another walk over the same chords
+const SOLO2 = improvise({
+  start: ${solo2.at}, length: ${solo2.beats - 2}, rate: 2, seed: ${1 + Math.floor(r() * 999)}, swing: SW, lo: ${A.notes.reduce((a, e) => Math.min(a, e[1]), 99) - 60 - 4}, hi: ${A.notes.reduce((a, e) => Math.max(a, e[1]), 0) - 60 + 2},
+  phrase: 6, rest: 0.25, hold: 0.35, scale: () => SCALE, chord: x => (chordAt(x)?.[3] ?? [0]).map(n => mod(n, 12)),
+}).map(([b, n, d]) => [b - ${solo2.at}, n, d])
+` : ''}const PHRASES = { A: THEME_A, B: THEME_B, BRIDGE, REST, SOLO${solo2 ? ', SOLO2' : ''}${trade ? ', TRADE' : ''}${RUN ? ', RUN' : ''}${BL ? ', BL: THEME_BL' : ''}${LINKS.map(l => ', ' + l.name).join('')}${variants ? [...variants.keys()].filter(id => /_\d/.test(id)).map(id => ', ' + id).join('') : ''} }
 
 // who plays which phrase: [start beat, phrase, transpose, stretch (2 = half speed)]
 const LEAD = ${JSON.stringify(plans.lead.map(([s, p, t, k]) => [s, p, t, k]))}
@@ -562,7 +579,7 @@ ${micro || (modeIn && modeIn.iv.some(v => v !== Math.round(v))) || key.shift ? `
   length: END,
   theme: '${S.theme}',
   style: '${styleId}',
-  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}), ...(meta.meter ? { meter: meta.meter } : {}), ...(meta.userTheme ? { userTheme: { notes: meta.userTheme.notes, title: meta.userTheme.title } } : {}), ...(S.ownThemes ? { styleDef: S } : {}) })},${meta.meter ? `
+  generator: ${JSON.stringify({ style: styleId, seed: meta.seed, seeds: meta.seeds, length: meta.length, ...(meta.kind ? { kind: meta.kind } : {}), ...(meta.fixedKey ? { key: meta.fixedKey } : {}), ...(meta.mode ? { mode: meta.mode } : {}), ...(meta.micro ? { micro: meta.micro } : {}), ...(meta.temperament ? { temperament: meta.temperament } : {}), ...(meta.modulations ? { modulations: true } : {}), ...(meta.meter ? { meter: meta.meter } : {}), ...(meta.userTheme ? { userTheme: { notes: meta.userTheme.notes, title: meta.userTheme.title } } : {}), ...(S.ownThemes ? { styleDef: S } : {}) })},${meta.meter ? `
   meter: '${METERS[meta.meter].text}', // ${METERS[meta.meter].label}${METERS[meta.meter].compound ? ' — a beat (x) is a dotted quarter' : ''}` : ''}${meta.modulations?.length ? `
   keys: ${JSON.stringify(keysField(key, sectionInfo))}, // the key of each stretch (the score's signatures, note names)` : ''}
   sections: SECTIONS,${bossField}
@@ -618,7 +635,7 @@ export const PART_IDS = () => ({
 // level and side it had there — or null (a part made from the chords, not from a voice)
 // the recipes a generated song (its `generator` field) was made with — drawn as generate() draws them, from the instrument seed
 export function generatedRecipes(gen) {
-  const S = gen?.styleDef ?? STYLES[gen?.style]
+  const S = gen ? styleOf(gen.style, { arrangement: gen.seeds?.arrangement ?? gen.seed, kind: gen.kind, styleDef: gen.styleDef }) : null
   // (the fugue, maqam, raga, gamelan and ambient styles write their own ensembles)
   if (!S?.lead || !S.chords || ['fugue', 'organ', 'maqam', 'raga', 'gamelan', 'ambient'].includes(gen.style)) return null
   const seed = (gen.seed ?? 1) >>> 0, RI = rng((gen.seeds?.instruments ?? seed * 104729 + 3) >>> 0)
@@ -627,7 +644,7 @@ export function generatedRecipes(gen) {
   return inst
 }
 export function generatedPart(gen, key) {
-  const S = gen?.styleDef ?? STYLES[gen?.style], inst = generatedRecipes(gen)
+  const S = gen ? styleOf(gen.style, { arrangement: gen.seeds?.arrangement ?? gen.seed, kind: gen.kind, styleDef: gen.styleDef }) : null, inst = generatedRecipes(gen)
   if (!inst) return null
   const boss = gen.style === 'boss', louder = boss ? 1.6 : 1, counter = S.counter ?? COUNTER_VOICE[inst.lead] ?? inst.lead2
   const clean = t => t.replace(/[^\w ]/g, '').trim()

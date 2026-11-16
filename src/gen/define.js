@@ -16,7 +16,7 @@ export function defineStyle(id, d) {
   if (!fam) throw new Error(`${id}: no family ${d.family}`)
   const at = d.after ? fam.styles.indexOf(d.after) : -1
   fam.styles.splice(at < 0 ? fam.styles.length : at + 1, 0, id)
-  if (d.names) NAMES[id] = d.names
+  NAMES[id] = d.names ?? NAMES[d.style.of] ?? NAMES.lofi
   for (const [table, own, what] of [[LEADS, d.leads, 'lead'], [CHORDS, d.chords, 'chords'], [PADS, d.pads, 'pad'], [BASSES, d.basses, 'bass'], [ARPS, d.arps, 'arp'], [KITS, d.kits, 'kit'], [TEXTURES, d.textures, 'texture']]) {
     for (const [name, recipe] of Object.entries(own ?? {})) {
       if (table[name]) throw new Error(`${id}: the ${what} recipe ${name} exists already`)

@@ -2170,3 +2170,32 @@ export const glassBellTone = (f, t, vel) => {
   const one = (g, u) => (u < 0 ? 0 : exp(-u / (1.6 + 200 / g)) * sin(TAU * g * u + 1.3 * vel * exp(-u / 0.25) * sin(TAU * 3.5 * g * u)) * (1 - exp(-u / 0.003)))
   return 0.6 * vel * (one(f, t) + 0.3 * one(2 * f, t - 0.009))
 }
+// a fingered electric bass for poly(): round — the pluck's upper harmonics are gone in a tenth of a second, the note stays
+export const fingerBassTone = (f, t, vel) => {
+  const w = TAU * f * t
+  let y = 0
+  for (let k = 1; k <= 8; k++) y += (sin(k * w + 0.3 * k) / k ** 1.1) * (k === 1 ? 1 : exp(-t * (1.2 + 2.2 * k * (1.25 - vel)))) * (k % 2 ? 1 : 0.8)
+  return 0.62 * vel * (1 - exp(-t / 0.003)) * exp(-t / (2.4 * (55 / f) ** 0.2)) * y
+}
+// the 808 cowbell in tune with itself, for poly(): the machine's two squares stand 1 : 1.48 apart — a fifth 23 cents flat,
+// which is its sourness; here they are a pure fifth (1 : 1.5), summed partial by partial (band-limited) through the same
+// band-pass (centre 4.9 f, a little wider), the same two-stage decay with a longer tail
+const COWBELL2 = new Map()
+export function cowbell2Tone(f, t, vel = 0.8) {
+  const key = Math.round(f * 100)
+  let P = COWBELL2.get(key)
+  if (!P) {
+    P = []
+    const fc = 4.9 * f, Q = 1.1
+    for (const [g, base] of [[1, f], [0.8, 1.5 * f]]) for (let k = 1; k * base < 14000; k += 2) {
+      const u = (k * base) / fc
+      P.push(k * base, g / k / Math.sqrt(1 + Q * Q * (u - 1 / u) ** 2))
+    }
+    if (COWBELL2.size > 512) COWBELL2.clear()
+    COWBELL2.set(key, P)
+  }
+  const e = Math.min(1, t / 0.0005) * (0.58 * exp(-t / 0.014) + 0.42 * exp(-t / 0.4))
+  let y = 0
+  for (let i = 0; i < P.length; i += 2) y += P[i + 1] * sin(TAU * P[i] * t)
+  return vel * e * y
+}
